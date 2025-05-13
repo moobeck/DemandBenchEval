@@ -5,10 +5,10 @@ from datetime import datetime
 from utilsforecast.preprocessing import fill_gaps
 
 
-from configurations.input_column import InputColumnConfig
-from configurations.file_path import FilePathConfig
-from configurations.forecast_column import ForecastColumnConfig
-
+from src.configurations.input_column import InputColumnConfig
+from src.configurations.file_path import FilePathConfig
+from src.configurations.forecast_column import ForecastColumnConfig
+import logging
 
 class NixtlaPreprocessor:
     """
@@ -37,6 +37,14 @@ class NixtlaPreprocessor:
 
     def load_data(self):
         """Loads features and targets from provided feather file paths."""
+
+        logging.info(
+            f"Loading features from {self._file_paths.train_data_features} and {self._file_paths.val_data_features}"
+        )
+        logging.info(
+            f"Loading targets from {self._file_paths.train_data_target} and {self._file_paths.val_data_target}"
+        )
+
         self.df_features = self._load_feather(
             [self._file_paths.train_data_features, self._file_paths.val_data_features]
         )
@@ -45,9 +53,17 @@ class NixtlaPreprocessor:
         )
 
     def merge(self):
+        
+        logging.info(
+            f"Merging features and targets on {self._input_columns.dp_index} column"
+        )
+
         """Merge features and target on index column."""
         if self.df_features is None or self.df_target is None:
             raise ValueError("Data not loaded. Call load_data() first.")
+        
+
+
         # ensure unique index for join
         self.df_merged = self.df_features.join(
             self.df_target.select([self._input_columns.dp_index, "target"]),
@@ -75,6 +91,9 @@ class NixtlaPreprocessor:
 
     def remove_skus(self, skus: List[str]):
         """Remove specific SKUs from the merged DataFrame."""
+
+        logging.info(f"Removing SKUs: {skus}")
+
         if self.df_merged is None:
             raise ValueError("Data not merged. Call merge() first.")
         self.df_merged = self.df_merged.filter(
@@ -83,7 +102,10 @@ class NixtlaPreprocessor:
         return self.df_merged
 
     def prepare_nixtla(self) -> pd.DataFrame:
-        """Prepare a pandas DataFrame for NeuralForecast with required columns."""
+        """Prepare a pandas DataFrame for Nixtla with required columns."""
+
+        logging.info("Preparing data for Nixtla")
+
         if self.df_merged is None:
             raise ValueError("Data not merged. Call merge() first.")
 

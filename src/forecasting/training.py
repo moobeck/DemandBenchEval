@@ -2,9 +2,9 @@ import logging
 import pandas as pd
 from statsforecast import StatsForecast
 from mlforecast import MLForecast
-from configurations.forecast_column import ForecastColumnConfig
-from configurations.forecasting import ForecastConfig
-from configurations.enums import Framework
+from src.configurations.forecast_column import ForecastColumnConfig
+from src.configurations.forecasting import ForecastConfig
+from src.configurations.enums import Framework
 
         
 class ForecastTrainer:
@@ -41,6 +41,8 @@ class ForecastTrainer:
         Perform cross-validation on the given DataFrame.
         """
         # Placeholder for cross-validation logic
+
+        logging.info("Starting cross-validation...")
 
         cv_dfs = []
 

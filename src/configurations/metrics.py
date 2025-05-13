@@ -1,4 +1,4 @@
-from configurations.enums import MetricName
+from src.configurations.enums import MetricName
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, TypeAlias
 from functools import partial

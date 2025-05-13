@@ -3,7 +3,7 @@ from typing import Callable, Dict, Any, TypeAlias
 from statsforecast.models import AutoARIMA, AutoTheta, AutoETS
 from lightgbm import LGBMRegressor
 from sklearn.ensemble import RandomForestRegressor
-from configurations.enums import ModelName, Framework
+from src.configurations.enums import ModelName, Framework
 
 
 ForecastModel: TypeAlias = Any

@@ -11,3 +11,5 @@ class FilePathConfig:
     val_data_features: str = None
     train_data_target: str = None
     val_data_target: str = None
+    eval_results: str = None
+    eval_plots: str = None

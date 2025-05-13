@@ -1,0 +1,53 @@
+train_feat: "data/train_data_features.feather"
+val_feat:   "data/val_data_features.feather"
+train_tgt:  "data/train_data_target.feather"
+val_tgt:    "data/val_data_target.feather"
+eval-results: "data/eval_results.feather"
+eval-plots: "data/eval_plots.png"
+
+date_col:    "dateID"
+dp_index:    "bdID"
+sku_index:   "skuID"
+target_col:  "target"
+exog_vars:
+  - companyID
+  - storeID
+  - productID
+  - missing_value
+  - not_for_sale
+  - mean_demand
+  - std_demand
+  - kurtosis_demand
+  - skewness_demand
+  - percentile_10_demand
+  - percentile_30_demand
+  - median_demand
+  - percentile_70_demand
+  - percentile_90_demand
+  - inter_quartile_range
+  - feature_0000
+  - feature_0001
+  - feature_0002
+  - feature_0003
+  - feature_0004
+  - feature_0005
+  - feature_0006
+
+models:
+  - ETS
+  - LGBM
+freq: "D"
+season_length: 7
+horizon: 14
+lags: [1, 7]
+date_features:
+  - dayofweek
+  - month
+
+cv_windows: 1
+step_size: 1
+
+metrics:
+  - MASE
+  - MSSE
+seasonality: 7
