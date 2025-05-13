@@ -1,0 +1,21 @@
+# Core numerical & data libraries
+numpy==2.2.5
+pandas==2.2.3
+scipy==1.15.2
+
+# Machine-learning & forecasting
+scikit-learn==1.6.1
+lightgbm==4.6.0
+mlforecast==1.0.2
+statsforecast==2.0.1
+coreforecast==0.0.16
+datasetsforecast==1.0.0
+utilsforecast==0.2.12
+
+# HTTP clients (if you call APIs)
+requests==2.32.3
+httpx==0.28.1
+
+# Date/time helpers
+python-dateutil==2.8.2
+pytz==2025.2
