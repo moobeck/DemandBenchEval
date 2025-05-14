@@ -20,3 +20,6 @@ httpx==0.28.1
 # Date/time helpers
 python-dateutil==2.8.2
 pytz==2025.2
+
+# Plotting
+seaborn==0.13.2
