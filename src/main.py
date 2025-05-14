@@ -5,6 +5,7 @@ import yaml
 from src.configurations.file_path import FilePathConfig
 from src.configurations.input_column import InputColumnConfig
 from src.configurations.forecast_column import ForecastColumnConfig
+from src.configurations.cross_validation import CrossValidationConfig
 from src.forecasting.training import ForecastTrainer
 from src.forecasting.evaluation import Evaluator, EvaluationPlotter
 from src.configurations.forecasting import ForecastConfig
@@ -71,47 +72,65 @@ def load_config(path):
 
 
 
-def build_configs(args_dict):
+def build_configs(args_dict) -> tuple[FilePathConfig, InputColumnConfig, ForecastColumnConfig, CrossValidationConfig, ForecastConfig, MetricConfig]:
+
+    filepaths: dict[str, str] = args_dict["filepaths"]
+    input_columns: dict[str, str] = args_dict["input_columns"]
+    forecast_columns: dict[str, str] = args_dict["forecast_columns"]
+    forecast: dict[str, str] = args_dict["forecast"]
+    cross_validation: dict[str, str] = args_dict["cross_validation"]
+    metrics: dict[str, str] = args_dict["metrics"]
+
     # file paths
     file_cfg = FilePathConfig(
-        train_data_features=args_dict["train_feat"],
-        val_data_features=args_dict["val_feat"],
-        train_data_target=args_dict["train_tgt"],
-        val_data_target=args_dict["val_tgt"],
-        eval_results=args_dict["eval_results"],
-        eval_plots=args_dict["eval_plots"],
+        train_data_features=filepaths["train_feat"],
+        val_data_features=filepaths["val_feat"],
+        train_data_target=filepaths["train_tgt"],
+        val_data_target=filepaths["val_tgt"],
+        preprocessed_data=filepaths["preprocessed"],
+        eval_results=filepaths["eval_results"],
+        eval_plots=filepaths["eval_plots"],
     )
+
     # input cols
-    input_cfg = InputColumnConfig(
-        date=args_dict["date_col"],
-        dp_index=args_dict["dp_index"],
-        sku_index=args_dict["sku_index"],
-        target=args_dict["target_col"],
-        exogenous=args_dict["exog_vars"],
+    incol_cfg = InputColumnConfig(
+        date=input_columns["date"],
+        dp_index=input_columns["dp_index"],
+        sku_index=input_columns["sku_index"],
+        target=input_columns["target"],
     )
+
     # forecast cols (static = subset of exogenous)
-    forecast_cfg = ForecastColumnConfig(
-        date=args_dict["date_col"],
-        sku_index=args_dict["sku_index"],
-        target=args_dict["target_col"],  # or rename?
-        exogenous=args_dict["exog_vars"],
-        static=args_dict["exog_vars"][:3],  # example
+    focol_cfg = ForecastColumnConfig(
+        date=forecast_columns["date"],
+        sku_index=forecast_columns["sku_index"],
+        target=forecast_columns["target"],  
+        exogenous=forecast_columns["exog_vars"],
+        static=forecast_columns["static"],  
     )
+
     # forecasting model settings
-    fc = ForecastConfig(
-        names=[ModelName[name] for name in args_dict["models"]],
-        freq=args_dict["freq"],
-        season_length=args_dict["season_length"],
-        horizon=args_dict["horizon"],
-        lags=args_dict["lags"],
-        date_features=args_dict["date_features"],
+    fcast_cfg = ForecastConfig(
+        names=[ModelName[name] for name in forecast["models"]],
+        freq=forecast["freq"],
+        season_length=forecast["season_length"],
+        horizon=forecast["horizon"],
+        lags=forecast["lags"],
+        date_features=forecast["date_features"],
     )
-    # metrics
-    mc = MetricConfig(
-        names=[MetricName[name] for name in args_dict["metrics"]],
-        seasonality=args_dict["seasonality"],
+
+    # cross-validation settings
+    cv_cfg = CrossValidationConfig(
+        cv_windows=cross_validation["cv_windows"],
+        step_size=cross_validation["step_size"],
     )
-    return file_cfg, input_cfg, forecast_cfg, fc, mc
+
+    # metrics configuration
+    met_cfg = MetricConfig(
+        names=[MetricName[name] for name in metrics["metrics"]],
+        seasonality=metrics["seasonality"],
+    )
+    return file_cfg, incol_cfg, focol_cfg, cv_cfg, fcast_cfg, met_cfg
 
 
 def main():
@@ -119,33 +138,34 @@ def main():
     if args.config:
         cfg = load_config(args.config)
         # flatten cfg keys to match arg names
-        file_cfg, in_cfg, fo_cfg, fcast_cfg, met_cfg = build_configs(cfg)
+        file_cfg, incol_cfg, focol_cfg, cv_cfg, fcast_cfg, met_cfg = build_configs(cfg)
     else:
         # convert Namespace to dict
         dd = vars(args)
-        file_cfg, in_cfg, fo_cfg, fcast_cfg, met_cfg = build_configs(dd)
+        file_cfg, incol_cfg, focol_cfg, fcast_cfg, met_cfg = build_configs(dd)
 
     # set up logging
     logging.basicConfig(level=logging.INFO)
 
     # 1) Preprocessing
-    prep = NixtlaPreprocessor(file_cfg, in_cfg, fo_cfg)
+    prep = NixtlaPreprocessor(file_cfg, incol_cfg, focol_cfg)
     prep.load_data()
     prep.merge()
     # optionally parameterize these SKUs too
     prep.remove_skus([2254, 2255, 2256])
     df = prep.prepare_nixtla()
+    df.to_feather(file_cfg.preprocessed_data)
 
     # 2) Cross‐validation
-    trainer = ForecastTrainer(fcast_cfg, fo_cfg)
+    trainer = ForecastTrainer(fcast_cfg, focol_cfg)
     cv_df = trainer.cross_validate(
         df=df,
-        n_windows=args.cv_windows,
-        step_size=args.step_size,
+        n_windows=cv_cfg.cv_windows,
+        step_size=cv_cfg.step_size,
     )
 
     # 3) Evaluation
-    evaluator = Evaluator(met_cfg, fo_cfg)
+    evaluator = Evaluator(met_cfg, focol_cfg)
     eval_df = evaluator.evaluate(cv_df, train_df=df)
 
     # 4) Save results
@@ -155,7 +175,7 @@ def main():
     # 5) Plotting
     plotter = EvaluationPlotter(
         eval_df,
-        forecast_columns=fo_cfg,
+        forecast_columns=focol_cfg,
         metric_config=met_cfg,
         ylim=(-0.5, 4),
     )

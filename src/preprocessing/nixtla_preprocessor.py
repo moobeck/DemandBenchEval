@@ -117,7 +117,7 @@ class NixtlaPreprocessor:
                 self._input_columns.sku_index,
                 self._forecast_columns.date,
                 self._input_columns.target,
-                *(self._input_columns.exogenous),
+                *(self._forecast_columns.exogenous),
             ]
         ).to_pandas()
 
