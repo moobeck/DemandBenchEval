@@ -1,22 +1,23 @@
-# 1. Base image
 FROM python:3.11-slim
 
-# 2. Set working dir
 WORKDIR /app
 
-# 3. Copy only requirements first (for build caching)
-COPY requirements.txt .
+# 1) Install OpenMP runtime and any build essentials
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      libgomp1 \
+      build-essential \
+      gcc \
+      g++ && \
+    rm -rf /var/lib/apt/lists/*
 
-# 4. Install dependencies
+# 2) Install Python deps
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 5. Copy the rest of the code
+# 3) Copy source & config
 COPY src/ ./src/
 COPY config/ ./config/
 
-# 6. Expose any ports (if you have a web UI; likely none here)
-# EXPOSE 8000
-
-# 7. Default entrypoint & CLI
 ENTRYPOINT ["python", "-m", "src.main"]
-CMD ["-c", "config/config.yaml"]
+CMD ["-c", "config/config.example.yaml"]
