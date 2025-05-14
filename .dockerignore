@@ -1,0 +1,14 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Local configs & data
+config/config.yaml
+data/
+
+# Logs, editor files
+*.log
+.vscode/
+.idea/
+.DS_Store
