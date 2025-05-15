@@ -38,18 +38,6 @@ config/config.example.yaml — a template for your own config/config.yaml
 
 ## 🎯 Usage
 
-Once you have your config.yaml set up, you can run the pipeline with:
-```bash
-python -m src.main -c config/config.yaml
-
-```
-You can also test the example pipeline with:
-```bash
-python -m src.main -c config/config.example.yaml
-```
-
-## 🎯 Usage
-
 You have two ways to run the benchmarking pipeline—either directly on your local machine or inside Docker.
 
 ### 🏃‍♂️ Local
