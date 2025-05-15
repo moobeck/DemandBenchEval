@@ -9,6 +9,8 @@ filepaths:
   eval_results: "data/eval_results.feather"
   eval_plots: "data/eval_plots.png"
 
+seed: 42
+
 input_columns:
   date:    "dateID"
   dp_index:    "bdID"

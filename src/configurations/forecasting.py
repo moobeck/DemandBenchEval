@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field    
+from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, TypeAlias
 from statsforecast.models import AutoARIMA, AutoTheta, AutoETS
 from lightgbm import LGBMRegressor
@@ -9,43 +9,42 @@ from src.configurations.enums import ModelName, Framework
 ForecastModel: TypeAlias = Any
 
 
-
 @dataclass(frozen=True)
 class ModelSpec:
     """
     Describes how to build a model and which framework it belongs to.
     """
+
     factory: Callable[..., ForecastModel]
     framework: Framework
     default_params: Dict[str, Any] = field(default_factory=dict)
-
 
 
 MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
     ModelName.ARIMA: ModelSpec(
         factory=lambda **p: AutoARIMA(alias="arima", **p),
         framework=Framework.STATS,
-        default_params={"season_length": 7}
+        default_params={"season_length": 7},
     ),
     ModelName.THETA: ModelSpec(
         factory=lambda **p: AutoTheta(alias="theta", **p),
         framework=Framework.STATS,
-        default_params={"season_length": 7}
+        default_params={"season_length": 7},
     ),
     ModelName.ETS: ModelSpec(
         factory=lambda **p: AutoETS(alias="ets", **p),
         framework=Framework.STATS,
-        default_params={"season_length": 7}
+        default_params={"season_length": 7},
     ),
     ModelName.LGBM: ModelSpec(
         factory=lambda **p: LGBMRegressor(**p),
         framework=Framework.ML,
-        default_params={}  # no seasonality param
+        default_params={},  # no seasonality param
     ),
     ModelName.RF: ModelSpec(
         factory=lambda **p: RandomForestRegressor(**p),
         framework=Framework.ML,
-        default_params={} # no seasonality param
+        default_params={},  # no seasonality param
     ),
 }
 
@@ -57,7 +56,7 @@ from typing import List, Dict
 @dataclass(frozen=True)
 class ForecastConfig:
     names: List[ModelName]
-    freq: str = "D"        
+    freq: str = "D"
     season_length: int = 7
     horizon: int = 14
     lags: List[int] = field(default_factory=list)
@@ -76,12 +75,10 @@ class ForecastConfig:
             # merge defaults with trainer-level params
             params = spec.default_params.copy()
             # only ML models need lags/date_features
-            if spec.framework == Framework.STATS :
+            if spec.framework == Framework.STATS:
                 params["season_length"] = self.season_length
 
             # instantiate
             frameworks[spec.framework][name] = spec.factory(**params)
 
         return frameworks
-
-        
