@@ -67,7 +67,9 @@ python -m src.main -c config/config.example.yaml
 ### 🐳 Docker
 
 Build the container (only needs to be done once):
+```bash
 docker build -t forecast-bench .
+```
 Run with a bind mount to persist Feather outputs into your local data/ folder:
 ```bash
 docker run --rm \

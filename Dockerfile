@@ -20,4 +20,4 @@ COPY src/ ./src/
 COPY config/ ./config/
 
 ENTRYPOINT ["python", "-m", "src.main"]
-CMD ["-c", "config/config.example.yaml"]
+CMD ["-c", "config/public/config.yaml", "-s", "config/private/config.example.yaml"]
