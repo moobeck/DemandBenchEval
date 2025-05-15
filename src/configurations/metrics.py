@@ -13,27 +13,27 @@ class MetricSpec:
     """
     Describes how to calculate a metric.
     """
+
     factory: Callable[..., ForecastMetric]
     default_params: Dict[str, Any] = field(default_factory=dict)
 
 
-
 METRIC_REGISTRY: dict[MetricName, MetricSpec] = {
     MetricName.MASE: MetricSpec(
-        factory=lambda **p: partial(mase, **p),
-        default_params={"seasonality": 7}
+        factory=lambda **p: partial(mase, **p), default_params={"seasonality": 7}
     ),
     MetricName.MSSE: MetricSpec(
-        factory=lambda **p: partial(msse, **p),
-        default_params={"seasonality": 7}
+        factory=lambda **p: partial(msse, **p), default_params={"seasonality": 7}
     ),
 }
+
 
 @dataclass(frozen=True)
 class MetricConfig:
     """
     A dataclass to store the metrics used for evaluation.
     """
+
     names: list[MetricName] = field(default_factory=list)
     seasonality: int = 7
 
@@ -42,7 +42,7 @@ class MetricConfig:
         """
         Returns a dictionary of metric names and their corresponding MetricSpec.
         """
-        
+
         metrics = {}
         for name in self.names:
             metric_spec = METRIC_REGISTRY[name]

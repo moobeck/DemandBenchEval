@@ -1,7 +1,8 @@
-#!/usr/bin/env python3
 import argparse
 import logging
 import yaml
+import random
+import numpy as np
 from src.configurations.file_path import FilePathConfig
 from src.configurations.input_column import InputColumnConfig
 from src.configurations.forecast_column import ForecastColumnConfig
@@ -19,48 +20,12 @@ def parse_args():
         description="Full pipeline: preprocess → train → cross‐validate → evaluate"
     )
     p.add_argument(
-        "--config", "-c",
-        help="Path to a YAML file with all settings. If given, CLI args are ignored.",
-        default=None
+        "--config",
+        "-c",
+        help="Path to a YAML file with all settings.",
+        default="config/config.yaml",
     )
-    # File paths
-    p.add_argument("--train-feat", required=False, help="train data features (.feather)")
-    p.add_argument("--val-feat",   required=False, help="val data features (.feather)")
-    p.add_argument("--train-tgt",  required=False, help="train data target (.feather)")
-    p.add_argument("--val-tgt",    required=False, help="val data target (.feather)")
-    p.add_argument(
-        "--eval-results", required=False,
-        help="Path to save evaluation results (.feather)"
-    )
-    # Columns
-    p.add_argument("--date-col",     required=False, help="name of the date column")
-    p.add_argument("--dp-index",     required=False, help="name of the dp index column")
-    p.add_argument("--sku-index",    required=False, help="name of the sku index column")
-    p.add_argument("--target-col",   required=False, help="name of the target column")
-    p.add_argument(
-        "--exog-vars", nargs="+", required=False,
-        help="list of exogenous variable names"
-    )
-    # Forecast settings
-    p.add_argument(
-        "--models", nargs="+", default=["ETS", "LGBM"],
-        choices=[m.name for m in ModelName],
-        help="which models to train"
-    )
-    p.add_argument("--freq",          default="D")
-    p.add_argument("--season-length", type=int, default=7)
-    p.add_argument("--horizon",       type=int, default=14)
-    p.add_argument("--lags", nargs="+", type=int, default=[1, 7])
-    p.add_argument("--date-features", nargs="+", default=["dayofweek", "month"])
-    # CV settings
-    p.add_argument("--cv-windows", type=int, default=1)
-    p.add_argument("--step-size",  type=int, default=1)
-    # Metrics
-    p.add_argument(
-        "--metrics", nargs="+", default=["MASE", "MSSE"],
-        choices=[m.name for m in MetricName]
-    )
-    p.add_argument("--seasonality", type=int, default=7)
+
     return p.parse_args()
 
 
@@ -71,8 +36,25 @@ def load_config(path):
     return {k.replace("-", "_"): v for k, v in raw.items()}
 
 
+def set_seed(seed: int):
+    """
+    Set seeds for all relevant random number generators.
+    """
+    random.seed(seed)
+    np.random.seed(seed)
 
-def build_configs(args_dict) -> tuple[FilePathConfig, InputColumnConfig, ForecastColumnConfig, CrossValidationConfig, ForecastConfig, MetricConfig]:
+
+def build_configs(
+    args_dict,
+) -> tuple[
+    FilePathConfig,
+    InputColumnConfig,
+    ForecastColumnConfig,
+    CrossValidationConfig,
+    ForecastConfig,
+    MetricConfig,
+    int,
+]:
 
     filepaths: dict[str, str] = args_dict["filepaths"]
     input_columns: dict[str, str] = args_dict["input_columns"]
@@ -104,9 +86,9 @@ def build_configs(args_dict) -> tuple[FilePathConfig, InputColumnConfig, Forecas
     focol_cfg = ForecastColumnConfig(
         date=forecast_columns["date"],
         sku_index=forecast_columns["sku_index"],
-        target=forecast_columns["target"],  
+        target=forecast_columns["target"],
         exogenous=forecast_columns["exog_vars"],
-        static=forecast_columns["static"],  
+        static=forecast_columns["static"],
     )
 
     # forecasting model settings
@@ -130,19 +112,29 @@ def build_configs(args_dict) -> tuple[FilePathConfig, InputColumnConfig, Forecas
         names=[MetricName[name] for name in metrics["metrics"]],
         seasonality=metrics["seasonality"],
     )
-    return file_cfg, incol_cfg, focol_cfg, cv_cfg, fcast_cfg, met_cfg
 
+    seed: int = args_dict["seed"]
+
+    return (file_cfg, incol_cfg, focol_cfg, cv_cfg, fcast_cfg, met_cfg, seed)
+
+
+def set_seed(seed: int):
+    """
+    Set seeds for all relevant random number generators.
+    """
+    random.seed(seed)
+    np.random.seed(seed)
 
 def main():
     args = parse_args()
-    if args.config:
-        cfg = load_config(args.config)
-        # flatten cfg keys to match arg names
-        file_cfg, incol_cfg, focol_cfg, cv_cfg, fcast_cfg, met_cfg = build_configs(cfg)
-    else:
-        # convert Namespace to dict
-        dd = vars(args)
-        file_cfg, incol_cfg, focol_cfg, fcast_cfg, met_cfg = build_configs(dd)
+    cfg = load_config(args.config)
+    # flatten cfg keys to match arg names
+    (file_cfg, incol_cfg, focol_cfg, cv_cfg, fcast_cfg, met_cfg, seed) = build_configs(
+        cfg
+    )
+
+    set_seed(seed)
+
 
     # set up logging
     logging.basicConfig(level=logging.INFO)
@@ -182,12 +174,7 @@ def main():
     # Save plots
     plotter.plot_error_distributions().savefig(
         file_cfg.eval_plots, dpi=300, bbox_inches="tight"
-        )
-
-
-
-    
-    
+    )
 
 
 if __name__ == "__main__":

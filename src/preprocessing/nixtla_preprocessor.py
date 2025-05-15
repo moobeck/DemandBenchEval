@@ -10,6 +10,7 @@ from src.configurations.file_path import FilePathConfig
 from src.configurations.forecast_column import ForecastColumnConfig
 import logging
 
+
 class NixtlaPreprocessor:
     """
     A class to load, merge, and convert feather datasets into the Nixtla NeuralForecast-ready format.
@@ -53,7 +54,7 @@ class NixtlaPreprocessor:
         )
 
     def merge(self):
-        
+
         logging.info(
             f"Merging features and targets on {self._input_columns.dp_index} column"
         )
@@ -61,8 +62,6 @@ class NixtlaPreprocessor:
         """Merge features and target on index column."""
         if self.df_features is None or self.df_target is None:
             raise ValueError("Data not loaded. Call load_data() first.")
-        
-
 
         # ensure unique index for join
         self.df_merged = self.df_features.join(

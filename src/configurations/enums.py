@@ -6,6 +6,7 @@ class Framework(Enum):
     ML = auto()
     NEURAL = auto()  # future
 
+
 class ModelName(Enum):
     ARIMA = "arima"
     THETA = "theta"
@@ -13,9 +14,7 @@ class ModelName(Enum):
     LGBM = "lgbm"
     RF = "rf"
 
+
 class MetricName(Enum):
     MASE = "mase"
     MSSE = "msse"
-
-
-
