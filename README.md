@@ -57,13 +57,12 @@ You have two ways to run the benchmarking pipeline—either directly on your loc
 1. Make sure you’ve installed the requirements and set up your config:
 ```bash
 pip install -r requirements.txt
-cp config/config.example.yaml config/config.yaml
-# edit config/config.yaml as needed
 ```
-2. Run with your own config:
+2. Edit the public config file to your liking. If you want to use weights and biases (wandb) for logging, you can write your credentials in the config/private/config.yaml file. This file is ignored by git, so you can safely add your credentials there. Run the pipeline with:
 ```bash
-python -m src.main -c config/config.example.yaml
+python -m src.main -c config/public/config.yaml -s config/private/config.yaml
 ```
+
 ### 🐳 Docker
 
 Build the container (only needs to be done once):
@@ -75,17 +74,9 @@ Run with a bind mount to persist Feather outputs into your local data/ folder:
 docker run --rm \
   -v "$(pwd)/data:/app/data" \
   forecast-bench \
-  -c config/config.yaml
+  -c config/public/config.yaml -s config/private/config.yaml
 ```
-
 This maps your host’s ./data directory into the container’s /app/data, so any files written there (e.g. *.feather) appear locally.
-Alternatively, use the example config:
-```bash
-docker run --rm \
-  -v "$(pwd)/data:/app/data" \
-  forecast-bench \
-  -c config/config.example.yaml
-```
 
 ## 📄 License & Authors
 
