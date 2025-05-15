@@ -4,7 +4,7 @@ import logging
 from src.configurations.metrics import MetricConfig
 from src.configurations.forecast_column import ForecastColumnConfig
 import seaborn as sns
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from matplotlib import pyplot as plt
 
 
@@ -24,13 +24,10 @@ class Evaluator:
 
         self.metrics = self._metric_config.metrics
 
-    def evaluate(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
+    def _get_model_cols(self, df: pd.DataFrame) -> List[str]:
         """
-        Evaluate the model using the specified metrics.
+        Get the model columns from the DataFrame.
         """
-
-        logging.info("Starting evaluation...")
-
         model_cols = [
             col
             for col in df.columns
@@ -40,8 +37,19 @@ class Evaluator:
                 self._forecast_columns.date,
                 self._forecast_columns.target,
                 self._forecast_columns.cutoff,
+                "metric",
             ]
         ]
+        return model_cols
+
+    def evaluate(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
+        """
+        Evaluate the model using the specified metrics.
+        """
+
+        logging.info("Starting evaluation...")
+
+        model_cols = self._get_model_cols(df)
 
         return evaluate(
             df=df,
@@ -52,6 +60,37 @@ class Evaluator:
             metrics=list(self.metrics.values()),
             **kwargs
         )
+
+    def summarize_metrics(self, metrics_df: pd.DataFrame) -> Dict[str, Any]:
+        """
+        Summarizes the metrics DataFrame into a dictionary.
+        """
+
+        model_cols = self._get_model_cols(metrics_df)
+
+        summary = {}
+        for metric in metrics_df["metric"].unique():
+            for model in model_cols:
+
+                metric_values = metrics_df.loc[
+                    metrics_df["metric"] == metric, model
+                ].values
+                if len(metric_values) > 0:
+                    summary[metric] = {
+                        "mean": metric_values.mean(),
+                        "std": metric_values.std(),
+                        "min": metric_values.min(),
+                        "max": metric_values.max(),
+                    }
+                else:
+                    summary[metric] = {
+                        "mean": None,
+                        "std": None,
+                        "min": None,
+                        "max": None,
+                    }
+
+        return summary
 
 
 class EvaluationPlotter:

@@ -1,0 +1,12 @@
+# This is a template file. Copy it to config/private/config.yaml and edit it.
+# This file is used to configure the private settings for the application.
+
+wandb:
+  # The WandB API key for authentication
+  api_key: "your_wandb_api_key_here"
+  # The WandB project name
+  project: "your_project_name_here"
+  # The WandB entity name
+  entity: "your_entity_name_here"
+  # The WandB run name
+  run_name: "your_run_name_here"
