@@ -2,6 +2,7 @@
 numpy==2.2.5
 pandas==2.2.3
 scipy==1.15.2
+polars==1.28.1
 
 # Machine-learning & forecasting
 scikit-learn==1.6.1
