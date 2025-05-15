@@ -3,37 +3,50 @@ import logging
 import yaml
 import random
 import numpy as np
+from typing import Any
 from src.configurations.file_path import FilePathConfig
 from src.configurations.input_column import InputColumnConfig
 from src.configurations.forecast_column import ForecastColumnConfig
 from src.configurations.cross_validation import CrossValidationConfig
-from src.forecasting.training import ForecastTrainer
-from src.forecasting.evaluation import Evaluator, EvaluationPlotter
 from src.configurations.forecasting import ForecastConfig
 from src.configurations.metrics import MetricConfig
 from src.configurations.enums import ModelName, MetricName
+from src.configurations.wandb import WandbConfig
+from src.configurations.global_cfg import GlobalConfig
+from src.utils.wandb_orchestrator import WandbOrchestrator
 from src.preprocessing.nixtla_preprocessor import NixtlaPreprocessor
+from src.forecasting.training import ForecastTrainer
+from src.forecasting.evaluation import Evaluator, EvaluationPlotter
 
 
 def parse_args():
-    p = argparse.ArgumentParser(
+    parser = argparse.ArgumentParser(
         description="Full pipeline: preprocess → train → cross‐validate → evaluate"
     )
-    p.add_argument(
-        "--config",
+    parser.add_argument(
         "-c",
-        help="Path to a YAML file with all settings.",
-        default="config/config.yaml",
+        "--public-config",
+        dest="public_config",
+        help="Path to public YAML config file (no secrets).",
+        default="config/public/config.yaml",
     )
+    parser.add_argument(
+        "-s",
+        "--private-config",
+        dest="private_config",
+        help="Path to private YAML config file (with secrets).",
+        default="config/private/config.yaml",
+    )
+    return parser.parse_args()
 
-    return p.parse_args()
 
-
-def load_config(path):
-    with open(path) as f:
-        raw = yaml.safe_load(f)
-    # map hyphens to underscores for all keys
-    return {k.replace("-", "_"): v for k, v in raw.items()}
+def load_config_dict(path) -> dict[str, Any]:
+    try:
+        with open(path) as f:
+            return yaml.safe_load(f) or {}
+    except FileNotFoundError:
+        logging.warning(f"Config file not found: {path}. Returning empty config.")
+        return {}
 
 
 def set_seed(seed: int):
@@ -44,78 +57,80 @@ def set_seed(seed: int):
     np.random.seed(seed)
 
 
-def build_configs(
-    args_dict,
-) -> tuple[
-    FilePathConfig,
-    InputColumnConfig,
-    ForecastColumnConfig,
-    CrossValidationConfig,
-    ForecastConfig,
-    MetricConfig,
-    int,
-]:
+def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
 
-    filepaths: dict[str, str] = args_dict["filepaths"]
-    input_columns: dict[str, str] = args_dict["input_columns"]
-    forecast_columns: dict[str, str] = args_dict["forecast_columns"]
-    forecast: dict[str, str] = args_dict["forecast"]
-    cross_validation: dict[str, str] = args_dict["cross_validation"]
-    metrics: dict[str, str] = args_dict["metrics"]
+    filepaths = public_config.get("filepaths", {})
+    if not filepaths:
+        logging.warning("No file paths provided in the public config.")
+    input_colums = public_config.get("input_columns", {})
+    if not input_colums:
+        logging.warning("No input columns provided in the public config.")
+    forecast_columns = public_config.get("forecast_columns", {})
+    if not forecast_columns:
+        logging.warning("No forecast columns provided in the public config.")
+    cross_validation = public_config.get("cross_validation", {})
+    if not cross_validation:
+        logging.warning("No cross-validation settings provided in the public config.")
+    forecast = public_config.get("forecast", {})
+    if not forecast:
+        logging.warning("No forecast settings provided in the public config.")
+    metrics = public_config.get("metrics", {})
+    if not metrics:
+        logging.warning("No metrics settings provided in the public config.")
+    wandb = private_config.get("wandb", {})
+    if not wandb:
+        logging.warning("No W&B settings provided in the private config.")
+    seed = public_config.get("seed", 42)
+    if not seed:
+        logging.warning("No seed provided in the public config. Using default seed 42.")
+        seed = 42
 
-    # file paths
-    file_cfg = FilePathConfig(
-        train_data_features=filepaths["train_feat"],
-        val_data_features=filepaths["val_feat"],
-        train_data_target=filepaths["train_tgt"],
-        val_data_target=filepaths["val_tgt"],
-        preprocessed_data=filepaths["preprocessed"],
-        eval_results=filepaths["eval_results"],
-        eval_plots=filepaths["eval_plots"],
+    return GlobalConfig(
+        filepaths=FilePathConfig(
+            train_data_features=filepaths["train_feat"],
+            val_data_features=filepaths["val_feat"],
+            train_data_target=filepaths["train_tgt"],
+            val_data_target=filepaths["val_tgt"],
+            preprocessed_data=filepaths["preprocessed"],
+            eval_results=filepaths["eval_results"],
+            eval_plots=filepaths["eval_plots"],
+        ),
+        input_columns=InputColumnConfig(
+            sku_index=input_colums["sku_index"],
+            date=input_colums["date"],
+            target=input_colums["target"],
+        ),
+        forecast_columns=ForecastColumnConfig(
+            sku_index=forecast_columns["sku_index"],
+            date=forecast_columns["date"],
+            target=forecast_columns["target"],
+            cutoff=forecast_columns["cutoff"],
+            exogenous=[col for col in forecast_columns["exog_vars"]],
+            static=[col for col in forecast_columns["static"]],
+        ),
+        cross_validation=CrossValidationConfig(
+            cv_windows=public_config["cross_validation"]["cv_windows"],
+            step_size=public_config["cross_validation"]["step_size"],
+        ),
+        forecast=ForecastConfig(
+            names=[ModelName[name] for name in public_config["forecast"]["models"]],
+            freq=public_config["forecast"]["freq"],
+            season_length=public_config["forecast"]["season_length"],
+            horizon=public_config["forecast"]["horizon"],
+            lags=public_config["forecast"]["lags"],
+            date_features=public_config["forecast"]["date_features"],
+        ),
+        metrics=MetricConfig(
+            names=[MetricName[name] for name in public_config["metrics"]["metrics"]],
+            seasonality=public_config["metrics"]["seasonality"],
+        ),
+        wandb=WandbConfig(
+            api_key=(wandb.get("api_key") if wandb else None),
+            entity=(wandb.get("entity") if wandb else None),
+            project=(wandb.get("project", "bench-forecast") if wandb else None),
+        ),
+        seed=seed,
     )
-
-    # input cols
-    incol_cfg = InputColumnConfig(
-        date=input_columns["date"],
-        dp_index=input_columns["dp_index"],
-        sku_index=input_columns["sku_index"],
-        target=input_columns["target"],
-    )
-
-    # forecast cols (static = subset of exogenous)
-    focol_cfg = ForecastColumnConfig(
-        date=forecast_columns["date"],
-        sku_index=forecast_columns["sku_index"],
-        target=forecast_columns["target"],
-        exogenous=forecast_columns["exog_vars"],
-        static=forecast_columns["static"],
-    )
-
-    # forecasting model settings
-    fcast_cfg = ForecastConfig(
-        names=[ModelName[name] for name in forecast["models"]],
-        freq=forecast["freq"],
-        season_length=forecast["season_length"],
-        horizon=forecast["horizon"],
-        lags=forecast["lags"],
-        date_features=forecast["date_features"],
-    )
-
-    # cross-validation settings
-    cv_cfg = CrossValidationConfig(
-        cv_windows=cross_validation["cv_windows"],
-        step_size=cross_validation["step_size"],
-    )
-
-    # metrics configuration
-    met_cfg = MetricConfig(
-        names=[MetricName[name] for name in metrics["metrics"]],
-        seasonality=metrics["seasonality"],
-    )
-
-    seed: int = args_dict["seed"]
-
-    return (file_cfg, incol_cfg, focol_cfg, cv_cfg, fcast_cfg, met_cfg, seed)
 
 
 def set_seed(seed: int):
@@ -124,57 +139,72 @@ def set_seed(seed: int):
     """
     random.seed(seed)
     np.random.seed(seed)
+
 
 def main():
-    args = parse_args()
-    cfg = load_config(args.config)
-    # flatten cfg keys to match arg names
-    (file_cfg, incol_cfg, focol_cfg, cv_cfg, fcast_cfg, met_cfg, seed) = build_configs(
-        cfg
-    )
 
-    set_seed(seed)
-
-
-    # set up logging
     logging.basicConfig(level=logging.INFO)
 
+    args = parse_args()
+    public_cfg_dict = load_config_dict(args.public_config)
+    private_cfg_dict = load_config_dict(args.private_config)
+
+    cfg = build_config(public_cfg_dict, private_cfg_dict)
+
+    # W&B orchestration
+    wandb_orchestrator = WandbOrchestrator(cfg.wandb, public_cfg_dict)
+    wandb_orchestrator.login()
+    wandb_orchestrator.start_run()
+
+    # initialize
+    set_seed(cfg.seed)
+
     # 1) Preprocessing
-    prep = NixtlaPreprocessor(file_cfg, incol_cfg, focol_cfg)
+    prep = NixtlaPreprocessor(cfg.filepaths, cfg.input_columns, cfg.forecast_columns)
     prep.load_data()
     prep.merge()
-    # optionally parameterize these SKUs too
     prep.remove_skus([2254, 2255, 2256])
     df = prep.prepare_nixtla()
-    df.to_feather(file_cfg.preprocessed_data)
+    df.to_feather(cfg.filepaths.preprocessed_data)
+    wandb_orchestrator.log_artifact(
+        name="preprocessed-data",
+        filepath=cfg.filepaths.preprocessed_data,
+        type_="dataset",
+    )
 
-    # 2) Cross‐validation
-    trainer = ForecastTrainer(fcast_cfg, focol_cfg)
+    # 2) Cross-validation
+    trainer = ForecastTrainer(cfg.forecast, cfg.forecast_columns)
     cv_df = trainer.cross_validate(
         df=df,
-        n_windows=cv_cfg.cv_windows,
-        step_size=cv_cfg.step_size,
+        n_windows=cfg.cross_validation.cv_windows,
+        step_size=cfg.cross_validation.step_size,
     )
 
     # 3) Evaluation
-    evaluator = Evaluator(met_cfg, focol_cfg)
+    evaluator = Evaluator(cfg.metrics, cfg.forecast_columns)
     eval_df = evaluator.evaluate(cv_df, train_df=df)
+    metrics_summary = evaluator.summarize_metrics(eval_df)
+    wandb_orchestrator.log_metrics(metrics_summary)
 
-    # 4) Save results
-    logging.info(f"Saving evaluation results to {file_cfg.eval_results}")
-    eval_df.to_feather(file_cfg.eval_results)
+    # 4) Save & log results
+    eval_df.to_feather(cfg.filepaths.eval_results)
+    wandb_orchestrator.log_artifact(
+        name="evaluation-results", filepath=cfg.filepaths.eval_results, type_="results"
+    )
 
-    # 5) Plotting
-    plotter = EvaluationPlotter(
+    # 5) Plot & log
+    fig = EvaluationPlotter(
         eval_df,
-        forecast_columns=focol_cfg,
-        metric_config=met_cfg,
+        forecast_columns=cfg.forecast_columns,
+        metric_config=cfg.metrics,
         ylim=(-0.5, 4),
+    ).plot_error_distributions()
+    fig.savefig(cfg.filepaths.eval_plots, dpi=300, bbox_inches="tight")
+    wandb_orchestrator.log_image(
+        alias="error_distribution_plot", filepath=cfg.filepaths.eval_plots
     )
-    # Save plots
-    plotter.plot_error_distributions().savefig(
-        file_cfg.eval_plots, dpi=300, bbox_inches="tight"
-    )
+
+    wandb_orchestrator.finish()
 
 
 if __name__ == "__main__":

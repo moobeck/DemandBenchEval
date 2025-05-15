@@ -12,4 +12,3 @@ class InputColumnConfig:
     dp_index: str = "bdID"
     sku_index: str = "skuID"
     target: str = "target"
-    exogenous: List[str] = field(default_factory=list)
