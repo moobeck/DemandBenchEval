@@ -46,7 +46,9 @@ You have two ways to run the benchmarking pipeline—either directly on your loc
 ```bash
 pip install -r requirements.txt
 ```
-2. Edit the public config file to your liking. If you want to use weights and biases (wandb) for logging, you can write your credentials in the config/private/config.yaml file. This file is ignored by git, so you can safely add your credentials there. Run the pipeline with:
+2. Edit the public config file `config/public/config.yaml` to your liking. If you want to use weights and biases (wandb) for logging, you can write your credentials in the private config file `config/private/config.yaml` file and set the `use_wandb` flag in the public config file to `True`. The private config file is not tracked by git, so you can safely add your credentials there.
+
+3. Run the pipeline with:
 ```bash
 python -m src.main -c config/public/config.yaml -s config/private/config.yaml
 ```

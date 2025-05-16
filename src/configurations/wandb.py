@@ -11,3 +11,4 @@ class WandbConfig:
     api_key: Optional[str] = None
     entity: Optional[str] = None
     project: str = "forecast-bench"
+    log_wandb: bool = False

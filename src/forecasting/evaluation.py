@@ -67,23 +67,25 @@ class Evaluator:
         """
 
         model_cols = self._get_model_cols(metrics_df)
+        metrics = metrics_df["metric"].unique()
 
-        summary = {}
-        for metric in metrics_df["metric"].unique():
+        summary = {metric: {} for metric in metrics}
+
+        for metric in metrics:
             for model in model_cols:
 
                 metric_values = metrics_df.loc[
                     metrics_df["metric"] == metric, model
                 ].values
                 if len(metric_values) > 0:
-                    summary[metric] = {
+                    summary[metric][model] = {
                         "mean": metric_values.mean(),
                         "std": metric_values.std(),
                         "min": metric_values.min(),
                         "max": metric_values.max(),
                     }
                 else:
-                    summary[metric] = {
+                    summary[metric][model] = {
                         "mean": None,
                         "std": None,
                         "min": None,

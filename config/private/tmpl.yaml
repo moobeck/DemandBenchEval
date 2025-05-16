@@ -8,5 +8,3 @@ wandb:
   project: "your_project_name_here"
   # The WandB entity name
   entity: "your_entity_name_here"
-  # The WandB run name
-  run_name: "your_run_name_here"

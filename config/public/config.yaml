@@ -1,3 +1,5 @@
+log_wandb: true
+seed: 42
 
 filepaths:
   train_feat: "data/train_data_features.feather"

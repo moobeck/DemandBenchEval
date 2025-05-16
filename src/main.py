@@ -77,10 +77,14 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
     metrics = public_config.get("metrics", {})
     if not metrics:
         logging.warning("No metrics settings provided in the public config.")
-    wandb = private_config.get("wandb", {})
-    if not wandb:
+
+    log_wandb = public_config.get("log_wandb", False)
+    wandb: dict = private_config.get("wandb", {})  #
+    if not wandb and log_wandb:
         logging.warning("No W&B settings provided in the private config.")
-    seed = public_config.get("seed", 42)
+    wandb.update({"log_wandb": log_wandb})
+
+    seed = public_config.get("seed", None)
     if not seed:
         logging.warning("No seed provided in the public config. Using default seed 42.")
         seed = 42
@@ -128,6 +132,7 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
             api_key=(wandb.get("api_key") if wandb else None),
             entity=(wandb.get("entity") if wandb else None),
             project=(wandb.get("project", "bench-forecast") if wandb else None),
+            log_wandb=wandb.get("log_wandb", False) if wandb else False,
         ),
         seed=seed,
     )
