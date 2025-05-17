@@ -3,6 +3,7 @@ import logging
 import yaml
 import random
 import numpy as np
+import torch
 from typing import Any
 from src.configurations.file_path import FilePathConfig
 from src.configurations.input_column import InputColumnConfig
@@ -55,6 +56,8 @@ def set_seed(seed: int):
     """
     random.seed(seed)
     np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
 
 
 def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
@@ -113,16 +116,17 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
             static=[col for col in forecast_columns["static"]],
         ),
         cross_validation=CrossValidationConfig(
-            cv_windows=public_config["cross_validation"]["cv_windows"],
-            step_size=public_config["cross_validation"]["step_size"],
+            cv_windows=cross_validation["cv_windows"],
+            step_size=cross_validation["step_size"],
+            refit=cross_validation["refit"],
         ),
         forecast=ForecastConfig(
-            names=[ModelName[name] for name in public_config["forecast"]["models"]],
-            freq=public_config["forecast"]["freq"],
-            season_length=public_config["forecast"]["season_length"],
-            horizon=public_config["forecast"]["horizon"],
-            lags=public_config["forecast"]["lags"],
-            date_features=public_config["forecast"]["date_features"],
+            names=[ModelName[name] for name in forecast["models"]],
+            freq=forecast["freq"],
+            season_length=forecast["season_length"],
+            horizon=forecast["horizon"],
+            lags=forecast["lags"],
+            date_features=forecast["date_features"],
         ),
         metrics=MetricConfig(
             names=[MetricName[name] for name in public_config["metrics"]["metrics"]],
@@ -183,6 +187,7 @@ def main():
         df=df,
         n_windows=cfg.cross_validation.cv_windows,
         step_size=cfg.cross_validation.step_size,
+        refit=cfg.cross_validation.refit,
     )
 
     # 3) Evaluation
