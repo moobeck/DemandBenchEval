@@ -1,5 +1,6 @@
 import logging
 import pandas as pd
+from typing import Any, Dict, List
 from statsforecast import StatsForecast
 from mlforecast import MLForecast
 from neuralforecast import NeuralForecast
@@ -22,65 +23,115 @@ class ForecastTrainer:
 
         self._forecast_config = forecast_config
         self._forecast_columns = forecast_columns
-        self.frameworks = {
-            Framework.STATS: StatsForecast(
-                models=list(forecast_config.models[Framework.STATS].values()),
-                freq=self._forecast_config.freq,
-            ),
-            Framework.ML: MLForecast(
-                models=list(forecast_config.models[Framework.ML].values()),
-                freq=self._forecast_config.freq,
-                lags=self._forecast_config.lags,
-                date_features=self._forecast_config.date_features,
-            ),
-            Framework.NEURAL: NeuralForecast(
-                models=list(forecast_config.models[Framework.NEURAL].values()),
-                freq=self._forecast_config.freq,
-            ),
+
+        self._factory = {
+            Framework.STATS: (StatsForecast, {}),
+            Framework.ML: (MLForecast, {
+                'lags': self._forecast_config.lags,
+                'date_features': self._forecast_config.date_features,
+            }),
+            Framework.NEURAL: (NeuralForecast, {}),
         }
 
-    def cross_validate(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
-        """
-        Perform cross-validation on the given DataFrame.
-        """
-        # Placeholder for cross-validation logic
+        self.frameworks = self._build_frameworks()
 
+    def _build_frameworks(self):
+        fw_instances = {}
+        for fw, (cls, extra) in self._factory.items():
+            models = list(self._forecast_config.models[fw].values())
+            if not models:
+                fw_instances[fw] = None
+                continue
+
+            params = {
+                'models': models,
+                'freq': self._forecast_config.freq,
+                **extra,  # framework-specific kwargs
+            }
+            fw_instances[fw] = cls(**params)
+        return fw_instances
+
+    def cross_validate(
+        self,
+        df: pd.DataFrame,
+        **kwargs,
+    ) -> pd.DataFrame:
+        """
+        Perform cross-validation for each forecasting framework and
+        return a combined DataFrame of predictions.
+        """
         logging.info("Starting cross-validation...")
+        results = []
 
-        cv_dfs = []
+        for framework, engine in self.frameworks.items():
+            if engine is None:
+                continue
 
-        for framework, forecast_engine in self.frameworks.items():
-            # Perform cross-validation for each framework
             logging.info(f"Cross-validating with {framework.name}...")
+            cv_input = self._prepare_cv_inputs(framework, df, **kwargs)
+            df_cv = self._run_framework_cv(engine, **cv_input)
+            results.append(df_cv)
 
-            ts_cols = self._forecast_columns.ts_base_cols
+        return self._combine_results(results)
 
-            cv_kwargs = kwargs.copy()
+    def _prepare_cv_inputs(
+        self,
+        framework: Framework,
+        df: pd.DataFrame,
+        **user_kwargs: Any,
+    ) -> Dict[str, Any]:
+        """
+        Build the arguments needed for a framework’s cross_validation call.
+        """
+        cols = list(self._forecast_columns.ts_base_cols)
+        kwargs: Dict[str, Any] = user_kwargs.copy()
 
-            if framework == Framework.ML:
-                cv_kwargs["static_features"] = self._forecast_columns.static
-                ts_cols += self._forecast_columns.static
-            elif framework == Framework.NEURAL:
-                cv_kwargs["static_df"] = df[
-                    [self._forecast_columns.sku_index, self._forecast_columns.date]
-                    + self._forecast_columns.static
-                ]
+        if framework == Framework.ML:
+            # ML wants static_features inline
+            kwargs["static_features"] = self._forecast_columns.static
+            cols += self._forecast_columns.static
 
-            cv_df: pd.DataFrame = forecast_engine.cross_validation(
-                df=df[ts_cols],
-                h=self._forecast_config.horizon,
-                id_col=self._forecast_columns.sku_index,
-                target_col=self._forecast_columns.target,
-                time_col=self._forecast_columns.date,
-                **cv_kwargs,
-            ).set_index(
+        elif framework == Framework.NEURAL:
+            # Neural wants static_df separate
+            kwargs["static_df"] = df[
+                [self._forecast_columns.sku_index, self._forecast_columns.date]
+                + self._forecast_columns.static
+            ]
+
+        return {
+            "df": df[cols],
+            "h": self._forecast_config.horizon,
+            "id_col": self._forecast_columns.sku_index,
+            "target_col": self._forecast_columns.target,
+            "time_col": self._forecast_columns.date,
+            **kwargs,
+        }
+
+    def _run_framework_cv(
+        self,
+        engine: Any,
+        **cv_kwargs: Any,
+    ) -> pd.DataFrame:
+        """
+        Call the engine’s cross_validation and set the proper index.
+        """
+        df_out = engine.cross_validation(**cv_kwargs)
+        return (
+            df_out
+            .set_index(
                 [self._forecast_columns.sku_index, self._forecast_columns.date],
                 drop=True,
             )
+        )
 
-            # Append the cross-validation DataFrame to the list
-            cv_dfs.append(cv_df)
+    def _combine_results(
+        self,
+        dfs: List[pd.DataFrame],
+    ) -> pd.DataFrame:
+        """
+        Concatenate and dedupe columns.
+        """
+        combined = pd.concat(dfs, axis=1).reset_index()
+        # Drop any duplicated forecast columns, keep first
+        return combined.loc[:, ~combined.columns.duplicated()].copy()
 
-        df_combined = pd.concat(cv_dfs, axis=1).reset_index()
-
-        return df_combined.loc[:, ~df_combined.columns.duplicated()].copy()
