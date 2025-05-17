@@ -3,6 +3,7 @@ import logging
 import yaml
 import random
 import numpy as np
+import torch
 from typing import Any
 from src.configurations.file_path import FilePathConfig
 from src.configurations.input_column import InputColumnConfig
@@ -55,6 +56,8 @@ def set_seed(seed: int):
     """
     random.seed(seed)
     np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
 
 
 def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
@@ -177,17 +180,6 @@ def main():
         filepath=cfg.filepaths.preprocessed_data,
         type_="dataset",
     )
-    import pandas as pd
-
-    # Check if df is numeric
-    logging.info("Checking if DataFrame is numeric...")
-    # Ensure if df is numeric by getting all dtypes and printing them
-    dtypes = df.dtypes
-    for col, dtype in dtypes.items():
-        if not pd.api.types.is_numeric_dtype(dtype):
-            logging.warning(f"Column {col} is not numeric. Type: {dtype}")
-        else:
-            logging.info(f"Column {col} is numeric. Type: {dtype}")
 
     # 2) Cross-validation
     trainer = ForecastTrainer(cfg.forecast, cfg.forecast_columns)

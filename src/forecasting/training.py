@@ -95,7 +95,7 @@ class ForecastTrainer:
 
         else:
 
-            kwargs["h"] = (self._forecast_config.horizon,)
+            kwargs["h"] = self._forecast_config.horizon
 
             if framework == Framework.ML:
                 # ML wants static_features inline
