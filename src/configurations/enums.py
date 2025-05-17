@@ -4,7 +4,7 @@ from enum import Enum, auto
 class Framework(Enum):
     STATS = auto()
     ML = auto()
-    NEURAL = auto()  # future
+    NEURAL = auto()
 
 
 class ModelName(Enum):
@@ -13,6 +13,9 @@ class ModelName(Enum):
     ETS = "ets"
     LGBM = "lgbm"
     RF = "rf"
+    TSMIXER = "tsmixer"
+    TIDE = "tide"
+    TEST_TIDE = "test_tide"
 
 
 class MetricName(Enum):

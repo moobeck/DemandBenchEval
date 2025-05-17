@@ -1,5 +1,5 @@
 # Core numerical & data libraries
-numpy==2.2.5
+numpy==1.26.4
 pandas==2.2.3
 scipy==1.15.2
 polars==1.28.1

@@ -4,7 +4,9 @@ from statsforecast.models import AutoARIMA, AutoTheta, AutoETS
 from lightgbm import LGBMRegressor
 from sklearn.ensemble import RandomForestRegressor
 from src.configurations.enums import ModelName, Framework
-
+from neuralforecast.auto import AutoTSMixerx, AutoTiDE, TiDE
+from dataclasses import dataclass, field
+from typing import List, Dict
 
 ForecastModel: TypeAlias = Any
 
@@ -39,18 +41,30 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
     ModelName.LGBM: ModelSpec(
         factory=lambda **p: LGBMRegressor(**p),
         framework=Framework.ML,
-        default_params={},  # no seasonality param
+        default_params={},
     ),
     ModelName.RF: ModelSpec(
         factory=lambda **p: RandomForestRegressor(**p),
         framework=Framework.ML,
-        default_params={},  # no seasonality param
+        default_params={},
     ),
-}
+    ModelName.TSMIXER: ModelSpec(
+        factory=lambda **p: AutoTSMixerx(alias="tsmixer", **p),
+        framework=Framework.NEURAL,
+        default_params={"h": 14},
+    ),
+    ModelName.TIDE: ModelSpec(
+        factory=lambda **p: AutoTiDE(alias="tide", **p),
+        framework=Framework.NEURAL,
+        default_params={"h": 14},
+    ),
+    ModelName.TEST_TIDE: ModelSpec(
+        factory=lambda **p: TiDE(alias="test_tide", **p),
+        framework=Framework.NEURAL,
+        default_params={"h": 14, "max_steps": 1, "input_size": 7},
+    ),
 
-# trainer.py
-from dataclasses import dataclass, field
-from typing import List, Dict
+}
 
 
 @dataclass(frozen=True)
@@ -65,7 +79,7 @@ class ForecastConfig:
     @property
     def models(self) -> Dict[Framework, Dict[ModelName, ForecastModel]]:
 
-        frameworks = {Framework.STATS: {}, Framework.ML: {}}
+        frameworks = {Framework.STATS: {}, Framework.ML: {}, Framework.NEURAL: {}}
 
         for name in self.names:
             # map your config.ModelName to ModelKey
@@ -77,6 +91,8 @@ class ForecastConfig:
             # only ML models need lags/date_features
             if spec.framework == Framework.STATS:
                 params["season_length"] = self.season_length
+            elif spec.framework == Framework.NEURAL:
+                params["h"] = self.horizon
 
             # instantiate
             frameworks[spec.framework][name] = spec.factory(**params)
