@@ -89,18 +89,21 @@ class ForecastTrainer:
         cols = list(self._forecast_columns.ts_base_cols)
         kwargs: Dict[str, Any] = user_kwargs.copy()
 
-        if framework == Framework.ML:
-            # ML wants static_features inline
-            kwargs["static_features"] = self._forecast_columns.static
-            cols += self._forecast_columns.static
-
-        elif framework == Framework.NEURAL:
+        if framework == Framework.NEURAL:
             # Neural wants static_df separate
             kwargs["static_df"] = self._build_static_df(df)
 
+        else:
+
+            kwargs["h"] = (self._forecast_config.horizon,)
+
+            if framework == Framework.ML:
+                # ML wants static_features inline
+                kwargs["static_features"] = self._forecast_columns.static
+                cols += self._forecast_columns.static
+
         return {
             "df": df[cols],
-            "h": self._forecast_config.horizon,
             "id_col": self._forecast_columns.sku_index,
             "target_col": self._forecast_columns.target,
             "time_col": self._forecast_columns.date,
