@@ -26,10 +26,13 @@ class ForecastTrainer:
 
         self._factory = {
             Framework.STATS: (StatsForecast, {}),
-            Framework.ML: (MLForecast, {
-                'lags': self._forecast_config.lags,
-                'date_features': self._forecast_config.date_features,
-            }),
+            Framework.ML: (
+                MLForecast,
+                {
+                    "lags": self._forecast_config.lags,
+                    "date_features": self._forecast_config.date_features,
+                },
+            ),
             Framework.NEURAL: (NeuralForecast, {}),
         }
 
@@ -44,8 +47,8 @@ class ForecastTrainer:
                 continue
 
             params = {
-                'models': models,
-                'freq': self._forecast_config.freq,
+                "models": models,
+                "freq": self._forecast_config.freq,
                 **extra,  # framework-specific kwargs
             }
             fw_instances[fw] = cls(**params)
@@ -93,10 +96,7 @@ class ForecastTrainer:
 
         elif framework == Framework.NEURAL:
             # Neural wants static_df separate
-            kwargs["static_df"] = df[
-                [self._forecast_columns.sku_index, self._forecast_columns.date]
-                + self._forecast_columns.static
-            ]
+            kwargs["static_df"] = self._build_static_df(df)
 
         return {
             "df": df[cols],
@@ -107,6 +107,19 @@ class ForecastTrainer:
             **kwargs,
         }
 
+    def _build_static_df(
+        self,
+        df: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """
+        Build the static_df for the NeuralForecast framework.
+        """
+        return (
+            df[[self._forecast_columns.sku_index] + self._forecast_columns.static]
+            .drop_duplicates()
+            .reset_index(drop=True)
+        )
+
     def _run_framework_cv(
         self,
         engine: Any,
@@ -116,12 +129,9 @@ class ForecastTrainer:
         Call the engine’s cross_validation and set the proper index.
         """
         df_out = engine.cross_validation(**cv_kwargs)
-        return (
-            df_out
-            .set_index(
-                [self._forecast_columns.sku_index, self._forecast_columns.date],
-                drop=True,
-            )
+        return df_out.set_index(
+            [self._forecast_columns.sku_index, self._forecast_columns.date],
+            drop=True,
         )
 
     def _combine_results(
@@ -134,4 +144,3 @@ class ForecastTrainer:
         combined = pd.concat(dfs, axis=1).reset_index()
         # Drop any duplicated forecast columns, keep first
         return combined.loc[:, ~combined.columns.duplicated()].copy()
-

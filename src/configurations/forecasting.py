@@ -63,7 +63,6 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
         framework=Framework.NEURAL,
         default_params={"h": 14, "max_steps": 1, "input_size": 7},
     ),
-
 }
 
 
