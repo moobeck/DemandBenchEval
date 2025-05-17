@@ -2,6 +2,7 @@ import logging
 import pandas as pd
 from statsforecast import StatsForecast
 from mlforecast import MLForecast
+from neuralforecast import NeuralForecast
 from src.configurations.forecast_column import ForecastColumnConfig
 from src.configurations.forecasting import ForecastConfig
 from src.configurations.enums import Framework
@@ -32,6 +33,10 @@ class ForecastTrainer:
                 lags=self._forecast_config.lags,
                 date_features=self._forecast_config.date_features,
             ),
+            Framework.NEURAL: NeuralForecast(
+                models=list(forecast_config.models[Framework.NEURAL].values()),
+                freq=self._forecast_config.freq,
+            ),
         }
 
     def cross_validate(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
@@ -50,9 +55,16 @@ class ForecastTrainer:
 
             ts_cols = self._forecast_columns.ts_base_cols
 
+            cv_kwargs = kwargs.copy()
+
             if framework == Framework.ML:
-                kwargs["static_features"] = self._forecast_columns.static
+                cv_kwargs["static_features"] = self._forecast_columns.static
                 ts_cols += self._forecast_columns.static
+            elif framework == Framework.NEURAL:
+                cv_kwargs["static_df"] = df[
+                    [self._forecast_columns.sku_index, self._forecast_columns.date]
+                    + self._forecast_columns.static
+                ]
 
             cv_df: pd.DataFrame = forecast_engine.cross_validation(
                 df=df[ts_cols],
@@ -60,7 +72,7 @@ class ForecastTrainer:
                 id_col=self._forecast_columns.sku_index,
                 target_col=self._forecast_columns.target,
                 time_col=self._forecast_columns.date,
-                **kwargs,
+                **cv_kwargs,
             ).set_index(
                 [self._forecast_columns.sku_index, self._forecast_columns.date],
                 drop=True,

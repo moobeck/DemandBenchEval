@@ -9,3 +9,4 @@ class CrossValidationConfig:
 
     cv_windows: int = 5
     step_size: int = 14
+    refit: bool = False
