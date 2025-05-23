@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, TypeAlias
 from statsforecast.models import AutoARIMA, AutoTheta, AutoETS
 from lightgbm import LGBMRegressor
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor 
 from src.configurations.enums import ModelName, Framework
 from neuralforecast.auto import AutoTSMixerx, AutoTiDE, TiDE
 from dataclasses import dataclass, field
