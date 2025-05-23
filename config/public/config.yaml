@@ -54,10 +54,11 @@ forecast:
     - ETS
     - LGBM
     - TEST_TIDE
+    - CATBOOST
   freq: "D"
   season_length: 7
   horizon: 14
-  lags: [1, 7]
+  lags: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
   date_features:
     - dayofweek
     - month

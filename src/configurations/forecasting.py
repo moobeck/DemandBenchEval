@@ -1,8 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, TypeAlias
 from statsforecast.models import AutoARIMA, AutoTheta, AutoETS
-from lightgbm import LGBMRegressor
-from sklearn.ensemble import RandomForestRegressor 
+from mlforecast.auto import AutoCatboost, AutoLightGBM, AutoRandomForest
 from src.configurations.enums import ModelName, Framework
 from neuralforecast.auto import AutoTSMixerx, AutoTiDE, TiDE
 from dataclasses import dataclass, field
@@ -22,46 +21,64 @@ class ModelSpec:
     default_params: Dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class DefaultParams:
+
+    STATS = {
+        "season_length": 7,
+    }
+    ML = {}
+    NEURAL = {
+        "h": 14,
+        "backend": "optuna",
+    }
+
+
 MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
     ModelName.ARIMA: ModelSpec(
         factory=lambda **p: AutoARIMA(alias="arima", **p),
         framework=Framework.STATS,
-        default_params={"season_length": 7},
+        default_params=DefaultParams.STATS,
     ),
     ModelName.THETA: ModelSpec(
         factory=lambda **p: AutoTheta(alias="theta", **p),
         framework=Framework.STATS,
-        default_params={"season_length": 7},
+        default_params=DefaultParams.STATS,
     ),
     ModelName.ETS: ModelSpec(
         factory=lambda **p: AutoETS(alias="ets", **p),
         framework=Framework.STATS,
-        default_params={"season_length": 7},
+        default_params=DefaultParams.STATS,
     ),
     ModelName.LGBM: ModelSpec(
-        factory=lambda **p: LGBMRegressor(**p),
+        factory=lambda **p: AutoLightGBM(**p),
         framework=Framework.ML,
-        default_params={},
+        default_params=DefaultParams.ML,
+    ),
+    ModelName.CATBOOST: ModelSpec(
+        factory=lambda **p: AutoCatboost(**p),
+        framework=Framework.ML,
+        default_params=DefaultParams.ML,
     ),
     ModelName.RF: ModelSpec(
-        factory=lambda **p: RandomForestRegressor(**p),
+        factory=lambda **p: AutoRandomForest(**p),
         framework=Framework.ML,
-        default_params={},
+        default_params=DefaultParams.ML,
     ),
     ModelName.TSMIXER: ModelSpec(
         factory=lambda **p: AutoTSMixerx(alias="tsmixer", **p),
         framework=Framework.NEURAL,
-        default_params={"h": 14},
+        default_params=DefaultParams.NEURAL,
     ),
     ModelName.TIDE: ModelSpec(
         factory=lambda **p: AutoTiDE(alias="tide", **p),
         framework=Framework.NEURAL,
-        default_params={"h": 14},
+        default_params=DefaultParams.NEURAL,
     ),
     ModelName.TEST_TIDE: ModelSpec(
         factory=lambda **p: TiDE(alias="test_tide", **p),
         framework=Framework.NEURAL,
-        default_params={"h": 14, "max_steps": 1, "input_size": 7},
+        default_params={"h": 14, "max_steps": 1, "input_size": 7, 'backend': 'optuna'},
     ),
 }
 
