@@ -38,6 +38,9 @@ class ForecastTrainer:
                             "date_features": self._forecast_config.date_features,
                         }
                     ),
+                    "fit_config": lambda trial: {
+                        "static_features": self._forecast_columns.static
+                    },
                 },
             ),
             Framework.NEURAL: (NeuralForecastEngine, {}),
@@ -106,8 +109,9 @@ class ForecastTrainer:
 
             if framework == Framework.ML:
                 # ML wants static_features inline
-                kwargs["static_features"] = self._forecast_columns.static
                 cols += self._forecast_columns.static
+                kwargs["forecast_columns"] = self._forecast_columns
+                kwargs["forecast_config"] = self._forecast_config
 
         return {
             "df": df[cols],

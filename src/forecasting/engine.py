@@ -3,13 +3,14 @@ from typing import Any, List
 from typing import Iterable
 import pandas as pd
 from statsforecast import StatsForecast
-from mlforecast.auto import AutoMLForecast
+from mlforecast.auto import AutoMLForecast, AutoLightGBM
 from mlforecast import MLForecast
 from neuralforecast import NeuralForecast
 from src.configurations.enums import Framework
 from src.configurations.forecast_column import ForecastColumnConfig
 from src.configurations.forecasting import ForecastConfig
 
+import logging
 
 
 class ForecastEngine(ABC):
@@ -34,23 +35,25 @@ class StatsForecastEngine(ForecastEngine):
     def cross_validation(
         self,
         df: pd.DataFrame,
-        cv_windows: int,
+        h: int,
+        n_windows: int,
         step_size: int,
         refit: bool = False,
         **kwargs,
     ):
         return self._engine.cross_validation(
             df=df,
-            cv_windows=cv_windows,
+            h=h,
+            n_windows=n_windows,
             step_size=step_size,
             refit=refit,
+            **kwargs,
         )
 
 
 class AutoMLForecastEngine(ForecastEngine):
     def __init__(self, *args, **kw):
         self._engine: AutoMLForecast = AutoMLForecast(*args, **kw)
-
 
     @staticmethod
     def _combine_results(
@@ -66,7 +69,8 @@ class AutoMLForecastEngine(ForecastEngine):
     def cross_validation(
         self,
         df: pd.DataFrame,
-        cv_windows: int,
+        h: int,
+        n_windows: int,
         step_size: int,
         refit: bool = False,
         forecast_columns: ForecastColumnConfig = None,
@@ -77,24 +81,28 @@ class AutoMLForecastEngine(ForecastEngine):
         if refit:
             raise ValueError("refit=True is not supported for AutoMLForecastEngine.")
 
-        # Filter out the cv_windows to get the df used to fit the model
+        # Filter out the n_windows to get the df used to fit the model
 
         # Calculate the offset based on the frequency ('D'. 'W', raise error if not supported)
         if forecast_config.freq == "D":
-            offset = pd.Timedelta(days=cv_windows * step_size)
+            offset = pd.Timedelta(days=n_windows * step_size)
         elif forecast_config.freq == "W":
-            offset = pd.Timedelta(weeks=cv_windows * step_size)
+            offset = pd.Timedelta(weeks=n_windows * step_size)
         else:
             raise ValueError(f"Unsupported frequency: {forecast_config.freq}")
 
         cutoff = df[forecast_columns.date].max() - offset
-        df = df[df[forecast_columns.date] <= cutoff]
+        df_fit = df[df[forecast_columns.date] <= cutoff]
 
         # Fit the model with the filtered df
         self._engine = self._engine.fit(
-            df=df,
-            cv_windows=cv_windows,
+            df=df_fit,
+            h=h,
+            n_windows=n_windows,
             step_size=step_size,
+            num_samples=10,
+            refit=refit,
+            **kwargs,
         )
 
         # Now get the models to do the cross-validation
@@ -105,17 +113,17 @@ class AutoMLForecastEngine(ForecastEngine):
             # Get the cross-validation results for each model
             df = model.cross_validation(
                 df=df,
-                cv_windows=cv_windows,
+                n_windows=n_windows,
                 step_size=step_size,
                 refit=refit,
+                h=h,
+                **kwargs,
             )
 
             dfs.append(df)
         # Combine the results from all models
         combined = self._combine_results(dfs)
         return combined
-            
-    
 
 
 class NeuralForecastEngine(ForecastEngine):
@@ -125,14 +133,15 @@ class NeuralForecastEngine(ForecastEngine):
     def cross_validation(
         self,
         df: pd.DataFrame,
-        cv_windows: int,
+        n_windows: int,
         step_size: int,
         refit: bool = False,
         **kwargs,
     ):
         return self._engine.cross_validation(
             df=df,
-            cv_windows=cv_windows,
+            n_windows=n_windows,
             step_size=step_size,
             refit=refit,
+            **kwargs,
         )

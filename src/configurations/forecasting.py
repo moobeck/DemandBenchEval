@@ -30,7 +30,7 @@ class DefaultParams:
     ML = {}
     NEURAL = {
         "h": 14,
-        "backend": "optuna",
+        "backend": "ray",
     }
 
 
@@ -78,7 +78,7 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
     ModelName.TEST_TIDE: ModelSpec(
         factory=lambda **p: TiDE(alias="test_tide", **p),
         framework=Framework.NEURAL,
-        default_params={"h": 14, "max_steps": 1, "input_size": 7, 'backend': 'optuna'},
+        default_params={"h": 14, "max_steps": 1, "input_size": 7},
     ),
 }
 
@@ -104,7 +104,6 @@ class ForecastConfig:
 
             # merge defaults with trainer-level params
             params = spec.default_params.copy()
-            # only ML models need lags/date_features
             if spec.framework == Framework.STATS:
                 params["season_length"] = self.season_length
             elif spec.framework == Framework.NEURAL:

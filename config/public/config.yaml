@@ -53,8 +53,7 @@ forecast:
   models:
     - ETS
     - LGBM
-    - TEST_TIDE
-    - CATBOOST
+    - TIDE
   freq: "D"
   season_length: 7
   horizon: 14
@@ -62,10 +61,9 @@ forecast:
   date_features:
     - dayofweek
     - month
-
 cross_validation:
-  cv_windows: 13
-  step_size: 14
+  cv_windows: 6
+  step_size: 1
   refit: false
 
 metrics:

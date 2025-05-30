@@ -19,7 +19,7 @@ Many existing time-series benchmarks rely on tasks (e.g., stock-price prediction
 
 ### Prerequisites
 
-- Python ≥ 3.12  
+- Python ≥ 3.11 
 - `pip`  
 
 ### Installation
