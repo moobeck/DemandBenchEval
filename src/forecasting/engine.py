@@ -62,7 +62,9 @@ class AutoMLForecastEngine(ForecastEngine):
         """
         Concatenate and dedupe columns.
         """
-        combined = pd.concat(dfs, axis=1).reset_index()
+        df_reset = [df.reset_index(drop=True) for df in dfs]   
+
+        combined = pd.concat(df_reset, axis=1).reset_index()
         # Drop any duplicated forecast columns, keep first
         return combined.loc[:, ~combined.columns.duplicated()].copy()
 
