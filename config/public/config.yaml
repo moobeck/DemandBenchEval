@@ -53,7 +53,6 @@ forecast:
   models:
     - ETS
     - LGBM
-    - TIDE
   freq: "D"
   season_length: 7
   horizon: 14
@@ -63,7 +62,7 @@ forecast:
     - month
 cross_validation:
   cv_windows: 6
-  step_size: 1
+  step_size: 14
   refit: false
 
 metrics:
