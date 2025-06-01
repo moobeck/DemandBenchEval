@@ -1,9 +1,9 @@
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, TypeAlias
-from statsforecast.models import AutoARIMA, AutoTheta, AutoETS
+from statsforecast.models import AutoARIMA, AutoTheta, AutoETS, AutoCES
 from mlforecast.auto import AutoCatboost, AutoLightGBM, AutoRandomForest
 from src.configurations.enums import ModelName, Framework
-from neuralforecast.auto import AutoTSMixerx, AutoTiDE, TiDE
+from neuralforecast.auto import AutoVanillaTransformer, AutoMLP, AutoLSTM, AutoTimesNet, AutoTimeXer
 from dataclasses import dataclass, field
 from typing import List, Dict
 
@@ -50,6 +50,11 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
         framework=Framework.STATS,
         default_params=DefaultParams.STATS,
     ),
+    ModelName.CES: ModelSpec(
+        factory=lambda **p: AutoCES(alias="ces", **p),
+        framework=Framework.STATS,
+        default_params=DefaultParams.STATS,
+    ),
     ModelName.LGBM: ModelSpec(
         factory=lambda **p: AutoLightGBM(**p),
         framework=Framework.ML,
@@ -65,21 +70,32 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
         framework=Framework.ML,
         default_params=DefaultParams.ML,
     ),
-    ModelName.TSMIXER: ModelSpec(
-        factory=lambda **p: AutoTSMixerx(alias="tsmixer", **p),
+    ModelName.Transformer: ModelSpec(
+        factory=lambda **p: AutoVanillaTransformer(**p),
         framework=Framework.NEURAL,
         default_params=DefaultParams.NEURAL,
     ),
-    ModelName.TIDE: ModelSpec(
-        factory=lambda **p: AutoTiDE(alias="tide", **p),
+    ModelName.MLP: ModelSpec(
+        factory=lambda **p: AutoMLP(**p),
         framework=Framework.NEURAL,
         default_params=DefaultParams.NEURAL,
     ),
-    ModelName.TEST_TIDE: ModelSpec(
-        factory=lambda **p: TiDE(alias="test_tide", **p),
+    ModelName.LSTM: ModelSpec(
+        factory=lambda **p: AutoLSTM(**p),
         framework=Framework.NEURAL,
-        default_params={"h": 14, "max_steps": 1, "input_size": 7},
+        default_params=DefaultParams.NEURAL,
     ),
+    ModelName.TIMESNET: ModelSpec(
+        factory=lambda **p: AutoTimesNet(**p),
+        framework=Framework.NEURAL,
+        default_params=DefaultParams.NEURAL,
+    ),
+    ModelName.TIMEXER: ModelSpec(
+        factory=lambda **p: AutoTimeXer(**p),
+        framework=Framework.NEURAL,
+        default_params=DefaultParams.NEURAL,
+    ),
+
 }
 
 

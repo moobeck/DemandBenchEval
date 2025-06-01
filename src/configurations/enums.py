@@ -11,12 +11,16 @@ class ModelName(Enum):
     ARIMA = "arima"
     THETA = "theta"
     ETS = "ets"
+    CES = "ces"
     LGBM = "lgbm"
     CATBOOST = "catboost"
     RF = "rf"
-    TSMIXER = "tsmixer"
-    TIDE = "tide"
-    TEST_TIDE = "test_tide"
+    Transformer = "transformer"
+    MLP = "mlp"
+    LSTM = "lstm"
+    TIMESNET = "timesnet"
+    TIMEXER = "timexer"
+
 
 
 class MetricName(Enum):
