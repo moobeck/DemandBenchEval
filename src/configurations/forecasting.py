@@ -93,7 +93,7 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
     ModelName.TIMEXER: ModelSpec(
         factory=lambda **p: AutoTimeXer(**p),
         framework=Framework.NEURAL,
-        default_params=DefaultParams.NEURAL,
+        default_params={"n_series": 1, **DefaultParams.NEURAL},
     ),
 
 }
