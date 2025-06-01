@@ -19,7 +19,8 @@ class ModelName(Enum):
     MLP = "mlp"
     LSTM = "lstm"
     TIMESNET = "timesnet"
-    TIMEXER = "timexer"
+    FEDFORMER = "fedformer"
+    TIDE = "tide"
 
 
 

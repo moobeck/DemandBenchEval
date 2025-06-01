@@ -3,7 +3,7 @@ from typing import Callable, Dict, Any, TypeAlias
 from statsforecast.models import AutoARIMA, AutoTheta, AutoETS, AutoCES
 from mlforecast.auto import AutoCatboost, AutoLightGBM, AutoRandomForest
 from src.configurations.enums import ModelName, Framework
-from neuralforecast.auto import AutoVanillaTransformer, AutoMLP, AutoLSTM, AutoTimesNet, AutoTimeXer
+from neuralforecast.auto import AutoVanillaTransformer, AutoMLP, AutoLSTM, AutoTimesNet, AutoFEDformer, AutoTSMixerx, AutoTiDE
 from dataclasses import dataclass, field
 from typing import List, Dict
 
@@ -90,10 +90,15 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
         framework=Framework.NEURAL,
         default_params=DefaultParams.NEURAL,
     ),
-    ModelName.TIMEXER: ModelSpec(
-        factory=lambda **p: AutoTimeXer(**p),
+    ModelName.FEDFORMER: ModelSpec(
+        factory=lambda **p: AutoFEDformer(**p),
         framework=Framework.NEURAL,
-        default_params={"n_series": 1, **DefaultParams.NEURAL},
+        default_params=DefaultParams.NEURAL,
+    ),
+    ModelName.TIDE: ModelSpec(
+        factory=lambda **p: AutoTiDE(**p),
+        framework=Framework.NEURAL,
+        default_params=DefaultParams.NEURAL,
     ),
 
 }
