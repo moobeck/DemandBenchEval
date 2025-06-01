@@ -70,7 +70,7 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
         framework=Framework.ML,
         default_params=DefaultParams.ML,
     ),
-    ModelName.Transformer: ModelSpec(
+    ModelName.TRANSFORMER: ModelSpec(
         factory=lambda **p: AutoVanillaTransformer(**p),
         framework=Framework.NEURAL,
         default_params=DefaultParams.NEURAL,

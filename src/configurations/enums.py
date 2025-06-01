@@ -15,7 +15,7 @@ class ModelName(Enum):
     LGBM = "lgbm"
     CATBOOST = "catboost"
     RF = "rf"
-    Transformer = "transformer"
+    TRANSFORMER = "transformer"
     MLP = "mlp"
     LSTM = "lstm"
     TIMESNET = "timesnet"
