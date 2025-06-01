@@ -3,7 +3,7 @@ from typing import Callable, Dict, Any, TypeAlias
 from statsforecast.models import AutoARIMA, AutoTheta, AutoETS, AutoCES
 from mlforecast.auto import AutoCatboost, AutoLightGBM, AutoRandomForest
 from src.configurations.enums import ModelName, Framework
-from neuralforecast.auto import AutoVanillaTransformer, AutoMLP, AutoLSTM, AutoTimesNet, AutoFEDformer, AutoTSMixerx, AutoTiDE
+from neuralforecast.auto import AutoVanillaTransformer, AutoMLP, AutoLSTM, AutoTimesNet, AutoFEDformer, AutoNHITS, AutoTiDE
 from dataclasses import dataclass, field
 from typing import List, Dict
 
@@ -100,7 +100,11 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
         framework=Framework.NEURAL,
         default_params=DefaultParams.NEURAL,
     ),
-
+    ModelName.NHITS: ModelSpec(
+        factory=lambda **p: AutoNHITS(**p),
+        framework=Framework.NEURAL,
+        default_params=DefaultParams.NEURAL,
+    ),
 }
 
 

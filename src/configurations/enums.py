@@ -21,6 +21,7 @@ class ModelName(Enum):
     TIMESNET = "timesnet"
     FEDFORMER = "fedformer"
     TIDE = "tide"
+    NHITS = "nhits"
 
 
 
