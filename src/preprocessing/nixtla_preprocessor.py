@@ -1,9 +1,8 @@
-import polars as pl
 import pandas as pd
-from typing import List
+from typing import List, Literal, Union
 from datetime import datetime
 from utilsforecast.preprocessing import fill_gaps
-
+from demandbench.datasets import Dataset
 
 from src.configurations.input_column import InputColumnConfig
 from src.configurations.file_path import FilePathConfig
@@ -18,86 +17,53 @@ class NixtlaPreprocessor:
 
     def __init__(
         self,
-        file_paths: FilePathConfig,
+        dataset: Dataset,
         input_columns: InputColumnConfig,
         forecast_columns: ForecastColumnConfig,
     ):
 
         self._input_columns = input_columns
-        self._file_paths = file_paths
+        self._dataset = dataset
         self._forecast_columns = forecast_columns
 
-        self.df_features = None
-        self.df_target = None
         self.df_merged = None
-
-    def _load_feather(self, paths: List[str]) -> pl.DataFrame:
-        """Load multiple feather files into a single Polars DataFrame."""
-        frames = [pl.read_ipc(path) for path in paths]
-        return pl.concat(frames, how="vertical")
-
-    def load_data(self):
-        """Loads features and targets from provided feather file paths."""
-
-        logging.info(
-            f"Loading features from {self._file_paths.train_data_features} and {self._file_paths.val_data_features}"
-        )
-        logging.info(
-            f"Loading targets from {self._file_paths.train_data_target} and {self._file_paths.val_data_target}"
-        )
-
-        self.df_features = self._load_feather(
-            [self._file_paths.train_data_features, self._file_paths.val_data_features]
-        )
-        self.df_target = self._load_feather(
-            [self._file_paths.train_data_target, self._file_paths.val_data_target]
-        )
 
     def merge(self):
 
-        logging.info(
-            f"Merging features and targets on {self._input_columns.dp_index} column"
-        )
+        self.df_merged = self._dataset.get_merged_data().to_pandas()
 
-        """Merge features and target on index column."""
-        if self.df_features is None or self.df_target is None:
-            raise ValueError("Data not loaded. Call load_data() first.")
+    def remove_skus(self, skus: Union[List[str], Literal["not_at_min_date"]]):
+        """
+        Remove specific SKUs from the merged DataFrame.
 
-        # ensure unique index for join
-        self.df_merged = self.df_features.join(
-            self.df_target.select([self._input_columns.dp_index, "target"]),
-            on=self._input_columns.dp_index,
-            how="left",
-        )
-
-    def _compute_dates(self):
-        # 1. Define the “origin” so that dateID = 1 → 2000-01-01
-        origin = datetime(2000, 1, 1)
-
-        # 2. Build `ds` by adding (dateID – 1) days to that origin
-        self.df_merged = self.df_merged.with_columns(
-            [
-                (
-                    # cast Python datetime → Polars Date
-                    pl.lit(origin).cast(pl.Date)
-                    # add one duration per row equal to dateID−1
-                    + pl.duration(
-                        days=(pl.col(self._input_columns.date).cast(pl.Int64) - 1)
-                    )
-                ).alias(self._forecast_columns.date),
-            ]
-        )
-
-    def remove_skus(self, skus: List[str]):
-        """Remove specific SKUs from the merged DataFrame."""
+        Parameters:
+        - skus (List[str] | "not_at_min_date"):
+            - If a list of SKUs is provided, those SKUs will be removed.
+            - If "not_at_min_date" is passed, all SKUs that do NOT have data starting
+            at the minimum date in the DataFrame will be removed.
+        """
 
         logging.info(f"Removing SKUs: {skus}")
 
         if self.df_merged is None:
             raise ValueError("Data not merged. Call merge() first.")
-        self.df_merged = self.df_merged.filter(
-            ~pl.col(self._input_columns.sku_index).is_in(skus)
-        )
+
+        sku_col = self._input_columns.sku_index
+        date_col = "date"  # Adjust if your actual date column has a different name
+
+        if skus == "not_at_min_date":
+            min_date = self.df_merged[date_col].min()
+
+            # Find SKUs that have entries on the minimum date
+            skus_to_keep = self.df_merged[self.df_merged[date_col] == min_date][
+                sku_col
+            ].unique()
+
+            # Keep only rows with those SKUs
+            self.df_merged = self.df_merged[self.df_merged[sku_col].isin(skus_to_keep)]
+        else:
+            self.df_merged = self.df_merged[~self.df_merged[sku_col].isin(skus)]
+
         return self.df_merged
 
     def prepare_nixtla(self) -> pd.DataFrame:
@@ -108,17 +74,14 @@ class NixtlaPreprocessor:
         if self.df_merged is None:
             raise ValueError("Data not merged. Call merge() first.")
 
-        # compute ds
-        self._compute_dates()
-
-        df = self.df_merged.select(
+        df = self.df_merged[
             [
                 self._input_columns.sku_index,
                 self._forecast_columns.date,
                 self._input_columns.target,
                 *(self._forecast_columns.exogenous),
             ]
-        ).to_pandas()
+        ]
 
         # Fill gaps in the time series
         df = fill_gaps(

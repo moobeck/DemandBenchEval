@@ -3,7 +3,15 @@ from typing import Callable, Dict, Any, TypeAlias
 from statsforecast.models import AutoARIMA, AutoTheta, AutoETS, AutoCES
 from mlforecast.auto import AutoCatboost, AutoLightGBM, AutoRandomForest
 from src.configurations.enums import ModelName, Framework
-from neuralforecast.auto import AutoVanillaTransformer, AutoMLP, AutoLSTM, AutoTimesNet, AutoFEDformer, AutoNHITS, AutoTiDE
+from neuralforecast.auto import (
+    AutoVanillaTransformer,
+    AutoMLP,
+    AutoLSTM,
+    AutoTimesNet,
+    AutoFEDformer,
+    AutoNHITS,
+    AutoTiDE,
+)
 from dataclasses import dataclass, field
 from typing import List, Dict
 

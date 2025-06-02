@@ -24,7 +24,12 @@ class ModelName(Enum):
     NHITS = "nhits"
 
 
-
 class MetricName(Enum):
     MASE = "mase"
     MSSE = "msse"
+
+
+class DatasetName(Enum):
+    M5 = "m5"
+    FAVORITA = "favorita"
+    BAKERY = "bakery"
