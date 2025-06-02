@@ -30,7 +30,7 @@ class ForecastEngine(ABC):
 
 class StatsForecastEngine(ForecastEngine):
     def __init__(self, *args, **kw):
-        self._engine = StatsForecast(*args, **kw)
+        self._engine = StatsForecast(*args, **kw, verbose=True)
 
     def cross_validation(
         self,

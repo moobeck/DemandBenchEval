@@ -2,7 +2,10 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# 1) Install OpenMP runtime and any build essentials
+# Accept GitHub token as build argument
+ARG GITHUB_TOKEN
+
+# Install OpenMP runtime, build essentials, Git
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       libgomp1 \
@@ -12,12 +15,16 @@ RUN apt-get update && \
       git && \
     rm -rf /var/lib/apt/lists/*
 
+# Configure Git to use GitHub token for authentication
+RUN if [ -n "$GITHUB_TOKEN" ]; then \
+      git config --global url."https://${GITHUB_TOKEN}:@github.com/".insteadOf "https://github.com/"; \
+    fi
 
-# 2) Install Python deps
+# Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 3) Copy source & config
+# Copy source & config
 COPY src/ ./src/
 COPY config/ ./config/
 

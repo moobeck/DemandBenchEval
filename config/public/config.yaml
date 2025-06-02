@@ -33,7 +33,6 @@ forecast_columns:
 
 forecast:
   models:
-    - CES
     - ETS
   freq: "D"
   season_length: 7
