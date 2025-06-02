@@ -1,4 +1,4 @@
-from enums import DatasetName
+from src.configurations.enums import DatasetName
 from dataclasses import dataclass, field
 
 

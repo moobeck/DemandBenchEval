@@ -29,5 +29,5 @@ class ForecastColumnConfig:
         Sets the exogenous features for dataset.
         """
         self.exogenous = self.base_exogenous + [
-            col for col in dataset.features if col.startswith("feature_")
+            col for col in dataset.features.columns if col.startswith("feature_")
         ]

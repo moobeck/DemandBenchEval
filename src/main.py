@@ -168,7 +168,6 @@ def main():
     set_seed(cfg.seed)
 
     for dataset_name in cfg.datasets.names:
-        logging.info(f"Loading dataset: {dataset_name.value}")
 
         # 1) Load dataset
         dataset = DatasetFactory.create_dataset(dataset_name)

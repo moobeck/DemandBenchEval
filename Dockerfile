@@ -8,8 +8,10 @@ RUN apt-get update && \
       libgomp1 \
       build-essential \
       gcc \
-      g++ && \
+      g++ \
+      git && \
     rm -rf /var/lib/apt/lists/*
+
 
 # 2) Install Python deps
 COPY requirements.txt .

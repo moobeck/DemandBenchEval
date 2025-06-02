@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from src.configurations.enums import DatasetName
 
 
-@dataclass(frozen=True)
+@dataclass
 class FilePathConfig:
     """
     A dataclass to store the paths of the input and output files.

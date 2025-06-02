@@ -1,6 +1,7 @@
 from demandbench.datasets import Dataset, load_m5, load_favorita, load_bakery
 from src.configurations.enums import DatasetName
 
+import logging
 
 class DatasetFactory:
     """
@@ -12,6 +13,8 @@ class DatasetFactory:
         """
         Create a dataset instance based on the provided dataset name.
         """
+        logging.info(f"Creating dataset for: {dataset_name}")
+
         if dataset_name == DatasetName.M5:
             return load_m5()
         elif dataset_name == DatasetName.FAVORITA:

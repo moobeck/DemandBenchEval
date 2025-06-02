@@ -35,7 +35,6 @@ forecast:
   models:
     - CES
     - ETS
-    - LGBM
   freq: "D"
   season_length: 7
   horizon: 14
