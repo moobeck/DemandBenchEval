@@ -49,7 +49,7 @@ class NixtlaPreprocessor:
             raise ValueError("Data not merged. Call merge() first.")
 
         sku_col = self._input_columns.sku_index
-        date_col = "date"  # Adjust if your actual date column has a different name
+        date_col = self._input_columns.date
 
         if skus == "not_at_min_date":
             min_date = self.df_merged[date_col].min()
