@@ -39,6 +39,7 @@ class DefaultParams:
     NEURAL = {
         "h": 14,
         "backend": "ray",
+        "num_samples": 100
     }
 
 
