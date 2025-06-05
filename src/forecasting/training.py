@@ -9,7 +9,7 @@ from src.forecasting.engine import (
 )
 from src.configurations.forecast_column import ForecastColumnConfig
 from src.configurations.forecasting import ForecastConfig
-from src.configurations.enums import Framework
+from src.configurations.enums import Framework, Frequency
 
 
 class ForecastTrainer:
@@ -58,7 +58,7 @@ class ForecastTrainer:
 
             params = {
                 "models": models,
-                "freq": self._forecast_config.freq,
+                "freq": Frequency.get_alias(self._forecast_config.freq, 'nixtla'),
                 **extra,  # framework-specific kwargs
             }
             fw_instances[fw] = cls(**params)

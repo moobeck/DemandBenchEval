@@ -4,10 +4,15 @@ from datetime import datetime
 from utilsforecast.preprocessing import fill_gaps
 from demandbench.datasets import Dataset
 
+from src.configurations.enums import Frequency
 from src.configurations.input_column import InputColumnConfig
-from src.configurations.file_path import FilePathConfig
+from src.configurations.forecasting import ForecastConfig
 from src.configurations.forecast_column import ForecastColumnConfig
 import logging
+
+
+
+
 
 
 class NixtlaPreprocessor:
@@ -20,22 +25,27 @@ class NixtlaPreprocessor:
         dataset: Dataset,
         input_columns: InputColumnConfig,
         forecast_columns: ForecastColumnConfig,
+        forecast: ForecastConfig
     ):
 
         self._input_columns = input_columns
         self._dataset = dataset
         self._forecast_columns = forecast_columns
+        self._forecast = forecast
 
         self.df_merged = None
 
+
     def merge(self):
+        """
+        Merge the dataset into a single DataFrame.
+        """
 
         self.df_merged = self._dataset.get_merged_data().to_pandas()
-        # Update to filter out rows with non daily frequency [frequency column not equal to "daily"]
-        self.df_merged = self.df_merged[
-            self.df_merged['frequency'] == "daily"
-        ].copy().reset_index(drop=True)
-        
+
+
+    
+
 
     def remove_skus(self, skus: Union[List[str], Literal["not_at_min_date"]]):
         """
@@ -71,6 +81,21 @@ class NixtlaPreprocessor:
 
         return self.df_merged
 
+
+    def _filter_by_frequency(self, df: pd.DataFrame):
+        """
+        Filter the merged DataFrame by a specific frequency.
+        """
+        frequency_alias = Frequency.get_alias(self._forecast.freq, 'demandbench')
+
+        df = df[
+            df[self._input_columns.frequency] == frequency_alias
+        ].copy().reset_index(drop=True)
+
+        return df
+        
+
+
     def prepare_nixtla(self) -> pd.DataFrame:
         """Prepare a pandas DataFrame for Nixtla with required columns."""
 
@@ -79,7 +104,9 @@ class NixtlaPreprocessor:
         if self.df_merged is None:
             raise ValueError("Data not merged. Call merge() first.")
 
-        df = self.df_merged[
+        df = self._filter_by_frequency(self.df_merged)
+
+        df = df[
             [
                 self._input_columns.sku_index,
                 self._forecast_columns.date,
@@ -89,9 +116,13 @@ class NixtlaPreprocessor:
         ]
 
         # Fill gaps in the time series
+        frequency_alias = Frequency.get_alias(
+            self._forecast.freq, 'pandas'
+        )
+        
         df = fill_gaps(
             df,
-            freq="D",
+            freq=frequency_alias,
             id_col=self._input_columns.sku_index,
             time_col=self._forecast_columns.date,
         )

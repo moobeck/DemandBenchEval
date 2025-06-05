@@ -30,3 +30,4 @@ class GlobalConfig:
         """
         self.filepaths.set_file_paths(dataset_name)
         self.forecast_columns.set_exogenous(dataset)
+        self.forecast.set_freq(dataset, self.input_columns)

@@ -9,6 +9,7 @@ from neuralforecast import NeuralForecast
 from src.configurations.enums import Framework
 from src.configurations.forecast_column import ForecastColumnConfig
 from src.configurations.forecasting import ForecastConfig
+from src.configurations.enums import Frequency
 
 import logging
 
@@ -86,9 +87,9 @@ class AutoMLForecastEngine(ForecastEngine):
         # Filter out the n_windows to get the df used to fit the model
 
         # Calculate the offset based on the frequency ('D'. 'W', raise error if not supported)
-        if forecast_config.freq == "D":
+        if forecast_config.freq == Frequency.DAILY:
             offset = pd.Timedelta(days=n_windows * step_size)
-        elif forecast_config.freq == "W":
+        elif forecast_config.freq == Frequency.WEEKLY:
             offset = pd.Timedelta(weeks=n_windows * step_size)
         else:
             raise ValueError(f"Unsupported frequency: {forecast_config.freq}")

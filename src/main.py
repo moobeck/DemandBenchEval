@@ -105,6 +105,7 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
             sku_index=input_colums["sku_index"],
             date=input_colums["date"],
             target=input_colums["target"],
+            frequency=input_colums["frequency"],
         ),
         forecast_columns=ForecastColumnConfig(
             sku_index=forecast_columns["sku_index"],
@@ -121,7 +122,6 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
         ),
         forecast=ForecastConfig(
             names=[ModelName[name] for name in forecast["models"]],
-            freq=forecast["freq"],
             season_length=forecast["season_length"],
             horizon=forecast["horizon"],
             lags=forecast["lags"],
@@ -174,7 +174,7 @@ def main():
         cfg.set_dataset(dataset_name, dataset)
 
         # 2) Preprocessing
-        prep = NixtlaPreprocessor(dataset, cfg.input_columns, cfg.forecast_columns)
+        prep = NixtlaPreprocessor(dataset, cfg.input_columns, cfg.forecast_columns, cfg.forecast)
         prep.merge()
         prep.remove_skus(skus="not_at_min_date")
         df = prep.prepare_nixtla()

@@ -2,7 +2,8 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, TypeAlias
 from statsforecast.models import AutoARIMA, AutoTheta, AutoETS, AutoCES
 from mlforecast.auto import AutoCatboost, AutoLightGBM, AutoRandomForest
-from src.configurations.enums import ModelName, Framework
+from src.configurations.enums import ModelName, Framework, Frequency
+from src.configurations.input_column import InputColumnConfig
 from neuralforecast.auto import (
     AutoVanillaTransformer,
     AutoMLP,
@@ -14,6 +15,7 @@ from neuralforecast.auto import (
 )
 from dataclasses import dataclass, field
 from typing import List, Dict
+from demandbench.datasets import Dataset
 
 ForecastModel: TypeAlias = Any
 
@@ -117,10 +119,10 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
 }
 
 
-@dataclass(frozen=True)
+@dataclass
 class ForecastConfig:
     names: List[ModelName]
-    freq: str = "D"
+    freq: Frequency = Frequency.DAILY
     season_length: int = 7
     horizon: int = 14
     lags: List[int] = field(default_factory=list)
@@ -147,3 +149,24 @@ class ForecastConfig:
             frameworks[spec.framework][name] = spec.factory(**params)
 
         return frameworks
+
+    
+    def set_freq(self, dataset: Dataset, input_column: InputColumnConfig):
+        
+        """
+        Set the frequency of the forecast configuration based on the dataset.
+        """
+
+        frequencies = dataset.features[input_column.frequency].unique()
+
+        # check if any of the daily frequency identifiers are present
+        if Frequency.get_alias(Frequency.DAILY, 'demandbench') in frequencies:
+            self.freq = Frequency.DAILY
+        elif Frequency.get_alias(Frequency.WEEKLY, 'demandbench') in frequencies:
+            self.freq = Frequency.WEEKLY
+        else:
+            raise ValueError(
+                f"Unsupported frequency found in the dataset: {frequencies}. "
+                "Only 'daily' and 'weekly' frequencies are supported."
+            )
+
