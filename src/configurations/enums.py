@@ -33,3 +33,4 @@ class DatasetName(Enum):
     M5 = "m5"
     FAVORITA = "favorita"
     BAKERY = "bakery"
+    YAZ = "yaz"

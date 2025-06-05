@@ -1,4 +1,4 @@
-from demandbench.datasets import Dataset, load_m5, load_favorita, load_bakery
+from demandbench.datasets import Dataset, load_m5, load_favorita, load_bakery, load_yaz
 from src.configurations.enums import DatasetName
 
 import logging
@@ -21,5 +21,7 @@ class DatasetFactory:
             return load_favorita()
         elif dataset_name == DatasetName.BAKERY:
             return load_bakery()
+        elif dataset_name == DatasetName.YAZ:
+            return load_yaz()
         else:
             raise ValueError(f"Unknown dataset name: {dataset_name}")

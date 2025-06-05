@@ -31,6 +31,11 @@ class NixtlaPreprocessor:
     def merge(self):
 
         self.df_merged = self._dataset.get_merged_data().to_pandas()
+        # Update to filter out rows with non daily frequency [frequency column not equal to "daily"]
+        self.df_merged = self.df_merged[
+            self.df_merged['frequency'] == "daily"
+        ].copy().reset_index(drop=True)
+        
 
     def remove_skus(self, skus: Union[List[str], Literal["not_at_min_date"]]):
         """

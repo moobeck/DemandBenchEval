@@ -102,7 +102,7 @@ class AutoMLForecastEngine(ForecastEngine):
             h=h,
             n_windows=n_windows,
             step_size=step_size,
-            num_samples=100,
+            num_samples=25,
             refit=refit,
             **kwargs,
         )
