@@ -2,19 +2,18 @@ log_wandb: false
 seed: 42
 
 filepaths:
-  train_feat: "data/train_data_features.feather"
-  val_feat:   "data/val_data_features.feather"
-  train_tgt:  "data/train_data_target.feather"
-  val_tgt:    "data/val_data_target.feather"
-  preprocessed: "data/preprocessed_data.feather"
-  eval_results: "data/eval_results.feather"
-  eval_plots: "data/eval_plots.png"
+  eval_results_dir: "data/eval_results/"
+  eval_plots_dir: "data/eval_plots/"
 
 input_columns:
   date:    "dateID"
   dp_index:    "bdID"
   sku_index:   "skuID"
   target:  "target"
+  frequency: "frequency"
+
+datasets:
+  - MAISHAMEDS
 
 forecast_columns:
   date:    "date"
@@ -25,25 +24,7 @@ forecast_columns:
     - companyID
     - storeID
     - productID
-    - missing_value
     - not_for_sale
-    - mean_demand
-    - std_demand
-    - kurtosis_demand
-    - skewness_demand
-    - percentile_10_demand
-    - percentile_30_demand
-    - median_demand
-    - percentile_70_demand
-    - percentile_90_demand
-    - inter_quartile_range
-    - feature_0000
-    - feature_0001
-    - feature_0002
-    - feature_0003
-    - feature_0004
-    - feature_0005
-    - feature_0006
   static:
     - companyID
     - storeID
@@ -51,24 +32,19 @@ forecast_columns:
 
 forecast:
   models:
-    - ETS
     - LGBM
-    - TEST_TIDE
-  freq: "D"
-  season_length: 7
-  horizon: 14
-  lags: [1, 7]
+  season_length: 52
+  horizon: 4
+  lags: [1, 2, 3, 4, 5, 6, 7, 8]
   date_features:
-    - dayofweek
     - month
-
 cross_validation:
-  cv_windows: 13
-  step_size: 14
+  cv_windows: 6
+  step_size: 4
   refit: false
 
 metrics:
   metrics:
     - MASE
     - MSSE
-  seasonality: 7
+  seasonality: 52

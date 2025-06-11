@@ -6,6 +6,7 @@ polars==1.28.1
 
 # Machine-learning & forecasting
 scikit-learn==1.6.1
+catboost==1.2.8
 lightgbm==4.6.0
 mlforecast==1.0.2
 statsforecast==2.0.1
@@ -25,3 +26,6 @@ pytz==2025.2
 
 # Plotting
 seaborn==0.13.2
+
+# DemandBench from GitHub branch
+git+https://github.com/a11to1n3/DemandBench.git@for-summerschool

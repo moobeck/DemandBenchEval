@@ -1,12 +1,15 @@
 import logging
 import pandas as pd
 from typing import Any, Dict, List
-from statsforecast import StatsForecast
-from mlforecast import MLForecast
-from neuralforecast import NeuralForecast
+from src.forecasting.engine import (
+    ForecastEngine,
+    StatsForecastEngine,
+    AutoMLForecastEngine,
+    NeuralForecastEngine,
+)
 from src.configurations.forecast_column import ForecastColumnConfig
 from src.configurations.forecasting import ForecastConfig
-from src.configurations.enums import Framework
+from src.configurations.enums import Framework, Frequency
 
 
 class ForecastTrainer:
@@ -25,20 +28,28 @@ class ForecastTrainer:
         self._forecast_columns = forecast_columns
 
         self._factory = {
-            Framework.STATS: (StatsForecast, {}),
+            Framework.STATS: (StatsForecastEngine, {}),
             Framework.ML: (
-                MLForecast,
+                AutoMLForecastEngine,
                 {
-                    "lags": self._forecast_config.lags,
-                    "date_features": self._forecast_config.date_features,
+                    "init_config": lambda trial: (
+                        {
+                            "lags": self._forecast_config.lags,
+                            "date_features": self._forecast_config.date_features,
+                        }
+                    ),
+                    "fit_config": lambda trial: {
+                        "static_features": self._forecast_columns.static, 
+                        "max_horizon": self._forecast_config.horizon,
+                    },
                 },
             ),
-            Framework.NEURAL: (NeuralForecast, {}),
+            Framework.NEURAL: (NeuralForecastEngine, {}),
         }
 
         self.frameworks = self._build_frameworks()
 
-    def _build_frameworks(self):
+    def _build_frameworks(self) -> Dict[Framework, ForecastEngine]:
         fw_instances = {}
         for fw, (cls, extra) in self._factory.items():
             models = list(self._forecast_config.models[fw].values())
@@ -48,7 +59,7 @@ class ForecastTrainer:
 
             params = {
                 "models": models,
-                "freq": self._forecast_config.freq,
+                "freq": Frequency.get_alias(self._forecast_config.freq, 'nixtla'),
                 **extra,  # framework-specific kwargs
             }
             fw_instances[fw] = cls(**params)
@@ -99,8 +110,9 @@ class ForecastTrainer:
 
             if framework == Framework.ML:
                 # ML wants static_features inline
-                kwargs["static_features"] = self._forecast_columns.static
                 cols += self._forecast_columns.static
+                kwargs["forecast_columns"] = self._forecast_columns
+                kwargs["forecast_config"] = self._forecast_config
 
         return {
             "df": df[cols],
@@ -125,7 +137,7 @@ class ForecastTrainer:
 
     def _run_framework_cv(
         self,
-        engine: Any,
+        engine: ForecastEngine,
         **cv_kwargs: Any,
     ) -> pd.DataFrame:
         """
@@ -137,8 +149,8 @@ class ForecastTrainer:
             drop=True,
         )
 
+    @staticmethod
     def _combine_results(
-        self,
         dfs: List[pd.DataFrame],
     ) -> pd.DataFrame:
         """

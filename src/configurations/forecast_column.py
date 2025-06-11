@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
-from typing import List
+from typing import List  #
+from demandbench.datasets import Dataset
 
 
 @dataclass
@@ -11,6 +12,7 @@ class ForecastColumnConfig:
     date: str = "date"
     sku_index: str = "skuID"
     target: str = "demand"
+    base_exogenous: List[str] = field(default_factory=list)
     exogenous: List[str] = field(default_factory=list)
     static: List[str] = field(default_factory=list)
     cutoff: str = "cutoff"
@@ -21,3 +23,11 @@ class ForecastColumnConfig:
         Returns the three core columns for time-series: SKU, date, and target.
         """
         return [self.sku_index, self.date, self.target]
+
+    def set_exogenous(self, dataset: Dataset):
+        """
+        Sets the exogenous features for dataset.
+        """
+        self.exogenous = self.base_exogenous + [
+            col for col in dataset.features.columns if col.startswith("feature_")
+        ]

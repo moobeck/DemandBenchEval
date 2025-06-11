@@ -6,18 +6,21 @@ import numpy as np
 import torch
 from typing import Any
 from src.configurations.file_path import FilePathConfig
+from src.configurations.datasets import DatasetConfig
 from src.configurations.input_column import InputColumnConfig
 from src.configurations.forecast_column import ForecastColumnConfig
 from src.configurations.cross_validation import CrossValidationConfig
 from src.configurations.forecasting import ForecastConfig
 from src.configurations.metrics import MetricConfig
-from src.configurations.enums import ModelName, MetricName
+from src.configurations.enums import ModelName, MetricName, DatasetName
 from src.configurations.wandb import WandbConfig
 from src.configurations.global_cfg import GlobalConfig
 from src.utils.wandb_orchestrator import WandbOrchestrator
+from src.dataset.dataset_factory import DatasetFactory
 from src.preprocessing.nixtla_preprocessor import NixtlaPreprocessor
 from src.forecasting.training import ForecastTrainer
 from src.forecasting.evaluation import Evaluator, EvaluationPlotter
+
 
 
 def parse_args():
@@ -65,6 +68,7 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
     filepaths = public_config.get("filepaths", {})
     if not filepaths:
         logging.warning("No file paths provided in the public config.")
+    dataset_names = public_config.get("datasets", [])
     input_colums = public_config.get("input_columns", {})
     if not input_colums:
         logging.warning("No input columns provided in the public config.")
@@ -94,25 +98,22 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
 
     return GlobalConfig(
         filepaths=FilePathConfig(
-            train_data_features=filepaths["train_feat"],
-            val_data_features=filepaths["val_feat"],
-            train_data_target=filepaths["train_tgt"],
-            val_data_target=filepaths["val_tgt"],
-            preprocessed_data=filepaths["preprocessed"],
-            eval_results=filepaths["eval_results"],
-            eval_plots=filepaths["eval_plots"],
+            eval_results_dir=filepaths.get("eval_results_dir", "results/eval_results"),
+            eval_plots_dir=filepaths.get("eval_plots_dir", "results/eval_plots"),
         ),
+        datasets=DatasetConfig(names=[DatasetName[name] for name in dataset_names]),
         input_columns=InputColumnConfig(
             sku_index=input_colums["sku_index"],
             date=input_colums["date"],
             target=input_colums["target"],
+            frequency=input_colums["frequency"],
         ),
         forecast_columns=ForecastColumnConfig(
             sku_index=forecast_columns["sku_index"],
             date=forecast_columns["date"],
             target=forecast_columns["target"],
             cutoff=forecast_columns["cutoff"],
-            exogenous=[col for col in forecast_columns["exog_vars"]],
+            base_exogenous=[col for col in forecast_columns["exog_vars"]],
             static=[col for col in forecast_columns["static"]],
         ),
         cross_validation=CrossValidationConfig(
@@ -122,7 +123,6 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
         ),
         forecast=ForecastConfig(
             names=[ModelName[name] for name in forecast["models"]],
-            freq=forecast["freq"],
             season_length=forecast["season_length"],
             horizon=forecast["horizon"],
             lags=forecast["lags"],
@@ -168,53 +168,54 @@ def main():
     # initialize
     set_seed(cfg.seed)
 
-    # 1) Preprocessing
-    prep = NixtlaPreprocessor(cfg.filepaths, cfg.input_columns, cfg.forecast_columns)
-    prep.load_data()
-    prep.merge()
-    prep.remove_skus([2254, 2255, 2256])
-    df = prep.prepare_nixtla()
-    df.to_feather(cfg.filepaths.preprocessed_data)
-    wandb_orchestrator.log_artifact(
-        name="preprocessed-data",
-        filepath=cfg.filepaths.preprocessed_data,
-        type_="dataset",
-    )
+    for dataset_name in cfg.datasets.names:
 
-    # 2) Cross-validation
-    trainer = ForecastTrainer(cfg.forecast, cfg.forecast_columns)
-    cv_df = trainer.cross_validate(
-        df=df,
-        n_windows=cfg.cross_validation.cv_windows,
-        step_size=cfg.cross_validation.step_size,
-        refit=cfg.cross_validation.refit,
-    )
+        # 1) Load dataset
+        dataset = DatasetFactory.create_dataset(dataset_name)
+        cfg.set_dataset(dataset_name, dataset)
 
-    # 3) Evaluation
-    evaluator = Evaluator(cfg.metrics, cfg.forecast_columns)
-    eval_df = evaluator.evaluate(cv_df, train_df=df)
-    metrics_summary = evaluator.summarize_metrics(eval_df)
-    wandb_orchestrator.log_metrics(metrics_summary)
+        # 2) Preprocessing
+        prep = NixtlaPreprocessor(dataset, cfg.input_columns, cfg.forecast_columns, cfg.forecast)
+        prep.merge()
+        prep.remove_skus(skus="not_at_min_date")
+        df = prep.prepare_nixtla()
 
-    # 4) Save & log results
-    eval_df.to_feather(cfg.filepaths.eval_results)
-    wandb_orchestrator.log_artifact(
-        name="evaluation-results", filepath=cfg.filepaths.eval_results, type_="results"
-    )
+        # 3) Cross-validation
+        trainer = ForecastTrainer(cfg.forecast, cfg.forecast_columns)
+        cv_df = trainer.cross_validate(
+            df=df,
+            n_windows=cfg.cross_validation.cv_windows,
+            step_size=cfg.cross_validation.step_size,
+            refit=cfg.cross_validation.refit,
+        )
 
-    # 5) Plot & log
-    fig = EvaluationPlotter(
-        eval_df,
-        forecast_columns=cfg.forecast_columns,
-        metric_config=cfg.metrics,
-        ylim=(-0.5, 4),
-    ).plot_error_distributions()
-    fig.savefig(cfg.filepaths.eval_plots, dpi=300, bbox_inches="tight")
-    wandb_orchestrator.log_image(
-        alias="error_distribution_plot", filepath=cfg.filepaths.eval_plots
-    )
+        # 4) Evaluation
+        evaluator = Evaluator(cfg.metrics, cfg.forecast_columns)
+        eval_df = evaluator.evaluate(cv_df, train_df=df)
+        metrics_summary = evaluator.summarize_metrics(eval_df)
+        wandb_orchestrator.log_metrics(metrics_summary, dataset_name)
 
-    wandb_orchestrator.finish()
+        # 4) Save & log results
+        eval_df.to_feather(cfg.filepaths.eval_results)
+        wandb_orchestrator.log_artifact(
+            name="evaluation-results",
+            filepath=cfg.filepaths.eval_results,
+            type_="results",
+        )
+
+        # 5) Plot & log
+        fig = EvaluationPlotter(
+            eval_df,
+            forecast_columns=cfg.forecast_columns,
+            metric_config=cfg.metrics,
+            ylim=(-0.5, 4),
+        ).plot_error_distributions()
+        fig.savefig(cfg.filepaths.eval_plots, dpi=300, bbox_inches="tight")
+        wandb_orchestrator.log_image(
+            alias="error_distribution_plot", filepath=cfg.filepaths.eval_plots
+        )
+
+        wandb_orchestrator.finish()
 
 
 if __name__ == "__main__":

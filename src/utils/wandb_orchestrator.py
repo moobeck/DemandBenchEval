@@ -1,6 +1,7 @@
 import logging
 import wandb
 from src.configurations.wandb import WandbConfig
+from src.configurations.enums import DatasetName
 
 
 class WandbOrchestrator:
@@ -41,13 +42,16 @@ class WandbOrchestrator:
             art.add_file(filepath)
             self.run.log_artifact(art) if self.run else None
 
-    def log_metrics(self, metrics: dict):
+    def log_metrics(self, metrics: dict, dataset_name: DatasetName):
 
         if self.run:
+
+            data = {dataset_name.value: metrics}
+
             logging.info(f"Logging metrics: {metrics}")
             # Log metrics to W&B
-            wandb.log(metrics) if self.run else None
-            self.run.log(metrics) if self.run else None
+            wandb.log(data) if self.run else None
+            self.run.log(data) if self.run else None
 
     def log_image(self, alias: str, filepath: str):
 

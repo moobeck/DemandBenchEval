@@ -3,3 +3,5 @@ __pycache__/
 config/private/config.yaml
 .DS_Store
 wandb/
+AutoGluonModels/
+*.ipynb
