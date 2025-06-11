@@ -46,7 +46,7 @@ class WandbOrchestrator:
 
         if self.run:
 
-            data = {DatasetName[dataset_name].value: metrics}
+            data = {dataset_name.value: metrics}
 
             logging.info(f"Logging metrics: {metrics}")
             # Log metrics to W&B
