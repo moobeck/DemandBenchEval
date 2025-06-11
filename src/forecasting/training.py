@@ -39,7 +39,8 @@ class ForecastTrainer:
                         }
                     ),
                     "fit_config": lambda trial: {
-                        "static_features": self._forecast_columns.static
+                        "static_features": self._forecast_columns.static, 
+                        "max_horizon": self._forecast_config.horizon,
                     },
                 },
             ),
