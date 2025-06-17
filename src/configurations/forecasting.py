@@ -57,9 +57,10 @@ class DefaultParams:
         "num_samples": 100
     }
     FM = {
-        "device": "cuda",
-        "max_samples": 10000,
-        "random_state": 42
+        "device": "cpu",
+        "num_samples": 50,
+        "random_state": 42,
+        "scaling": True,
     }
 
 
@@ -102,12 +103,26 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
     ModelName.TABPFN: ModelSpec(
         factory=lambda **p: create_tabpfn_regressor(**p),
         framework=Framework.FM,
-        default_params=DefaultParams.FM,
+        default_params={
+            "device": "cpu",
+            "max_samples": 10000,
+            "random_state": 42,
+            "n_estimators": 8,
+        }
     ),
     ModelName.TOTO: ModelSpec(
         factory=create_toto_model,
         framework=Framework.FM,
-        default_params=DefaultParams.FM
+        default_params={
+            "model_name": "Datadog/Toto-Open-Base-1.0",
+            "device": "auto",
+            "context_length": 512,
+            "prediction_length": 96,
+            "num_samples": 100,
+            "temperature": 1.0,
+            "scaling": True,
+            "max_series": 100,
+        }
     ),
     ModelName.TRANSFORMER: ModelSpec(
         factory=lambda **p: AutoVanillaTransformer(**p),
@@ -159,7 +174,7 @@ class ForecastConfig:
     @property
     def models(self) -> Dict[Framework, Dict[ModelName, ForecastModel]]:
 
-        frameworks = {Framework.STATS: {}, Framework.ML: {}, Framework.NEURAL: {}}
+        frameworks = {Framework.STATS: {}, Framework.ML: {}, Framework.NEURAL: {}, Framework.FM: {}}
 
         for name in self.names:
             # map your config.ModelName to ModelKey
@@ -172,6 +187,10 @@ class ForecastConfig:
                 params["season_length"] = self.season_length
             elif spec.framework == Framework.NEURAL:
                 params["h"] = self.horizon
+            elif spec.framework == Framework.FM:
+                # Foundation models get horizon and season_length for context
+                params["prediction_length"] = self.horizon
+                params["context_length"] = min(512, max(64, self.season_length * 8))
 
             # instantiate
             frameworks[spec.framework][name] = spec.factory(**params)

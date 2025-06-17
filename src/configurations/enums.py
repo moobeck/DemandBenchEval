@@ -68,8 +68,12 @@ class Frequency(Enum):
 
         if context not in CONTEXT_ALIASES:
             raise ValueError(f"Unknown context: {context}")
-        try:
-            return CONTEXT_ALIASES[context][freq]
-        except KeyError:
-            raise ValueError(f"No alias defined for {freq} in context '{context}'")
+        
+        # Use value-based lookup to handle enum instance issues
+        context_map = CONTEXT_ALIASES[context]
+        for freq_key, alias in context_map.items():
+            if freq.value == freq_key.value:  # Compare enum values instead of objects
+                return alias
+        
+        raise ValueError(f"No alias defined for {freq} in context '{context}'")
 
