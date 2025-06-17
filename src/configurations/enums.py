@@ -5,6 +5,7 @@ class Framework(Enum):
     STATS = auto()
     ML = auto()
     NEURAL = auto()
+    FM = auto()
 
 
 class ModelName(Enum):
@@ -22,6 +23,8 @@ class ModelName(Enum):
     FEDFORMER = "fedformer"
     TIDE = "tide"
     NHITS = "nhits"
+    TABPFN = "tabpfn"
+    TOTO = "toto"
 
 
 class MetricName(Enum):

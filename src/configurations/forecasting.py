@@ -2,8 +2,8 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, TypeAlias
 from statsforecast.models import AutoARIMA, AutoTheta, AutoETS, AutoCES
 from mlforecast.auto import AutoCatboost, AutoLightGBM, AutoRandomForest
-from src.configurations.enums import ModelName, Framework, Frequency
-from src.configurations.input_column import InputColumnConfig
+from .enums import ModelName, Framework, Frequency
+from .input_column import InputColumnConfig
 from neuralforecast.auto import (
     AutoVanillaTransformer,
     AutoMLP,
@@ -17,6 +17,18 @@ from dataclasses import dataclass, field
 from typing import List, Dict
 from demandbench.datasets import Dataset
 
+# Import the TabPFN wrapper
+try:
+    from ..forecasting.tabpfn_wrapper import create_tabpfn_regressor
+except ImportError:
+    # Fallback for when running from different contexts
+    from src.forecasting.tabpfn_wrapper import create_tabpfn_regressor
+
+try:
+    from ..forecasting.toto_wrapper import create_toto_model
+except ImportError:
+    from src.forecasting.toto_wrapper import create_toto_model
+
 ForecastModel: TypeAlias = Any
 
 
@@ -29,6 +41,7 @@ class ModelSpec:
     factory: Callable[..., ForecastModel]
     framework: Framework
     default_params: Dict[str, Any] = field(default_factory=dict)
+    param_space: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -42,6 +55,11 @@ class DefaultParams:
         "h": 14,
         "backend": "ray",
         "num_samples": 100
+    }
+    FM = {
+        "device": "cuda",
+        "max_samples": 10000,
+        "random_state": 42
     }
 
 
@@ -80,6 +98,16 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
         factory=lambda **p: AutoRandomForest(**p),
         framework=Framework.ML,
         default_params=DefaultParams.ML,
+    ),
+    ModelName.TABPFN: ModelSpec(
+        factory=lambda **p: create_tabpfn_regressor(**p),
+        framework=Framework.FM,
+        default_params=DefaultParams.FM,
+    ),
+    ModelName.TOTO: ModelSpec(
+        factory=create_toto_model,
+        framework=Framework.FM,
+        default_params=DefaultParams.FM
     ),
     ModelName.TRANSFORMER: ModelSpec(
         factory=lambda **p: AutoVanillaTransformer(**p),
