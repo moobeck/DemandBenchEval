@@ -69,9 +69,6 @@ class ForecastTrainer:
                 continue
                 
             models = list(models_dict[matching_fw].values())
-            if not models:
-                fw_instances[fw] = None
-                continue
 
             params = {
                 "models": models,

@@ -10,6 +10,7 @@ from src.configurations.enums import Framework
 from src.configurations.forecast_column import ForecastColumnConfig
 from src.configurations.forecasting import ForecastConfig
 from src.configurations.enums import Frequency
+from src.forecasting.foundation_model_base import FoundationModelWrapper
 
 import logging
 
@@ -35,14 +36,14 @@ class FoundationModelEngine(ForecastEngine):
     These models have special requirements and interfaces.
     """
     
-    def __init__(self, models: List[Any], freq: str, **kwargs):
+    def __init__(self, models: List[FoundationModelWrapper], freq: str, **kwargs):
         """
         Initialize Foundation Model Engine.
         
         Parameters:
         -----------
-        models : List[Any]
-            List of foundation model instances
+        models : List[FoundationModelWrapper]
+            List of foundation model instances (TabPFN, TOTO, etc.)
         freq : str
             Frequency string for time series
         """
@@ -114,19 +115,19 @@ class FoundationModelEngine(ForecastEngine):
                         static_features = None
                         
                         # Handle exogenous variables and static features
-                        if hasattr(forecast_columns, 'exogenous') and forecast_columns.exogenous:
+                        if forecast_columns.exogenous:
                             exog_cols = [col for col in forecast_columns.exogenous if col in train_data.columns]
                             if exog_cols:
                                 X_train = train_data[exog_cols]
                                 X_test = test_data[exog_cols] if len(test_data) > 0 else None
                         
-                        if hasattr(forecast_columns, 'static') and forecast_columns.static:
+                        if forecast_columns.static:
                             static_cols = [col for col in forecast_columns.static if col in train_data.columns]
                             if static_cols:
                                 static_features = train_data[static_cols].iloc[0].to_dict()
                         
                         # Fit and predict
-                        if hasattr(model, 'supports_exogenous') and model.supports_exogenous:
+                        if model.supports_exogenous:
                             model.fit(y_train, X=X_train, static_features=static_features)
                             predictions = model.predict(len(test_data), X=X_test, static_features=static_features)
                         else:
