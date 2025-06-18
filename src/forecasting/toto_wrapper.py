@@ -15,6 +15,7 @@ import torch
 from typing import Optional, Dict, Any, Union, List, Tuple
 from dataclasses import dataclass
 import logging
+from .foundation_model_base import FoundationModelWrapper
 
 # Suppress warnings for cleaner output
 warnings.filterwarnings("ignore")
@@ -87,7 +88,7 @@ class MultivariateMinMaxScaler:
         return X * self.scale + self.min_vals
 
 
-class TOTOWrapper:
+class TOTOWrapper(FoundationModelWrapper):
     """
     Enhanced wrapper for TOTO (Time Series Optimized Transformer for Observability) model
     that supports multivariate time series forecasting with features.
@@ -99,6 +100,11 @@ class TOTOWrapper:
     - Dynamic features (time-varying exogenous variables)
     - Probabilistic forecasting
     """
+    
+    # Foundation model capabilities  
+    supports_exogenous = True
+    supports_multivariate = True
+    is_probabilistic = True
     
     def __init__(
         self,
@@ -128,7 +134,7 @@ class TOTOWrapper:
         num_samples : int
             Number of samples for probabilistic forecasting
         temperature : float
-            Temperature for sampling (higher = more randomness)
+            Temperature for sampling (higher = more randomness/variance in predictions)
         scaling : bool
             Whether to apply min-max scaling to the data
         max_series : int
@@ -160,7 +166,8 @@ class TOTOWrapper:
         self.static_features = None
         self.n_series = 0
         
-        # Compatibility flags
+        # Compatibility flags - set as class attributes for the base class
+        # (these are also set at class level below for clarity)
         self.is_probabilistic = True
         self.supports_multivariate = True
         self.supports_exogenous = True
@@ -182,18 +189,31 @@ class TOTOWrapper:
             # Enhanced mock implementation for multivariate support
             class MultivariateToToModel:
                 """Enhanced mock TOTO model for multivariate time series."""
-                def __init__(self, device, max_series):
+                def __init__(self, device, max_series, context_length=512, num_samples=100, temperature=1.0):
                     self.device = device
                     self.max_series = max_series
+                    self.context_length = context_length
+                    self.num_samples = num_samples
+                    self.temperature = temperature
                     
-                def predict(self, series, prediction_length, num_samples=100, static_features=None):
+                def predict(self, series, prediction_length, num_samples=None, static_features=None, temperature=None):
                     """Generate multivariate predictions."""
+                    # Use instance defaults if not provided
+                    if num_samples is None:
+                        num_samples = self.num_samples
+                    if temperature is None:
+                        temperature = self.temperature
+                        
                     if len(series.shape) == 2:
                         batch_size, seq_len = series.shape
                         n_variables = 1
                         series = series.reshape(batch_size, seq_len, 1)
                     else:
                         batch_size, seq_len, n_variables = series.shape
+                    
+                    # Validate context length
+                    if seq_len != self.context_length:
+                        warnings.warn(f"Input sequence length {seq_len} doesn't match expected context length {self.context_length}")
                     
                     # Generate realistic multivariate forecasts
                     last_values = series[:, -1:, :]  # Shape: (batch, 1, n_variables)
@@ -212,13 +232,14 @@ class TOTOWrapper:
                         
                         for step in range(prediction_length):
                             if n_variables > 1:
-                                # Generate correlated noise
-                                base_noise = np.random.normal(0, 0.1, (batch_size, 1, 1))
+                                # Generate correlated noise with temperature scaling
+                                base_noise_std = 0.1 * temperature  # Scale noise by temperature
+                                base_noise = np.random.normal(0, base_noise_std, (batch_size, 1, 1))
                                 correlated_noise = base_noise * correlation
-                                independent_noise = np.random.normal(0, 0.1, (batch_size, 1, n_variables))
+                                independent_noise = np.random.normal(0, base_noise_std, (batch_size, 1, n_variables))
                                 noise = correlated_noise + independent_noise * (1 - correlation)
                             else:
-                                noise = np.random.normal(0, 0.1, current.shape)
+                                noise = np.random.normal(0, 0.1 * temperature, current.shape)  # Scale by temperature
                             
                             # Add trend with slight variable-specific differences
                             if n_variables > 1:
@@ -241,13 +262,25 @@ class TOTOWrapper:
                     
                     return np.array(samples)  # Shape: (num_samples, batch, pred_len, n_variables)
             
-            self.model = MultivariateToToModel(self.device, self.max_series)
+            self.model = MultivariateToToModel(
+                self.device, 
+                self.max_series,
+                context_length=self.context_length,
+                num_samples=self.num_samples,
+                temperature=self.temperature
+            )
             print(f"Enhanced multivariate TOTO model loaded successfully on {self.device}")
             
         except Exception as e:
             print(f"Warning: Could not load TOTO model: {e}")
             print("Using enhanced mock implementation for multivariate demonstration")
-            self.model = MultivariateToToModel(self.device, self.max_series)
+            self.model = MultivariateToToModel(
+                self.device, 
+                self.max_series,
+                context_length=self.context_length,
+                num_samples=self.num_samples,
+                temperature=self.temperature
+            )
     
     def _prepare_multivariate_data(
         self, 
@@ -414,18 +447,18 @@ class TOTOWrapper:
     
     def predict(
         self, 
-        h: int, 
-        X: Optional[pd.DataFrame] = None,
-        static_features: Optional[Union[pd.DataFrame, Dict]] = None
+        horizon: int, 
+        X: Optional[Union[pd.DataFrame, np.ndarray]] = None,
+        static_features: Optional[Union[pd.DataFrame, dict]] = None
     ) -> np.ndarray:
         """
         Generate multivariate point forecasts.
         
         Parameters:
         -----------
-        h : int
-            Forecast horizon
-        X : DataFrame, optional
+        horizon : int
+            Number of periods to forecast
+        X : DataFrame or array, optional
             Future exogenous variables
         static_features : DataFrame or dict, optional
             Static features for prediction
@@ -439,7 +472,7 @@ class TOTOWrapper:
             raise ValueError("Model must be fitted before making predictions")
         
         # Generate probabilistic forecast
-        forecast = self.predict_probabilistic(h, X, static_features)
+        forecast = self.predict_probabilistic(horizon, X, static_features)
         
         # Return median as point forecast
         return forecast.median
@@ -484,6 +517,7 @@ class TOTOWrapper:
             input_series, 
             h, 
             num_samples=self.num_samples,
+            temperature=self.temperature,
             static_features=static_array
         )
         
