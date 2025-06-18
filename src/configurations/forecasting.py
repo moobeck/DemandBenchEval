@@ -108,6 +108,7 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
             "max_samples": 10000,
             "random_state": 42,
             "n_estimators": 8,
+            "scaling": True,
         }
     ),
     ModelName.TOTO: ModelSpec(
