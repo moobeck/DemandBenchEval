@@ -20,7 +20,13 @@ RUN if [ -n "$GITHUB_TOKEN" ]; then \
       git config --global url."https://${GITHUB_TOKEN}:@github.com/".insteadOf "https://github.com/"; \
     fi
 
-# Install Python dependencies
+# Clone the repository
+RUN git clone https://github.com/DataDog/toto.git /app/toto
+
+# Install dependencies of the cloned repository
+RUN pip install --no-cache-dir -r /app/toto/requirements.txt
+
+# Install Python dependencies from our app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

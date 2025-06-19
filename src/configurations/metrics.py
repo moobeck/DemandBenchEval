@@ -28,9 +28,7 @@ METRIC_REGISTRY: dict[MetricName, MetricSpec] = {
     MetricName.MAE: MetricSpec(
         factory=lambda **p: partial(mae, **p),
     ),
-    MetricName.MSE: MetricSpec(
-        factory=lambda **p: partial(mse, **p)
-    ),
+    MetricName.MSE: MetricSpec(factory=lambda **p: partial(mse, **p)),
 }
 
 

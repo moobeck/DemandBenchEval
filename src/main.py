@@ -22,7 +22,6 @@ from src.forecasting.training import ForecastTrainer
 from src.forecasting.evaluation import Evaluator, EvaluationPlotter
 
 
-
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Full pipeline: preprocess → train → cross‐validate → evaluate"
@@ -175,7 +174,9 @@ def main():
         cfg.set_dataset(dataset_name, dataset)
 
         # 2) Preprocessing
-        prep = NixtlaPreprocessor(dataset, cfg.input_columns, cfg.forecast_columns, cfg.forecast)
+        prep = NixtlaPreprocessor(
+            dataset, cfg.input_columns, cfg.forecast_columns, cfg.forecast
+        )
         prep.merge()
         prep.remove_skus(skus="not_at_min_date")
         df = prep.prepare_nixtla()
@@ -187,6 +188,11 @@ def main():
             n_windows=cfg.cross_validation.cv_windows,
             step_size=cfg.cross_validation.step_size,
             refit=cfg.cross_validation.refit,
+        )
+
+        # Log head of the cross-validation DataFrame for debugging
+        logging.info(
+            f"Cross-validation DataFrame head for {dataset_name}:\n{cv_df.head()}"
         )
 
         # 4) Evaluation

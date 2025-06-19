@@ -11,6 +11,7 @@ from src.forecasting.engine import (
 from src.configurations.forecast_column import ForecastColumnConfig
 from src.configurations.forecasting import ForecastConfig
 from src.configurations.enums import Framework, Frequency
+from mlforecast.target_transforms import LocalMinMaxScaler
 
 
 class ForecastTrainer:
@@ -37,10 +38,11 @@ class ForecastTrainer:
                         {
                             "lags": self._forecast_config.lags,
                             "date_features": self._forecast_config.date_features,
+                            "target_transforms": [LocalMinMaxScaler()],
                         }
                     ),
                     "fit_config": lambda trial: {
-                        "static_features": self._forecast_columns.static, 
+                        "static_features": self._forecast_columns.static,
                         "max_horizon": self._forecast_config.horizon,
                     },
                 },
@@ -54,25 +56,27 @@ class ForecastTrainer:
     def _build_frameworks(self) -> Dict[Framework, ForecastEngine]:
         fw_instances = {}
         models_dict = self._forecast_config.models  # Access models once and cache
-        
+
         for fw, (cls, extra) in self._factory.items():
             # Check if framework has models using a more robust comparison
             # Find matching framework by value instead of object identity
             matching_fw = None
             for models_fw in models_dict.keys():
-                if fw.value == models_fw.value:  # Compare enum values instead of objects
+                if (
+                    fw.value == models_fw.value
+                ):  # Compare enum values instead of objects
                     matching_fw = models_fw
                     break
-            
+
             if matching_fw is None or not models_dict[matching_fw]:
                 fw_instances[fw] = None
                 continue
-                
+
             models = list(models_dict[matching_fw].values())
 
             params = {
                 "models": models,
-                "freq": Frequency.get_alias(self._forecast_config.freq, 'nixtla'),
+                "freq": Frequency.get_alias(self._forecast_config.freq, "nixtla"),
                 **extra,  # framework-specific kwargs
             }
             fw_instances[fw] = cls(**params)
@@ -99,7 +103,14 @@ class ForecastTrainer:
             df_cv = self._run_framework_cv(engine, **cv_input)
             results.append(df_cv)
 
-        return self._combine_results(results)
+        combined_results = self._combine_results(results)
+        logging.info("Cross-validation completed.")
+        # Logging head of the combined results for debugging
+        logging.debug(
+            f"Combined results head after cv (return):\n{combined_results.head()}"
+        )
+
+        return combined_results
 
     def _prepare_cv_inputs(
         self,
@@ -120,8 +131,10 @@ class ForecastTrainer:
         elif framework == Framework.FM:
             # Foundation Models need all columns including static and exogenous
             cols += self._forecast_columns.static
-            if hasattr(self._forecast_columns, 'exogenous'):
-                cols += [col for col in self._forecast_columns.exogenous if col in df.columns]
+            if hasattr(self._forecast_columns, "exogenous"):
+                cols += [
+                    col for col in self._forecast_columns.exogenous if col in df.columns
+                ]
             kwargs["forecast_columns"] = self._forecast_columns
             kwargs["forecast_config"] = self._forecast_config
             kwargs["h"] = self._forecast_config.horizon
@@ -165,6 +178,26 @@ class ForecastTrainer:
         Call the engine's cross_validation and set the proper index.
         """
         df_out = engine.cross_validation(**cv_kwargs)
+
+        # True if any duplicates exist across sku_index+date
+        has_dupes = df_out.duplicated(
+            subset=[self._forecast_columns.sku_index, self._forecast_columns.date],
+            keep=False,
+        ).any()
+
+        if has_dupes:
+            duplicates = df_out[
+                df_out.duplicated(
+                    subset=[
+                        self._forecast_columns.sku_index,
+                        self._forecast_columns.date,
+                    ],
+                    keep=False,
+                )
+            ]
+            logging.error(f"Duplicate entries found:\n{duplicates}")
+            raise ValueError("Duplicate entries found in cross‑validation output.")
+
         return df_out.set_index(
             [self._forecast_columns.sku_index, self._forecast_columns.date],
             drop=True,
@@ -179,4 +212,5 @@ class ForecastTrainer:
         """
         combined = pd.concat(dfs, axis=1).reset_index()
         # Drop any duplicated forecast columns, keep first
-        return combined.loc[:, ~combined.columns.duplicated()].copy()
+        combined = combined.loc[:, ~combined.columns.duplicated()]
+        return combined

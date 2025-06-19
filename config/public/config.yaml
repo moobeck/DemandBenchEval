@@ -33,11 +33,10 @@ forecast_columns:
 forecast:
   models:
     - LGBM
-    - TABPFN
     - TOTO
   season_length: 52
   horizon: 4
-  lags: [1, 2, 3, 4, 5, 6, 7, 8]
+  lags: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
   date_features:
     - month
 cross_validation:

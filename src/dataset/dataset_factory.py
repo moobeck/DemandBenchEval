@@ -1,7 +1,15 @@
-from demandbench.datasets import Dataset, load_m5, load_favorita, load_bakery, load_yaz, load_maishameds
+from demandbench.datasets import (
+    Dataset,
+    load_m5,
+    load_favorita,
+    load_bakery,
+    load_yaz,
+    load_maishameds,
+)
 from src.configurations.enums import DatasetName
 
 import logging
+
 
 class DatasetFactory:
     """

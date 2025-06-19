@@ -16,18 +16,8 @@ from neuralforecast.auto import (
 from dataclasses import dataclass, field
 from typing import List, Dict
 from demandbench.datasets import Dataset
+from src.forecasting.toto_wrapper import TOTOWrapper
 
-# Import the TabPFN wrapper
-try:
-    from ..forecasting.tabpfn_wrapper import create_tabpfn_regressor
-except ImportError:
-    # Fallback for when running from different contexts
-    from src.forecasting.tabpfn_wrapper import create_tabpfn_regressor
-
-try:
-    from ..forecasting.toto_wrapper import create_toto_model
-except ImportError:
-    from src.forecasting.toto_wrapper import create_toto_model
 
 ForecastModel: TypeAlias = Any
 
@@ -51,17 +41,7 @@ class DefaultParams:
         "season_length": 7,
     }
     ML = {}
-    NEURAL = {
-        "h": 14,
-        "backend": "ray",
-        "num_samples": 100
-    }
-    FM = {
-        "device": "cpu",
-        "num_samples": 50,
-        "random_state": 42,
-        "scaling": True,
-    }
+    NEURAL = {"h": 14, "backend": "ray", "num_samples": 100}
 
 
 MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
@@ -100,30 +80,13 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
         framework=Framework.ML,
         default_params=DefaultParams.ML,
     ),
-    ModelName.TABPFN: ModelSpec(
-        factory=lambda **p: create_tabpfn_regressor(**p),
-        framework=Framework.FM,
-        default_params={
-            "device": "cpu",
-            "max_samples": 10000,
-            "random_state": 42,
-            "n_estimators": 8,
-            "scaling": True,
-        }
-    ),
     ModelName.TOTO: ModelSpec(
-        factory=create_toto_model,
+        factory=lambda **p: TOTOWrapper(alias="toto", **p),
         framework=Framework.FM,
         default_params={
-            "model_name": "Datadog/Toto-Open-Base-1.0",
-            "device": "auto",
-            "context_length": 512,
-            "prediction_length": 96,
-            "num_samples": 100,
-            "temperature": 1.0,
-            "scaling": True,
-            "max_series": 100,
-        }
+            "min_history": 100,
+            "num_samples": 50,
+        },
     ),
     ModelName.TRANSFORMER: ModelSpec(
         factory=lambda **p: AutoVanillaTransformer(**p),
@@ -175,7 +138,12 @@ class ForecastConfig:
     @property
     def models(self) -> Dict[Framework, Dict[ModelName, ForecastModel]]:
 
-        frameworks = {Framework.STATS: {}, Framework.ML: {}, Framework.NEURAL: {}, Framework.FM: {}}
+        frameworks = {
+            Framework.STATS: {},
+            Framework.ML: {},
+            Framework.NEURAL: {},
+            Framework.FM: {},
+        }
 
         for name in self.names:
             # map your config.ModelName to ModelKey
@@ -190,17 +158,16 @@ class ForecastConfig:
                 params["h"] = self.horizon
             elif spec.framework == Framework.FM:
                 # Foundation models get horizon and season_length for context
-                params["prediction_length"] = self.horizon
-                params["context_length"] = min(512, max(64, self.season_length * 8))
+                if key == ModelName.TOTO:
+                    params["prediction_length"] = self.horizon
+                    params["context_length"] = min(512, max(64, self.season_length * 8))
 
             # instantiate
             frameworks[spec.framework][name] = spec.factory(**params)
 
         return frameworks
 
-    
     def set_freq(self, dataset: Dataset, input_column: InputColumnConfig):
-        
         """
         Set the frequency of the forecast configuration based on the dataset.
         """
@@ -208,13 +175,12 @@ class ForecastConfig:
         frequencies = dataset.features[input_column.frequency].unique()
 
         # check if any of the daily frequency identifiers are present
-        if Frequency.get_alias(Frequency.DAILY, 'demandbench') in frequencies:
+        if Frequency.get_alias(Frequency.DAILY, "demandbench") in frequencies:
             self.freq = Frequency.DAILY
-        elif Frequency.get_alias(Frequency.WEEKLY, 'demandbench') in frequencies:
+        elif Frequency.get_alias(Frequency.WEEKLY, "demandbench") in frequencies:
             self.freq = Frequency.WEEKLY
         else:
             raise ValueError(
                 f"Unsupported frequency found in the dataset: {frequencies}. "
                 "Only 'daily' and 'weekly' frequencies are supported."
             )
-

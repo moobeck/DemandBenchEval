@@ -29,17 +29,30 @@ class ForecastEngine(ABC):
         """
         pass
 
+    @staticmethod
+    def _combine_results(
+        dfs: List[pd.DataFrame],
+    ) -> pd.DataFrame:
+        """
+        Concatenate and dedupe columns.
+        """
+        df_reset = [df.reset_index(drop=True) for df in dfs]
+
+        combined = pd.concat(df_reset, axis=1).reset_index()
+        # Drop any duplicated forecast columns, keep first
+        return combined.loc[:, ~combined.columns.duplicated()].copy()
+
 
 class FoundationModelEngine(ForecastEngine):
     """
     Engine for Foundation Models (FM) like TabPFN and TOTO.
     These models have special requirements and interfaces.
     """
-    
+
     def __init__(self, models: List[FoundationModelWrapper], freq: str, **kwargs):
         """
         Initialize Foundation Model Engine.
-        
+
         Parameters:
         -----------
         models : List[FoundationModelWrapper]
@@ -47,10 +60,10 @@ class FoundationModelEngine(ForecastEngine):
         freq : str
             Frequency string for time series
         """
-        self.models = {model.__class__.__name__: model for model in models}
+        self.models = {model.alias: model for model in models}
         self.freq = freq
         self.kwargs = kwargs
-        
+
     def cross_validation(
         self,
         df: pd.DataFrame,
@@ -66,10 +79,12 @@ class FoundationModelEngine(ForecastEngine):
         Perform cross-validation for foundation models.
         Foundation models use a different approach than traditional ML models.
         """
-        logging.info(f"Starting foundation model cross-validation with {len(self.models)} models...")
-        
+        logging.info(
+            f"Starting foundation model cross-validation with {len(self.models)} models..."
+        )
+
         results = []
-        
+
         # Calculate time splits
         if forecast_config.freq == Frequency.DAILY:
             offset = pd.Timedelta(days=n_windows * step_size)
@@ -77,113 +92,68 @@ class FoundationModelEngine(ForecastEngine):
             offset = pd.Timedelta(weeks=n_windows * step_size)
         else:
             raise ValueError(f"Unsupported frequency: {forecast_config.freq}")
-        
+
         # Get unique time series IDs
         unique_ids = df[forecast_columns.sku_index].unique()
-        
+
         for model_name, model in self.models.items():
             logging.info(f"Cross-validating foundation model: {model_name}")
-            
+
             model_results = []
-            
+
             # For each time series ID
             for series_id in unique_ids:
                 series_df = df[df[forecast_columns.sku_index] == series_id].copy()
                 series_df = series_df.sort_values(forecast_columns.date)
-                
+
                 # For each cross-validation window
                 for window in range(n_windows):
                     # Calculate cutoff point
-                    cutoff_offset = pd.Timedelta(days=window * step_size) if forecast_config.freq == Frequency.DAILY else pd.Timedelta(weeks=window * step_size)
-                    cutoff = series_df[forecast_columns.date].max() - offset + cutoff_offset
-                    
-                    # Split data
+                    cutoff_offset = (
+                        pd.Timedelta(days=window * step_size)
+                        if forecast_config.freq == Frequency.DAILY
+                        else pd.Timedelta(weeks=window * step_size)
+                    )
+                    cutoff = (
+                        series_df[forecast_columns.date].max() - offset + cutoff_offset
+                    )
+
+                    # Split data into train and test
+                    cutoff = series_df[forecast_columns.date].max() - offset
                     train_data = series_df[series_df[forecast_columns.date] <= cutoff]
-                    test_data = series_df[
-                        (series_df[forecast_columns.date] > cutoff) & 
-                        (series_df[forecast_columns.date] <= cutoff + pd.Timedelta(days=h) if forecast_config.freq == Frequency.DAILY else cutoff + pd.Timedelta(weeks=h))
-                    ]
-                    
-                    if len(train_data) < 10 or len(test_data) == 0:
-                        continue
-                    
-                    try:
-                        # Prepare features
-                        y_train = train_data[forecast_columns.target]
-                        X_train = None
-                        X_test = None
-                        static_features = None
-                        
-                        # Handle exogenous variables and static features
-                        if forecast_columns.exogenous:
-                            exog_cols = [col for col in forecast_columns.exogenous if col in train_data.columns]
-                            if exog_cols:
-                                X_train = train_data[exog_cols]
-                                X_test = test_data[exog_cols] if len(test_data) > 0 else None
-                        
-                        if forecast_columns.static:
-                            static_cols = [col for col in forecast_columns.static if col in train_data.columns]
-                            if static_cols:
-                                static_features = train_data[static_cols].iloc[0].to_dict()
-                        
-                        # Fit and predict
-                        if model.supports_exogenous:
-                            model.fit(y_train, X=X_train, static_features=static_features)
-                            predictions = model.predict(len(test_data), X=X_test, static_features=static_features)
-                        else:
-                            model.fit(y_train)
-                            predictions = model.predict(len(test_data))
-                        
-                        # Handle multivariate predictions
-                        if len(predictions.shape) > 1 and predictions.shape[1] > 1:
-                            # For multivariate, take first series (primary target)
-                            predictions = predictions[:, 0]
-                        
-                        # Create result DataFrame
-                        for i, (idx, row) in enumerate(test_data.iterrows()):
-                            if i < len(predictions):
-                                model_results.append({
-                                    forecast_columns.sku_index: series_id,
-                                    forecast_columns.date: row[forecast_columns.date],
-                                    forecast_columns.target: row[forecast_columns.target],
-                                    f'{model_name}': predictions[i],
-                                    'cutoff': cutoff
-                                })
-                    
-                    except Exception as e:
-                        logging.warning(f"Failed to process series {series_id}, window {window} with {model_name}: {e}")
-                        continue
-            
+                    test_data = series_df[series_df[forecast_columns.date] > cutoff]
+
+                    model.fit(
+                        y=train_data[forecast_columns.target],
+                        X=train_data.drop(columns=[forecast_columns.target]),
+                    )
+
+                    model_df = model.predict(
+                        X=test_data.drop(columns=[forecast_columns.target]),
+                        forecast_columns=forecast_columns,
+                        horizon=forecast_config.horizon,
+                    )
+
             if model_results:
                 model_df = pd.DataFrame(model_results)
                 results.append(model_df)
-        
+
         # Combine results from all models
         if results:
-            # Merge all model results
-            combined = results[0]
-            for result_df in results[1:]:
-                merge_cols = [forecast_columns.sku_index, forecast_columns.date, 'cutoff']
-                combined = combined.merge(
-                    result_df,
-                    on=merge_cols,
-                    how='outer',
-                    suffixes=('', '_y')
-                )
-                # Drop duplicate target columns
-                target_y = f'{forecast_columns.target}_y'
-                if target_y in combined.columns:
-                    combined = combined.drop(columns=[target_y])
-            
-            return combined
+
+            combined_results = self._combine_results(results)
+
+            return combined_results
         else:
             # Return empty DataFrame with correct structure
-            return pd.DataFrame(columns=[
-                forecast_columns.sku_index,
-                forecast_columns.date,
-                forecast_columns.target,
-                'cutoff'
-            ])
+            return pd.DataFrame(
+                columns=[
+                    forecast_columns.sku_index,
+                    forecast_columns.date,
+                    forecast_columns.target,
+                    "cutoff",
+                ]
+            )
 
 
 class StatsForecastEngine(ForecastEngine):
@@ -212,19 +182,6 @@ class StatsForecastEngine(ForecastEngine):
 class AutoMLForecastEngine(ForecastEngine):
     def __init__(self, *args, **kw):
         self._engine: AutoMLForecast = AutoMLForecast(*args, **kw)
-
-    @staticmethod
-    def _combine_results(
-        dfs: List[pd.DataFrame],
-    ) -> pd.DataFrame:
-        """
-        Concatenate and dedupe columns.
-        """
-        df_reset = [df.reset_index(drop=True) for df in dfs]
-
-        combined = pd.concat(df_reset, axis=1).reset_index()
-        # Drop any duplicated forecast columns, keep first
-        return combined.loc[:, ~combined.columns.duplicated()].copy()
 
     def cross_validation(
         self,
@@ -260,7 +217,7 @@ class AutoMLForecastEngine(ForecastEngine):
             h=h,
             n_windows=n_windows,
             step_size=step_size,
-            num_samples=10,
+            num_samples=1,
             refit=refit,
             **kwargs,
         )
@@ -284,6 +241,12 @@ class AutoMLForecastEngine(ForecastEngine):
             dfs.append(df)
         # Combine the results from all models
         combined = self._combine_results(dfs)
+
+        # Log shape and columns of the combined DataFrame
+        logging.info(f"Combined Auto ML DataFrame shape: {combined.shape}")
+        logging.info(f"Combined Auto ML DataFrame columns: {combined.columns.tolist()}")
+        # Log head of the combined DataFrame
+        logging.info(f"Head of combined Auto ML DataFrame:\n{combined.head()}")
         return combined
 
 

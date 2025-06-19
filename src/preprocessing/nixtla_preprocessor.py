@@ -11,10 +11,6 @@ from src.configurations.forecast_column import ForecastColumnConfig
 import logging
 
 
-
-
-
-
 class NixtlaPreprocessor:
     """
     A class to load, merge, and convert feather datasets into the Nixtla NeuralForecast-ready format.
@@ -25,7 +21,7 @@ class NixtlaPreprocessor:
         dataset: Dataset,
         input_columns: InputColumnConfig,
         forecast_columns: ForecastColumnConfig,
-        forecast: ForecastConfig
+        forecast: ForecastConfig,
     ):
 
         self._input_columns = input_columns
@@ -35,17 +31,12 @@ class NixtlaPreprocessor:
 
         self.df_merged = None
 
-
     def merge(self):
         """
         Merge the dataset into a single DataFrame.
         """
 
         self.df_merged = self._dataset.get_merged_data().to_pandas()
-
-
-    
-
 
     def remove_skus(self, skus: Union[List[str], Literal["not_at_min_date"]]):
         """
@@ -81,20 +72,19 @@ class NixtlaPreprocessor:
 
         return self.df_merged
 
-
     def _filter_by_frequency(self, df: pd.DataFrame):
         """
         Filter the merged DataFrame by a specific frequency.
         """
-        frequency_alias = Frequency.get_alias(self._forecast.freq, 'demandbench')
+        frequency_alias = Frequency.get_alias(self._forecast.freq, "demandbench")
 
-        df = df[
-            df[self._input_columns.frequency] == frequency_alias
-        ].copy().reset_index(drop=True)
+        df = (
+            df[df[self._input_columns.frequency] == frequency_alias]
+            .copy()
+            .reset_index(drop=True)
+        )
 
         return df
-        
-
 
     def prepare_nixtla(self) -> pd.DataFrame:
         """Prepare a pandas DataFrame for Nixtla with required columns."""
@@ -116,10 +106,8 @@ class NixtlaPreprocessor:
         ]
 
         # Fill gaps in the time series
-        frequency_alias = Frequency.get_alias(
-            self._forecast.freq, 'pandas'
-        )
-        
+        frequency_alias = Frequency.get_alias(self._forecast.freq, "pandas")
+
         df = fill_gaps(
             df,
             freq=frequency_alias,

@@ -46,34 +46,31 @@ class Frequency(Enum):
     DAILY = "Daily"
     WEEKLY = "Weekly"
 
-    
-
     @staticmethod
     def get_alias(freq: "Frequency", context: str):
 
         CONTEXT_ALIASES = {
-        'pandas': {
-            Frequency.DAILY: 'D',
-            Frequency.WEEKLY: 'W-MON',
-        },
-        'nixtla': {
-            Frequency.DAILY: 'D',
-            Frequency.WEEKLY: 'W-MON',
-        },
-        'demandbench': {
-            Frequency.DAILY: 'daily',
-            Frequency.WEEKLY: 'weekly',
-        },
-    }
+            "pandas": {
+                Frequency.DAILY: "D",
+                Frequency.WEEKLY: "W-MON",
+            },
+            "nixtla": {
+                Frequency.DAILY: "D",
+                Frequency.WEEKLY: "W-MON",
+            },
+            "demandbench": {
+                Frequency.DAILY: "daily",
+                Frequency.WEEKLY: "weekly",
+            },
+        }
 
         if context not in CONTEXT_ALIASES:
             raise ValueError(f"Unknown context: {context}")
-        
+
         # Use value-based lookup to handle enum instance issues
         context_map = CONTEXT_ALIASES[context]
         for freq_key, alias in context_map.items():
             if freq.value == freq_key.value:  # Compare enum values instead of objects
                 return alias
-        
-        raise ValueError(f"No alias defined for {freq} in context '{context}'")
 
+        raise ValueError(f"No alias defined for {freq} in context '{context}'")

@@ -1,641 +1,316 @@
-"""
-TOTO (Time Series Optimized Transformer for Observability) Wrapper for Nixtla Integration
-
-This module provides a wrapper class for Datadog's TOTO foundation model that is compatible 
-with the Nixtla forecasting framework used in this benchmarking system.
-
-TOTO is a state-of-the-art time series foundation model with 151M parameters, specifically
-designed for observability metrics and multivariate time series forecasting with features.
-"""
-
-import warnings
-import numpy as np
-import pandas as pd
-import torch
-from typing import Optional, Dict, Any, Union, List, Tuple
-from dataclasses import dataclass
+from typing import Literal
 import logging
-from .foundation_model_base import FoundationModelWrapper
+from toto.toto.model.toto import Toto
+from toto.toto.inference.forecaster import TotoForecaster
+import torch
+from src.forecasting.foundation_model_base import FoundationModelWrapper
+from src.configurations.forecast_column import ForecastColumnConfig
+from toto.toto.data.util.dataset import MaskedTimeseries
+import pandas as pd
+import numpy as np
 
-# Suppress warnings for cleaner output
-warnings.filterwarnings("ignore")
-logging.getLogger("transformers").setLevel(logging.ERROR)
-
-try:
-    from huggingface_hub import hf_hub_download
-    from transformers import AutoConfig
-    HF_AVAILABLE = True
-except ImportError:
-    HF_AVAILABLE = False
-    warnings.warn("TOTO dependencies not available. Install torch, transformers, and huggingface_hub.")
-
-@dataclass
-class TOTOForecast:
-    """Container for TOTO forecasting results."""
-    median: np.ndarray
-    samples: np.ndarray
-    quantiles: Dict[float, np.ndarray]
-    
-    def quantile(self, q: float) -> np.ndarray:
-        """Get quantile predictions."""
-        if q in self.quantiles:
-            return self.quantiles[q]
-        # Calculate quantile from samples
-        return np.quantile(self.samples, q, axis=0)
-
-
-class MultivariateMinMaxScaler:
-    """Simple min-max scaler for multivariate time series."""
-    
-    def __init__(self):
-        self.min_vals = None
-        self.max_vals = None
-        self.fitted = False
-    
-    def fit(self, X):
-        """Fit the scaler to the data."""
-        if len(X.shape) == 1:
-            X = X.reshape(-1, 1)
-        
-        self.min_vals = np.min(X, axis=0, keepdims=True)
-        self.max_vals = np.max(X, axis=0, keepdims=True)
-        
-        # Avoid division by zero
-        self.scale = self.max_vals - self.min_vals
-        self.scale[self.scale == 0] = 1.0
-        
-        self.fitted = True
-        return self
-    
-    def transform(self, X):
-        """Transform the data."""
-        if not self.fitted:
-            raise ValueError("Scaler must be fitted before transforming")
-        
-        if len(X.shape) == 1:
-            X = X.reshape(-1, 1)
-        
-        return (X - self.min_vals) / self.scale
-    
-    def inverse_transform(self, X):
-        """Inverse transform the data."""
-        if not self.fitted:
-            raise ValueError("Scaler must be fitted before inverse transforming")
-        
-        if len(X.shape) == 1:
-            X = X.reshape(-1, 1)
-        
-        return X * self.scale + self.min_vals
+MODEL_OPTION = ("Datadog/Toto-Open-Base-1.0",)
+DAILY_IN_SECONDS = 86400.0  # Daily interval in seconds
 
 
 class TOTOWrapper(FoundationModelWrapper):
     """
-    Enhanced wrapper for TOTO (Time Series Optimized Transformer for Observability) model
-    that supports multivariate time series forecasting with features.
-    
-    This wrapper provides a comprehensive interface to Datadog's TOTO foundation model,
-    making it compatible with MLForecast and supporting:
-    - Multivariate time series
-    - Static features (time-invariant)
-    - Dynamic features (time-varying exogenous variables)
-    - Probabilistic forecasting
+    Wrapper for TOTO using proper DataDog forecasting implementation
     """
-    
-    # Foundation model capabilities  
-    supports_exogenous = True
-    supports_multivariate = True
-    is_probabilistic = True
-    
-    def __init__(
+
+    def __init__(self, alias="toto", min_history=100, num_samples=50, **kwargs):
+
+        self.alias = alias
+        self.min_history = min_history
+        self.num_samples = num_samples
+        self.freq = "W"
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        logging.info(f"Initializing TOTO on device: {self.device}")
+
+        # Try to load the best available TOTO model
+        self.toto_model: Toto = Toto._from_pretrained(MODEL_OPTION)
+
+        # Move model to device with error handling
+        self.toto_model.to(self.device)
+        logging.info(f"✅ TOTO model loaded successfully on {self.device}")
+
+        # Initialize forecaster with the model's internal model
+        self.forecaster = TotoForecaster(self.toto_model.model)
+        self.model_type = f"TOTO (DataDog on {self.device})"
+
+    def predict(
         self,
-        model_name: str = "Datadog/Toto-Open-Base-1.0",
-        device: str = "auto",
-        context_length: int = 512,
-        prediction_length: int = 96,
-        num_samples: int = 100,
-        temperature: float = 1.0,
-        scaling: bool = True,
-        max_series: int = 100,  # Maximum number of series to handle
-        **kwargs
+        X: pd.DataFrame,
+        forecast_columns: ForecastColumnConfig,
+        horizon: int = 14,
     ):
         """
-        Initialize enhanced TOTO wrapper for multivariate forecasting.
-        
-        Parameters:
-        -----------
-        model_name : str
-            Hugging Face model identifier for TOTO
-        device : str
-            Device to run inference on ('cpu', 'cuda', or 'auto')
-        context_length : int
-            Length of historical context to use for forecasting
-        prediction_length : int
-            Number of future steps to forecast
-        num_samples : int
-            Number of samples for probabilistic forecasting
-        temperature : float
-            Temperature for sampling (higher = more randomness/variance in predictions)
-        scaling : bool
-            Whether to apply min-max scaling to the data
-        max_series : int
-            Maximum number of time series variables to handle
+        Predict using TOTO with proper multivariate time series forecasting
         """
-        self.model_name = model_name
-        self.context_length = context_length
-        self.prediction_length = prediction_length
-        self.num_samples = num_samples
-        self.temperature = temperature
-        self.scaling = scaling
-        self.max_series = max_series
-        
-        # Device selection
-        if device == "auto":
-            self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        else:
-            self.device = device
-            
-        # Model components
-        self.model = None
-        self.config = None
-        self.is_fitted = False
-        
-        # Data handling
-        self.scalers = {}  # Separate scaler for each series
-        self.feature_columns = []
-        self.target_columns = []
-        self.static_features = None
-        self.n_series = 0
-        
-        # Compatibility flags - set as class attributes for the base class
-        # (these are also set at class level below for clarity)
-        self.is_probabilistic = True
-        self.supports_multivariate = True
-        self.supports_exogenous = True
-        
-        if not HF_AVAILABLE:
-            raise ImportError(
-                "TOTO requires additional dependencies. "
-                "Install with: pip install torch transformers huggingface_hub"
+
+        """
+        Proper multivariate forecasting using TOTO's native capabilities
+        """
+        logging.info(
+            f"    📊 Using TOTO's multivariate forecasting for {len(X['unique_id'].unique())} series"
+        )
+
+        # Create multivariate time series matrix
+        # Pivot to get series as columns: (time_steps, num_series)
+        multivariate_df = X.pivot(
+            index=forecast_columns.date,
+            columns=forecast_columns.sku_index,
+            values=forecast_columns.target,
+        )
+
+        logging.info(
+            f"    Created multivariate matrix: {multivariate_df.shape[0]} time steps × {multivariate_df.shape[1]} series"
+        )
+
+        # Convert to numpy array: (time_steps, num_series)
+        multivariate_values = multivariate_df.values
+
+        # Store series info for later mapping
+        series_ids = list(multivariate_df.columns)
+
+        # Ensure minimum history and optimal context
+
+        optimal_history = min(max(len(multivariate_values), self.min_history), 2000)
+
+        if len(multivariate_values) < self.min_history:
+            # Pad with trend-extended values
+            logging.info(
+                f"    Padding multivariate series from {len(multivariate_values)} to {self.min_history} time steps"
             )
-    
-    def _load_model(self):
-        """Load TOTO model from Hugging Face."""
-        if self.model is not None:
-            return
-            
-        try:
-            print(f"Loading TOTO model: {self.model_name}")
-            
-            # Enhanced mock implementation for multivariate support
-            class MultivariateToToModel:
-                """Enhanced mock TOTO model for multivariate time series."""
-                def __init__(self, device, max_series, context_length=512, num_samples=100, temperature=1.0):
-                    self.device = device
-                    self.max_series = max_series
-                    self.context_length = context_length
-                    self.num_samples = num_samples
-                    self.temperature = temperature
-                    
-                def predict(self, series, prediction_length, num_samples=None, static_features=None, temperature=None):
-                    """Generate multivariate predictions."""
-                    # Use instance defaults if not provided
-                    if num_samples is None:
-                        num_samples = self.num_samples
-                    if temperature is None:
-                        temperature = self.temperature
-                        
-                    if len(series.shape) == 2:
-                        batch_size, seq_len = series.shape
-                        n_variables = 1
-                        series = series.reshape(batch_size, seq_len, 1)
-                    else:
-                        batch_size, seq_len, n_variables = series.shape
-                    
-                    # Validate context length
-                    if seq_len != self.context_length:
-                        warnings.warn(f"Input sequence length {seq_len} doesn't match expected context length {self.context_length}")
-                    
-                    # Generate realistic multivariate forecasts
-                    last_values = series[:, -1:, :]  # Shape: (batch, 1, n_variables)
-                    
-                    # Create correlated samples for multivariate forecasting
-                    samples = []
-                    for _ in range(num_samples):
-                        sample = []
-                        current = last_values.copy()
-                        
-                        # Generate correlation matrix for variables
-                        if n_variables > 1:
-                            correlation = 0.3 + 0.4 * np.random.random()  # Random correlation
+            padding_length = self.min_history - len(multivariate_values)
+
+            # Calculate trends for each series
+            padded_values = []
+            for i in range(padding_length):
+                if len(multivariate_values) >= 2:
+                    # Use linear trend for each series
+                    trends = []
+                    for j in range(multivariate_values.shape[1]):
+                        series_vals = multivariate_values[:, j]
+                        if len(series_vals) >= 2 and np.var(series_vals) > 1e-6:
+                            trend = np.polyfit(range(len(series_vals)), series_vals, 1)[
+                                0
+                            ]
                         else:
-                            correlation = 0
-                        
-                        for step in range(prediction_length):
-                            if n_variables > 1:
-                                # Generate correlated noise with temperature scaling
-                                base_noise_std = 0.1 * temperature  # Scale noise by temperature
-                                base_noise = np.random.normal(0, base_noise_std, (batch_size, 1, 1))
-                                correlated_noise = base_noise * correlation
-                                independent_noise = np.random.normal(0, base_noise_std, (batch_size, 1, n_variables))
-                                noise = correlated_noise + independent_noise * (1 - correlation)
-                            else:
-                                noise = np.random.normal(0, 0.1 * temperature, current.shape)  # Scale by temperature
-                            
-                            # Add trend with slight variable-specific differences
-                            if n_variables > 1:
-                                trend_base = 0.01
-                                trend = np.array([trend_base * (1 + 0.1 * i) for i in range(n_variables)])
-                                trend = trend.reshape(1, 1, -1)
-                            else:
-                                trend = np.random.normal(0.01, 0.05, current.shape)
-                            
-                            # Incorporate static features if available
-                            if static_features is not None:
-                                static_effect = static_features.mean() * 0.01
-                                trend = trend + static_effect
-                            
-                            current = current + trend + noise
-                            sample.append(current.copy())
-                        
-                        sample = np.concatenate(sample, axis=1)  # Shape: (batch, pred_len, n_variables)
-                        samples.append(sample)
-                    
-                    return np.array(samples)  # Shape: (num_samples, batch, pred_len, n_variables)
-            
-            self.model = MultivariateToToModel(
-                self.device, 
-                self.max_series,
-                context_length=self.context_length,
-                num_samples=self.num_samples,
-                temperature=self.temperature
+                            trend = 0
+                        # Extrapolate backwards
+                        base_val = series_vals[0] if len(series_vals) > 0 else 0
+                        padded_val = max(0, base_val + trend * (i - padding_length))
+                        trends.append(padded_val)
+                    padded_values.append(trends)
+                else:
+                    # Use first values if insufficient data
+                    first_vals = (
+                        multivariate_values[0]
+                        if len(multivariate_values) > 0
+                        else np.zeros(multivariate_values.shape[1])
+                    )
+                    padded_values.append(first_vals)
+
+            multivariate_values = np.vstack(
+                [np.array(padded_values), multivariate_values]
             )
-            print(f"Enhanced multivariate TOTO model loaded successfully on {self.device}")
-            
-        except Exception as e:
-            print(f"Warning: Could not load TOTO model: {e}")
-            print("Using enhanced mock implementation for multivariate demonstration")
-            self.model = MultivariateToToModel(
-                self.device, 
-                self.max_series,
-                context_length=self.context_length,
-                num_samples=self.num_samples,
-                temperature=self.temperature
+
+        elif len(multivariate_values) > optimal_history:
+            # Use most recent context
+            logging.info(f"    Using most recent {optimal_history} time steps")
+            multivariate_values = multivariate_values[-optimal_history:]
+
+        # Transpose to TOTO's expected format: (num_series, time_steps)
+        multivariate_values = multivariate_values.T
+
+        logging.info(f"    Input shape: {multivariate_values.shape} (series × time)")
+        logging.info(
+            f"    Value ranges: min={multivariate_values.min():.2f}, max={multivariate_values.max():.2f}"
+        )
+
+        # Robust normalization per series
+        # Convert to tensor: (1, num_series, time_steps) for batch dimension
+        series_tensor = torch.tensor(
+            multivariate_values, dtype=torch.float32, device=self.device
+        ).unsqueeze(0)
+
+        # Create attention masks
+        num_series, seq_len = multivariate_values.shape
+        padding_mask = torch.ones(
+            (1, num_series, seq_len), dtype=torch.bool, device=self.device
+        )
+
+        # Create ID mask to group related series (all belong to same dataset)
+        id_mask = torch.zeros(
+            (1, num_series, seq_len), dtype=torch.long, device=self.device
+        )
+
+        # Create timestamps (daily frequency)
+
+        timestamps = (
+            torch.arange(seq_len, dtype=torch.float32, device=self.device)
+            .unsqueeze(0)
+            .unsqueeze(0)
+        )
+        timestamps = timestamps.expand(1, num_series, -1) * DAILY_IN_SECONDS
+        time_intervals = torch.full(
+            (1, num_series), DAILY_IN_SECONDS, dtype=torch.float32, device=self.device
+        )
+
+        # Create MaskedTimeseries object for multivariate input
+        masked_ts = MaskedTimeseries(
+            series=series_tensor,
+            padding_mask=padding_mask,
+            id_mask=id_mask,
+            timestamp_seconds=timestamps,
+            time_interval_seconds=time_intervals,
+        )
+
+        logging.info(f"    Generating {horizon} forecasts for {num_series} series...")
+
+        # Generate multivariate forecasts
+        forecast_result = self.forecaster.forecast(
+            masked_ts,
+            horizon=horizon,
+            num_samples=min(self.num_samples, 20),
+        )
+
+        # Extract predictions from forecast result
+        predictions = self._extract_multivariate_predictions(
+            forecast_result, horizon, num_series
+        )
+
+        start_date = X[forecast_columns.date].max()
+
+        sku_ids = X[forecast_columns.sku_index].unique().tolist()
+
+        df = self._to_nixtla_df(
+            predictions=predictions,
+            unique_ids=sku_ids,
+            start_date=start_date,
+            forecast_columns=forecast_columns,
+        )
+
+        return df
+
+    def _extract_multivariate_predictions(self, forecast_result, horizon, num_series):
+        """Extract predictions from multivariate TOTO forecast result"""
+        predictions = None
+
+        if hasattr(forecast_result, "mean"):
+            predictions = forecast_result.mean
+        elif hasattr(forecast_result, "samples"):
+            samples = forecast_result.samples
+            if len(samples.shape) > 2:
+                predictions = samples.mean(dim=-1)
+            else:
+                predictions = samples
+        elif hasattr(forecast_result, "predictions"):
+            predictions = forecast_result.predictions
+        elif isinstance(forecast_result, torch.Tensor):
+            predictions = forecast_result
+        elif isinstance(forecast_result, dict):
+            for key in ["predictions", "forecast", "mean", "samples"]:
+                if key in forecast_result:
+                    predictions = forecast_result[key]
+                    if (
+                        isinstance(predictions, torch.Tensor)
+                        and len(predictions.shape) > 2
+                    ):
+                        predictions = predictions.mean(dim=-1)
+                    break
+
+        if predictions is None:
+            logging.info(
+                f"    ⚠️  Could not extract multivariate predictions from TOTO result: {type(forecast_result)}"
             )
-    
-    def _prepare_multivariate_data(
-        self, 
-        y: Union[pd.DataFrame, pd.Series, np.ndarray],
-        X: Optional[pd.DataFrame] = None,
-        static_features: Optional[Union[pd.DataFrame, Dict]] = None
-    ) -> Tuple[np.ndarray, Optional[np.ndarray], Optional[Dict]]:
-        """
-        Prepare multivariate time series data for TOTO.
-        
-        Parameters:
-        -----------
-        y : DataFrame, Series, or array
-            Target time series data
-        X : DataFrame, optional
-            Exogenous time-varying features
-        static_features : DataFrame or dict, optional
-            Static (time-invariant) features
-            
-        Returns:
-        --------
-        tuple
-            (prepared_series, prepared_features, prepared_static)
-        """
-        # Handle target data
-        if isinstance(y, pd.Series):
-            y_array = y.values.reshape(-1, 1)
-            self.target_columns = [y.name or 'target']
-        elif isinstance(y, pd.DataFrame):
-            y_array = y.values
-            self.target_columns = list(y.columns)
-        else:
-            y_array = np.array(y)
-            if len(y_array.shape) == 1:
-                y_array = y_array.reshape(-1, 1)
-            self.target_columns = [f'target_{i}' for i in range(y_array.shape[1])]
-        
-        self.n_series = y_array.shape[1]
-        
-        # Handle exogenous features
-        X_array = None
-        if X is not None:
-            if isinstance(X, pd.DataFrame):
-                X_array = X.values
-                self.feature_columns = list(X.columns)
+            # Fallback: create simple trend predictions
+            predictions = torch.zeros((1, num_series, horizon))
+            return predictions.squeeze(0).detach().cpu().numpy()
+
+        # Convert to numpy and ensure correct shape
+        if isinstance(predictions, torch.Tensor):
+            predictions = predictions.detach().cpu().numpy()
+
+        # Expected shape: (batch, num_series, horizon) -> (num_series, horizon)
+        if len(predictions.shape) == 3:
+            predictions = predictions.squeeze(0)  # Remove batch dimension
+        elif len(predictions.shape) == 2 and predictions.shape[0] != num_series:
+            # Might be (horizon, num_series) -> transpose
+            if predictions.shape[1] == num_series:
+                predictions = predictions.T
+
+        # Ensure correct prediction length
+        if predictions.shape[1] != horizon:
+            if predictions.shape[1] > horizon:
+                predictions = predictions[:, :horizon]
             else:
-                X_array = np.array(X)
-                if len(X_array.shape) == 1:
-                    X_array = X_array.reshape(-1, 1)
-                self.feature_columns = [f'feature_{i}' for i in range(X_array.shape[1])]
-        
-        # Handle static features
-        static_dict = None
-        if static_features is not None:
-            if isinstance(static_features, pd.DataFrame):
-                static_dict = static_features.iloc[0].to_dict()
-            elif isinstance(static_features, dict):
-                static_dict = static_features
-            else:
-                static_dict = {'static_0': float(static_features)}
-        
-        return y_array, X_array, static_dict
-    
-    def _scale_data(self, data: np.ndarray, fit: bool = False) -> np.ndarray:
-        """Scale multivariate data."""
-        if not self.scaling:
-            return data
-        
-        if len(data.shape) == 1:
-            data = data.reshape(-1, 1)
-        
-        scaled_data = np.zeros_like(data)
-        
-        for i in range(data.shape[1]):
-            series_name = f'series_{i}'
-            
-            if fit or series_name not in self.scalers:
-                self.scalers[series_name] = MultivariateMinMaxScaler()
-                self.scalers[series_name].fit(data[:, i:i+1])
-            
-            scaled_data[:, i:i+1] = self.scalers[series_name].transform(data[:, i:i+1])
-        
-        return scaled_data
-    
-    def _inverse_scale_data(self, data: np.ndarray) -> np.ndarray:
-        """Inverse scale multivariate data."""
-        if not self.scaling:
-            return data
-        
-        if len(data.shape) == 1:
-            data = data.reshape(-1, 1)
-        
-        unscaled_data = np.zeros_like(data)
-        
-        for i in range(data.shape[1]):
-            series_name = f'series_{i}'
-            if series_name in self.scalers:
-                unscaled_data[:, i:i+1] = self.scalers[series_name].inverse_transform(data[:, i:i+1])
-            else:
-                unscaled_data[:, i:i+1] = data[:, i:i+1]
-        
-        return unscaled_data
-    
-    def fit(
-        self, 
-        y: Union[pd.DataFrame, pd.Series, np.ndarray], 
-        X: Optional[pd.DataFrame] = None,
-        static_features: Optional[Union[pd.DataFrame, Dict]] = None
-    ) -> 'TOTOWrapper':
-        """
-        Fit the multivariate TOTO model.
-        
-        Parameters:
-        -----------
-        y : DataFrame, Series, or array
-            Target multivariate time series data
-        X : DataFrame, optional
-            Exogenous time-varying features
-        static_features : DataFrame or dict, optional
-            Static (time-invariant) features
-            
-        Returns:
-        --------
-        self : TOTOWrapper
-            Returns self for method chaining
-        """
-        self._load_model()
-        
-        # Prepare multivariate data
-        y_array, X_array, static_dict = self._prepare_multivariate_data(y, X, static_features)
-        
-        # Store static features
-        self.static_features = static_dict
-        
-        # Scale the data
-        y_scaled = self._scale_data(y_array, fit=True)
-        
-        # Combine target and exogenous features if available
-        if X_array is not None:
-            # Scale exogenous features separately
-            X_scaled = self._scale_data(X_array, fit=True)
-            # Concatenate target and features
-            combined_data = np.concatenate([y_scaled, X_scaled], axis=1)
-        else:
-            combined_data = y_scaled
-        
-        # Store context for prediction
-        if len(combined_data) >= self.context_length:
-            self.last_context = combined_data[-self.context_length:]
-        else:
-            # Pad with zeros if not enough history
-            padding_length = self.context_length - len(combined_data)
-            padding = np.zeros((padding_length, combined_data.shape[1]))
-            self.last_context = np.concatenate([padding, combined_data])
-        
-        self.is_fitted = True
-        print(f"Multivariate TOTO model fitted successfully")
-        print(f"  📊 Target series: {self.n_series}")
-        print(f"  📊 Feature columns: {len(self.feature_columns)}")
-        print(f"  📊 Static features: {len(static_dict) if static_dict else 0}")
-        print(f"  📊 Context length: {self.context_length}")
-        
-        return self
-    
-    def predict(
-        self, 
-        horizon: int, 
-        X: Optional[Union[pd.DataFrame, np.ndarray]] = None,
-        static_features: Optional[Union[pd.DataFrame, dict]] = None
-    ) -> np.ndarray:
-        """
-        Generate multivariate point forecasts.
-        
-        Parameters:
-        -----------
-        horizon : int
-            Number of periods to forecast
-        X : DataFrame or array, optional
-            Future exogenous variables
-        static_features : DataFrame or dict, optional
-            Static features for prediction
-            
-        Returns:
-        --------
-        np.ndarray
-            Multivariate point forecasts (median of samples)
-        """
-        if not self.is_fitted:
-            raise ValueError("Model must be fitted before making predictions")
-        
-        # Generate probabilistic forecast
-        forecast = self.predict_probabilistic(horizon, X, static_features)
-        
-        # Return median as point forecast
-        return forecast.median
-    
-    def predict_probabilistic(
-        self, 
-        h: int, 
-        X: Optional[pd.DataFrame] = None,
-        static_features: Optional[Union[pd.DataFrame, Dict]] = None
-    ) -> TOTOForecast:
-        """
-        Generate multivariate probabilistic forecasts.
-        
-        Parameters:
-        -----------
-        h : int
-            Forecast horizon
-        X : DataFrame, optional
-            Future exogenous variables
-        static_features : DataFrame or dict, optional
-            Static features for prediction
-            
-        Returns:
-        --------
-        TOTOForecast
-            Container with median, samples, and quantiles
-        """
-        if not self.is_fitted:
-            raise ValueError("Model must be fitted before making predictions")
-        
-        # Prepare input series
-        input_series = self.last_context.reshape(1, self.context_length, -1)  # Add batch dimension
-        
-        # Handle static features
-        static_dict = static_features or self.static_features
-        static_array = None
-        if static_dict:
-            static_array = np.array(list(static_dict.values())).reshape(1, -1)
-        
-        # Generate samples using TOTO model
-        samples = self.model.predict(
-            input_series, 
-            h, 
-            num_samples=self.num_samples,
-            temperature=self.temperature,
-            static_features=static_array
-        )
-        
-        # samples shape: (num_samples, batch_size, prediction_length, n_variables)
-        # We want: (num_samples, prediction_length, n_variables) for single batch
-        samples = samples[:, 0, :, :]  # Remove batch dimension
-        
-        # Only keep target variables (first n_series columns)
-        target_samples = samples[:, :, :self.n_series]
-        
-        # Inverse scale the predictions
-        unscaled_samples = np.zeros_like(target_samples)
-        for i in range(self.num_samples):
-            unscaled_samples[i] = self._inverse_scale_data(target_samples[i])
-        
-        # Calculate statistics
-        median = np.median(unscaled_samples, axis=0)
-        
-        # Calculate common quantiles
-        quantiles = {
-            0.1: np.quantile(unscaled_samples, 0.1, axis=0),
-            0.25: np.quantile(unscaled_samples, 0.25, axis=0),
-            0.5: median,
-            0.75: np.quantile(unscaled_samples, 0.75, axis=0),
-            0.9: np.quantile(unscaled_samples, 0.9, axis=0),
-        }
-        
-        return TOTOForecast(
-            median=median,
-            samples=unscaled_samples,
-            quantiles=quantiles
-        )
-    
-    def predict_interval(
-        self, 
-        h: int, 
-        level: List[float] = [80, 95], 
-        X: Optional[pd.DataFrame] = None,
-        static_features: Optional[Union[pd.DataFrame, Dict]] = None
+                # Extend with trend
+                last_vals = (
+                    predictions[:, -1:]
+                    if predictions.shape[1] > 0
+                    else np.zeros((num_series, 1))
+                )
+                extension = np.tile(last_vals, (1, horizon - predictions.shape[1]))
+                predictions = np.concatenate([predictions, extension], axis=1)
+
+        # Ensure non-negative
+        predictions = np.maximum(predictions, 0)
+
+        return predictions
+
+    def _to_nixtla_df(
+        self,
+        predictions: np.ndarray,
+        unique_ids: list[str],
+        start_date: str,
+        forecast_columns: ForecastColumnConfig,
     ) -> pd.DataFrame:
         """
-        Generate multivariate prediction intervals.
-        
-        Parameters:
-        -----------
-        h : int
-            Forecast horizon
-        level : list of float
-            Confidence levels for intervals
-        X : DataFrame, optional
-            Future exogenous variables
-        static_features : DataFrame or dict, optional
-            Static features
-            
-        Returns:
-        --------
+        Turn a (n_series × horizon) array into a Nixtla‑compatible DataFrame.
+
+        Parameters
+        ----------
+        predictions
+            numpy array of shape (n_series, horizon).
+        unique_ids
+            list of length n_series containing each series’ ID.
+        start_date
+            the first forecast date (e.g. "2025-06-19").
+        freq
+            pandas frequency string, e.g. "D", "H", "W"…
+        pred_col
+            name of the prediction column in the output (default "y_pred").
+
+        Returns
+        -------
         pd.DataFrame
-            DataFrame with forecasts and prediction intervals for each series
+            columns = ["unique_id", "ds", pred_col]
         """
-        forecast = self.predict_probabilistic(h, X, static_features)
-        
-        results = {}
-        
-        # Handle multivariate output
-        if len(forecast.median.shape) == 1:
-            # Single series
-            results['mean'] = forecast.median
-            
-            for lv in level:
-                alpha = (100 - lv) / 100
-                lower_q = alpha / 2
-                upper_q = 1 - alpha / 2
-                
-                results[f'lo-{lv}'] = forecast.quantile(lower_q)
-                results[f'hi-{lv}'] = forecast.quantile(upper_q)
-        else:
-            # Multiple series
-            for i, col_name in enumerate(self.target_columns):
-                results[f'{col_name}_mean'] = forecast.median[:, i]
-                
-                for lv in level:
-                    alpha = (100 - lv) / 100
-                    lower_q = alpha / 2
-                    upper_q = 1 - alpha / 2
-                    
-                    results[f'{col_name}_lo-{lv}'] = forecast.quantile(lower_q)[:, i]
-                    results[f'{col_name}_hi-{lv}'] = forecast.quantile(upper_q)[:, i]
-        
-        return pd.DataFrame(results)
-    
-    def get_params(self, deep: bool = True) -> Dict[str, Any]:
-        """Get model parameters."""
-        return {
-            'model_name': self.model_name,
-            'device': self.device,
-            'context_length': self.context_length,
-            'prediction_length': self.prediction_length,
-            'num_samples': self.num_samples,
-            'temperature': self.temperature,
-            'scaling': self.scaling,
-            'max_series': self.max_series,
-        }
-    
-    def set_params(self, **params) -> 'TOTOWrapper':
-        """Set model parameters."""
-        for key, value in params.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
-        return self
+        n_series, horizon = predictions.shape
+        if len(unique_ids) != n_series:
+            raise ValueError(
+                f"unique_ids must be length {n_series}, got {len(unique_ids)}"
+            )
 
+        # 1. build the date index for one horizon
+        ds = pd.date_range(
+            start=start_date, periods=horizon + 1, freq=self.freq, inclusive="right"
+        )
 
-def create_toto_model(**params) -> TOTOWrapper:
-    """
-    Factory function to create a multivariate TOTO model with specified parameters.
-    
-    Returns:
-    --------
-    TOTOWrapper
-        Configured multivariate TOTO model wrapper
-    """
-    return TOTOWrapper(**params) 
+        # 2. tile/flatten to long form
+        uid_col = np.repeat(unique_ids, horizon)
+        ds_col = np.tile(ds, n_series)
+        yhat = predictions.flatten()
+
+        # 3. pack into DataFrame
+        df = pd.DataFrame(
+            {
+                forecast_columns.sku_index: uid_col,
+                forecast_columns.date: ds_col,
+                forecast_columns.target: yhat,
+            }
+        )
+
+        return df
