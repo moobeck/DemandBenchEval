@@ -103,6 +103,13 @@ class ForecastTrainer:
             df_cv = self._run_framework_cv(engine, **cv_input)
             results.append(df_cv)
 
+            logging.info(
+                f"Cross-validation completed for {framework.name}. "
+                f"Results: {df_cv}"
+            )
+
+        
+
         combined_results = self._combine_results(results)
         logging.info("Cross-validation completed.")
         # Logging head of the combined results for debugging
@@ -178,25 +185,6 @@ class ForecastTrainer:
         Call the engine's cross_validation and set the proper index.
         """
         df_out = engine.cross_validation(**cv_kwargs)
-
-        # True if any duplicates exist across sku_index+date
-        has_dupes = df_out.duplicated(
-            subset=[self._forecast_columns.sku_index, self._forecast_columns.date],
-            keep=False,
-        ).any()
-
-        if has_dupes:
-            duplicates = df_out[
-                df_out.duplicated(
-                    subset=[
-                        self._forecast_columns.sku_index,
-                        self._forecast_columns.date,
-                    ],
-                    keep=False,
-                )
-            ]
-            logging.error(f"Duplicate entries found:\n{duplicates}")
-            raise ValueError("Duplicate entries found in cross‑validation output.")
 
         return df_out.set_index(
             [self._forecast_columns.sku_index, self._forecast_columns.date],

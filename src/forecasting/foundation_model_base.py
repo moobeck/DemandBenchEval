@@ -26,7 +26,6 @@ class FoundationModelWrapper(ABC):
     is_probabilistic: bool = False
     alias = None  # Should be set by subclasses to identify the model
 
-    @abstractmethod
     def fit(
         self,
         y: Union[pd.Series, pd.DataFrame, np.ndarray],
@@ -56,8 +55,7 @@ class FoundationModelWrapper(ABC):
         self,
         X: pd.DataFrame,
         forecast_columns: ForecastColumnConfig,
-        horizon: int = 14,
-        num_samples: int = 50,
+        **kwargs: Any,
     ) -> np.ndarray:
         """
         Generate point forecasts.
@@ -76,14 +74,4 @@ class FoundationModelWrapper(ABC):
         np.ndarray
             Point forecasts
         """
-        pass
-
-    @abstractmethod
-    def get_params(self, deep: bool = True) -> dict:
-        """Get model parameters."""
-        pass
-
-    @abstractmethod
-    def set_params(self, **params) -> "FoundationModelWrapper":
-        """Set model parameters."""
         pass

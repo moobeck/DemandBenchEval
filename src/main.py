@@ -180,6 +180,7 @@ def main():
         prep.merge()
         prep.remove_skus(skus="not_at_min_date")
         df = prep.prepare_nixtla()
+        df = prep.scale_target(df)
 
         # 3) Cross-validation
         trainer = ForecastTrainer(cfg.forecast, cfg.forecast_columns)

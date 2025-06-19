@@ -10,6 +10,9 @@ from src.configurations.forecasting import ForecastConfig
 from src.configurations.forecast_column import ForecastColumnConfig
 import logging
 
+from mlforecast.target_transforms import LocalStandardScaler
+from mlforecast import MLForecast
+
 
 class NixtlaPreprocessor:
     """
@@ -125,4 +128,37 @@ class NixtlaPreprocessor:
                 self._input_columns.target: self._forecast_columns.target,
             }
         )
+        return df
+
+    def scale_target(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Scale the target variable using LocalStandardScaler.
+
+        Parameters:
+        - df (pd.DataFrame): DataFrame containing the target variable to scale.
+
+        Returns:
+        - pd.DataFrame: DataFrame with the scaled target variable.
+        """
+        logging.info("Scaling target variable")
+
+        fcst_scaler = MLForecast(
+            models=[],
+            freq=self._forecast.freq,
+            target_transforms=[LocalStandardScaler()],
+        )
+
+        selected_columns = [
+            self._forecast_columns.sku_index,
+            self._forecast_columns.date,
+            self._forecast_columns.target,
+        ]
+
+        df[selected_columns] = fcst_scaler.preprocess(
+            df[selected_columns],
+            id_col=self._forecast_columns.sku_index,
+            time_col=self._forecast_columns.date,
+            target_col=self._forecast_columns.target,
+        )
+
         return df

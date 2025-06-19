@@ -93,68 +93,58 @@ class FoundationModelEngine(ForecastEngine):
         else:
             raise ValueError(f"Unsupported frequency: {forecast_config.freq}")
 
-        # Get unique time series IDs
-        unique_ids = df[forecast_columns.sku_index].unique()
-
         for model_name, model in self.models.items():
             logging.info(f"Cross-validating foundation model: {model_name}")
+            window_results = []
 
-            model_results = []
+            # For each cross-validation window
+            for window in range(n_windows):
+                # Calculate cutoff point for this window
+                cutoff_offset = (
+                    pd.Timedelta(days=window * step_size)
+                    if forecast_config.freq == Frequency.DAILY
+                    else pd.Timedelta(weeks=window * step_size)
+                )
+                cutoff = df[forecast_columns.date].max() - offset + cutoff_offset
 
-            # For each time series ID
-            for series_id in unique_ids:
-                series_df = df[df[forecast_columns.sku_index] == series_id].copy()
-                series_df = series_df.sort_values(forecast_columns.date)
-
-                # For each cross-validation window
-                for window in range(n_windows):
-                    # Calculate cutoff point
-                    cutoff_offset = (
-                        pd.Timedelta(days=window * step_size)
-                        if forecast_config.freq == Frequency.DAILY
-                        else pd.Timedelta(weeks=window * step_size)
-                    )
-                    cutoff = (
-                        series_df[forecast_columns.date].max() - offset + cutoff_offset
-                    )
-
-                    # Split data into train and test
-                    cutoff = series_df[forecast_columns.date].max() - offset
-                    train_data = series_df[series_df[forecast_columns.date] <= cutoff]
-                    test_data = series_df[series_df[forecast_columns.date] > cutoff]
-
-                    model.fit(
-                        y=train_data[forecast_columns.target],
-                        X=train_data.drop(columns=[forecast_columns.target]),
-                    )
-
-                    model_df = model.predict(
-                        X=test_data.drop(columns=[forecast_columns.target]),
-                        forecast_columns=forecast_columns,
-                        horizon=forecast_config.horizon,
-                    )
-
-            if model_results:
-                model_df = pd.DataFrame(model_results)
-                results.append(model_df)
+                # Split data into train and test
+                train_data = df[df[forecast_columns.date] <= cutoff]
+                
+                # Generate predictions
+                model_df = model.predict(
+                    X=train_data,
+                    forecast_columns=forecast_columns,
+                    horizon=h,  # Use h instead of forecast_config.horizon
+                    freq=forecast_config.freq,
+                )
+                
+                # Add cutoff column
+                model_df["cutoff"] = cutoff
+                
+                # Merge with actual values from test data
+                # First get the unique SKU IDs and dates from predictions
+                merged_df = pd.merge(
+                    model_df,
+                    df[[forecast_columns.sku_index, forecast_columns.date, forecast_columns.target]],
+                    on=[forecast_columns.sku_index, forecast_columns.date],
+                    how="left"
+                )
+                
+                window_results.append(merged_df)
+                
+            # Combine all windows
+            if window_results:
+                model_results = pd.concat(window_results, ignore_index=True)
+                results.append(model_results)
 
         # Combine results from all models
-        if results:
-
-            combined_results = self._combine_results(results)
-
-            return combined_results
-        else:
-            # Return empty DataFrame with correct structure
-            return pd.DataFrame(
-                columns=[
-                    forecast_columns.sku_index,
-                    forecast_columns.date,
-                    forecast_columns.target,
-                    "cutoff",
-                ]
-            )
-
+        combined_results = self._combine_results(results)
+            
+        logging.info(
+            f"Cross-validation completed for foundation models. Results: {combined_results}"
+        )
+        return combined_results
+    
 
 class StatsForecastEngine(ForecastEngine):
     def __init__(self, *args, **kw):
@@ -241,12 +231,10 @@ class AutoMLForecastEngine(ForecastEngine):
             dfs.append(df)
         # Combine the results from all models
         combined = self._combine_results(dfs)
+        logging.info(
+            f"Cross-validation completed for AutoMLForecastEngine. Results: {combined}"
+        )
 
-        # Log shape and columns of the combined DataFrame
-        logging.info(f"Combined Auto ML DataFrame shape: {combined.shape}")
-        logging.info(f"Combined Auto ML DataFrame columns: {combined.columns.tolist()}")
-        # Log head of the combined DataFrame
-        logging.info(f"Head of combined Auto ML DataFrame:\n{combined.head()}")
         return combined
 
 

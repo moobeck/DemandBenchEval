@@ -34,5 +34,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src/ ./src/
 COPY config/ ./config/
 
+# Make sure toto's inner model folder is on PYTHONPATH so imports work
+ENV PYTHONPATH="/app/toto/toto${PYTHONPATH:+:${PYTHONPATH}}"
+
 ENTRYPOINT ["python", "-m", "src.main"]
 CMD ["-c", "config/public/config.yaml", "-s", "config/private/config.example.yaml"]
