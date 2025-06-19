@@ -103,19 +103,11 @@ class ForecastTrainer:
             df_cv = self._run_framework_cv(engine, **cv_input)
             results.append(df_cv)
 
-            logging.info(
-                f"Cross-validation completed for {framework.name}. "
-                f"Results: {df_cv}"
-            )
 
-        
 
         combined_results = self._combine_results(results)
         logging.info("Cross-validation completed.")
-        # Logging head of the combined results for debugging
-        logging.debug(
-            f"Combined results head after cv (return):\n{combined_results.head()}"
-        )
+
 
         return combined_results
 

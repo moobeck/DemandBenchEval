@@ -49,12 +49,6 @@ class TOTOWrapper(FoundationModelWrapper):
         Predict using TOTO with proper multivariate time series forecasting
         """
 
-        """
-        Proper multivariate forecasting using TOTO's native capabilities
-        """
-        logging.info(
-            f"Using TOTO's multivariate forecasting for {len(X[forecast_columns.sku_index].unique())} series"
-        )
 
         # Create and preprocess multivariate time series matrix
         multivariate_values = self._create_multivariate_matrix(X, forecast_columns)
@@ -77,11 +71,6 @@ class TOTOWrapper(FoundationModelWrapper):
             forecast_result, horizon, num_series
         )
 
-        # Predict shape should be (n_series, horizon)
-        logging.info(
-            f"   Predictions shape: {predictions.shape} should be "
-            f"({num_series}, {horizon})"
-        )
 
         df = self._to_nixtla_df(
             predictions=predictions,
@@ -112,11 +101,6 @@ class TOTOWrapper(FoundationModelWrapper):
             index=forecast_columns.date,
             columns=forecast_columns.sku_index,
             values=forecast_columns.target,
-        )
-
-        # Log matrix dimensions for debugging
-        logging.info(
-            f"    Created multivariate matrix: {multivariate_df.shape[0]} time steps × {multivariate_df.shape[1]} series"
         )
 
         # Convert to numpy array and store column mapping for later reference
@@ -162,7 +146,6 @@ class TOTOWrapper(FoundationModelWrapper):
 
         # Case 2: Need to truncate history (too long)
         elif len(multivariate_values) > optimal_history:
-            logging.info(f"    Using most recent {optimal_history} time steps")
             multivariate_values = multivariate_values[-optimal_history:]
 
         return multivariate_values
@@ -182,9 +165,6 @@ class TOTOWrapper(FoundationModelWrapper):
         if len(values) >= target_length:
             return values
 
-        logging.info(
-            f"    Padding multivariate series from {len(values)} to {target_length} time steps"
-        )
         padding_length = target_length - len(values)
 
         # Prepare container for padded values
@@ -246,11 +226,6 @@ class TOTOWrapper(FoundationModelWrapper):
         multivariate_values = multivariate_values.T
         num_series, seq_len = multivariate_values.shape
 
-        # Log diagnostic information
-        logging.info(f"    Input shape: {multivariate_values.shape} (series × time)")
-        logging.info(
-            f"    Value ranges: min={multivariate_values.min():.2f}, max={multivariate_values.max():.2f}"
-        )
 
         # Convert to tensor with batch dimension: (1, num_series, time_steps)
         series_tensor = torch.tensor(
@@ -342,9 +317,7 @@ class TOTOWrapper(FoundationModelWrapper):
                     break
 
         if predictions is None:
-            logging.info(
-                f"    ⚠️  Could not extract multivariate predictions from TOTO result: {type(forecast_result)}"
-            )
+  
             # Fallback: create simple trend predictions
             predictions = torch.zeros((1, num_series, horizon))
             return predictions.squeeze(0).detach().cpu().numpy()

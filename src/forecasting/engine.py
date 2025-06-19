@@ -79,9 +79,6 @@ class FoundationModelEngine(ForecastEngine):
         Perform cross-validation for foundation models.
         Foundation models use a different approach than traditional ML models.
         """
-        logging.info(
-            f"Starting foundation model cross-validation with {len(self.models)} models..."
-        )
 
         results = []
 
@@ -140,9 +137,6 @@ class FoundationModelEngine(ForecastEngine):
         # Combine results from all models
         combined_results = self._combine_results(results)
             
-        logging.info(
-            f"Cross-validation completed for foundation models. Results: {combined_results}"
-        )
         return combined_results
     
 
