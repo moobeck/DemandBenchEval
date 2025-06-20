@@ -50,4 +50,5 @@ metrics:
     - MSSE
     - MSE 
     - MAE
+    - RMSE
   seasonality: 52

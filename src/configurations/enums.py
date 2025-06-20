@@ -32,6 +32,7 @@ class MetricName(Enum):
     MSSE = "msse"
     MAE = "mae"
     MSE = "mse"
+    RMSE = "rmse"
 
 
 class DatasetName(Enum):
