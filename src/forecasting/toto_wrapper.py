@@ -52,7 +52,6 @@ class TOTOWrapper(FoundationModelWrapper):
 
         # Create and preprocess multivariate time series matrix
         multivariate_values = self._create_multivariate_matrix(X, forecast_columns)
-        multivariate_values = self._ensure_proper_history_length(multivariate_values)
 
         masked_ts = self._prepare_masked_timeseries(multivariate_values)
 
@@ -63,15 +62,8 @@ class TOTOWrapper(FoundationModelWrapper):
             num_samples=self.num_samples,
         )
 
+        predictions = forecast_result.mean.detach().cpu().numpy().squeeze(axis=0)
         unique_ids = X[forecast_columns.sku_index].unique().tolist()
-        num_series = len(unique_ids)
-
-        # Extract predictions from forecast result
-        predictions = self._extract_multivariate_predictions(
-            forecast_result, horizon, num_series
-        )
-
-
         df = self._to_nixtla_df(
             predictions=predictions,
             unique_ids=unique_ids,
@@ -107,49 +99,7 @@ class TOTOWrapper(FoundationModelWrapper):
         multivariate_values = multivariate_df.values
 
         return multivariate_values
-
-    def _ensure_proper_history_length(
-        self,
-        multivariate_values: np.ndarray,
-        min_history: int = None,
-        max_history: int = 2000,
-    ) -> np.ndarray:
-        """
-        Ensure the multivariate time series has proper history length:
-        - If too short, pad with trend-based values
-        - If too long, truncate to most recent values
-
-        Args:
-            multivariate_values: Input array with shape (time_steps, num_series)
-            min_history: Minimum required history length (default: self.min_history)
-            max_history: Maximum history length (default: 2000)
-
-        Returns:
-            np.ndarray: Processed array with proper history length
-        """
-        # Use instance default if not provided
-        min_history = min_history or self.min_history
-
-        # Validate inputs
-        if multivariate_values.size == 0:
-            logging.warning("Empty multivariate array received, returning empty array")
-            return multivariate_values
-
-        # Calculate optimal history length
-        optimal_history = min(max(len(multivariate_values), min_history), max_history)
-
-        # Case 1: Need to pad history (too short)
-        if len(multivariate_values) < min_history:
-            multivariate_values = self._pad_time_series(
-                multivariate_values, min_history
-            )
-
-        # Case 2: Need to truncate history (too long)
-        elif len(multivariate_values) > optimal_history:
-            multivariate_values = multivariate_values[-optimal_history:]
-
-        return multivariate_values
-
+    
     def _pad_time_series(self, values: np.ndarray, target_length: int) -> np.ndarray:
         """
         Pad time series with trend-based extrapolation to reach target length.
@@ -289,69 +239,6 @@ class TOTOWrapper(FoundationModelWrapper):
             "time_intervals": time_intervals,
         }
 
-    def _extract_multivariate_predictions(self, forecast_result, horizon, num_series):
-        """Extract predictions from multivariate TOTO forecast result"""
-        predictions = None
-
-        if hasattr(forecast_result, "mean"):
-            predictions = forecast_result.mean
-        elif hasattr(forecast_result, "samples"):
-            samples = forecast_result.samples
-            if len(samples.shape) > 2:
-                predictions = samples.mean(dim=-1)
-            else:
-                predictions = samples
-        elif hasattr(forecast_result, "predictions"):
-            predictions = forecast_result.predictions
-        elif isinstance(forecast_result, torch.Tensor):
-            predictions = forecast_result
-        elif isinstance(forecast_result, dict):
-            for key in ["predictions", "forecast", "mean", "samples"]:
-                if key in forecast_result:
-                    predictions = forecast_result[key]
-                    if (
-                        isinstance(predictions, torch.Tensor)
-                        and len(predictions.shape) > 2
-                    ):
-                        predictions = predictions.mean(dim=-1)
-                    break
-
-        if predictions is None:
-  
-            # Fallback: create simple trend predictions
-            predictions = torch.zeros((1, num_series, horizon))
-            return predictions.squeeze(0).detach().cpu().numpy()
-
-        # Convert to numpy and ensure correct shape
-        if isinstance(predictions, torch.Tensor):
-            predictions = predictions.detach().cpu().numpy()
-
-        # Expected shape: (batch, num_series, horizon) -> (num_series, horizon)
-        if len(predictions.shape) == 3:
-            predictions = predictions.squeeze(0)  # Remove batch dimension
-        elif len(predictions.shape) == 2 and predictions.shape[0] != num_series:
-            # Might be (horizon, num_series) -> transpose
-            if predictions.shape[1] == num_series:
-                predictions = predictions.T
-
-        # Ensure correct prediction length
-        if predictions.shape[1] != horizon:
-            if predictions.shape[1] > horizon:
-                predictions = predictions[:, :horizon]
-            else:
-                # Extend with trend
-                last_vals = (
-                    predictions[:, -1:]
-                    if predictions.shape[1] > 0
-                    else np.zeros((num_series, 1))
-                )
-                extension = np.tile(last_vals, (1, horizon - predictions.shape[1]))
-                predictions = np.concatenate([predictions, extension], axis=1)
-
-        # Ensure non-negative
-        predictions = np.maximum(predictions, 0)
-
-        return predictions
 
     def _to_nixtla_df(
         self,
