@@ -48,4 +48,6 @@ metrics:
   metrics:
     - MASE
     - MSSE
+    - MSE 
+    - MAE
   seasonality: 52
