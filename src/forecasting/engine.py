@@ -106,7 +106,7 @@ class FoundationModelEngine(ForecastEngine):
 
                 # Split data into train and test
                 train_data = df[df[forecast_columns.date] <= cutoff]
-                
+
                 # Generate predictions
                 model_df = model.predict(
                     X=train_data,
@@ -114,21 +114,27 @@ class FoundationModelEngine(ForecastEngine):
                     horizon=h,  # Use h instead of forecast_config.horizon
                     freq=forecast_config.freq,
                 )
-                
+
                 # Add cutoff column
                 model_df["cutoff"] = cutoff
-                
+
                 # Merge with actual values from test data
                 # First get the unique SKU IDs and dates from predictions
                 merged_df = pd.merge(
                     model_df,
-                    df[[forecast_columns.sku_index, forecast_columns.date, forecast_columns.target]],
+                    df[
+                        [
+                            forecast_columns.sku_index,
+                            forecast_columns.date,
+                            forecast_columns.target,
+                        ]
+                    ],
                     on=[forecast_columns.sku_index, forecast_columns.date],
-                    how="left"
+                    how="left",
                 )
-                
+
                 window_results.append(merged_df)
-                
+
             # Combine all windows
             if window_results:
                 model_results = pd.concat(window_results, ignore_index=True)
@@ -136,9 +142,9 @@ class FoundationModelEngine(ForecastEngine):
 
         # Combine results from all models
         combined_results = self._combine_results(results)
-            
+
         return combined_results
-    
+
 
 class StatsForecastEngine(ForecastEngine):
     def __init__(self, *args, **kw):
@@ -164,8 +170,9 @@ class StatsForecastEngine(ForecastEngine):
 
 
 class AutoMLForecastEngine(ForecastEngine):
-    def __init__(self, *args, **kw):
+    def __init__(self, num_samples: int, *args, **kw):
         self._engine: AutoMLForecast = AutoMLForecast(*args, **kw)
+        self.num_samples = num_samples
 
     def cross_validation(
         self,
@@ -201,7 +208,7 @@ class AutoMLForecastEngine(ForecastEngine):
             h=h,
             n_windows=n_windows,
             step_size=step_size,
-            num_samples=1,
+            num_samples=self.num_samples,
             refit=refit,
             **kwargs,
         )
@@ -225,9 +232,6 @@ class AutoMLForecastEngine(ForecastEngine):
             dfs.append(df)
         # Combine the results from all models
         combined = self._combine_results(dfs)
-        logging.info(
-            f"Cross-validation completed for AutoMLForecastEngine. Results: {combined}"
-        )
 
         return combined
 

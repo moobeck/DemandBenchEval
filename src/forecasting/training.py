@@ -10,7 +10,7 @@ from src.forecasting.engine import (
 )
 from src.configurations.forecast_column import ForecastColumnConfig
 from src.configurations.forecasting import ForecastConfig
-from src.configurations.enums import Framework, Frequency
+from src.configurations.enums import Framework, Frequency, ModelName
 from mlforecast.target_transforms import LocalMinMaxScaler
 
 
@@ -45,10 +45,16 @@ class ForecastTrainer:
                         "static_features": self._forecast_columns.static,
                         "max_horizon": self._forecast_config.horizon,
                     },
+                    "num_samples": forecast_config.model_config[Framework.ML][
+                        "num_samples"
+                    ] if Framework.ML in forecast_config.model_config else None,
                 },
             ),
             Framework.NEURAL: (NeuralForecastEngine, {}),
-            Framework.FM: (FoundationModelEngine, {}),
+            Framework.FM: (
+                FoundationModelEngine,
+                {},
+            ),
         }
 
         self.frameworks = self._build_frameworks()
@@ -103,11 +109,8 @@ class ForecastTrainer:
             df_cv = self._run_framework_cv(engine, **cv_input)
             results.append(df_cv)
 
-
-
         combined_results = self._combine_results(results)
         logging.info("Cross-validation completed.")
-
 
         return combined_results
 

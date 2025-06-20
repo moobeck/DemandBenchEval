@@ -37,11 +37,10 @@ class ModelSpec:
 @dataclass(frozen=True)
 class DefaultParams:
 
-    STATS = {
-        "season_length": 7,
-    }
+    STATS = {}
     ML = {}
     NEURAL = {"h": 14, "backend": "ray", "num_samples": 100}
+    FM = {}
 
 
 MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
@@ -81,12 +80,9 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
         default_params=DefaultParams.ML,
     ),
     ModelName.TOTO: ModelSpec(
-        factory=lambda **p: TOTOWrapper(alias="toto", **p),
+        factory=lambda **p: TOTOWrapper(alias="Toto", **p),
         framework=Framework.FM,
-        default_params={
-            "min_history": 100,
-            "num_samples": 50,
-        },
+        default_params=DefaultParams.FM,
     ),
     ModelName.TRANSFORMER: ModelSpec(
         factory=lambda **p: AutoVanillaTransformer(**p),
@@ -130,10 +126,10 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
 class ForecastConfig:
     names: List[ModelName]
     freq: Frequency = Frequency.DAILY
-    season_length: int = 7
     horizon: int = 14
     lags: List[int] = field(default_factory=list)
     date_features: List[str] = field(default_factory=list)
+    model_config: Dict[Framework, Dict[str, Any]] = field(default_factory=dict)
 
     @property
     def models(self) -> Dict[Framework, Dict[ModelName, ForecastModel]]:
@@ -153,16 +149,12 @@ class ForecastConfig:
             # merge defaults with trainer-level params
             params = spec.default_params.copy()
             if spec.framework == Framework.STATS:
-                params["season_length"] = self.season_length
+                params["season_length"] = Frequency.get_season_length(self.freq)
             elif spec.framework == Framework.NEURAL:
                 params["h"] = self.horizon
             elif spec.framework == Framework.FM:
-                # Foundation models get horizon and season_length for context
                 if key == ModelName.TOTO:
-                    params["prediction_length"] = self.horizon
-                    params["context_length"] = min(512, max(64, self.season_length * 8))
-
-            # instantiate
+                    params["num_samples"]  = self.model_config[Framework.FM]["TOTO"]["num_samples"]
             frameworks[spec.framework][name] = spec.factory(**params)
 
         return frameworks

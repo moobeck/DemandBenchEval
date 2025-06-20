@@ -1,17 +1,14 @@
-from typing import Literal
+from typing import Dict, Any
 import logging
 from toto.toto.model.toto import Toto
 from toto.toto.inference.forecaster import TotoForecaster
 import torch
 from src.forecasting.foundation_model_base import FoundationModelWrapper
 from src.configurations.forecast_column import ForecastColumnConfig
-from src.configurations.enums import Frequency
+from src.configurations.enums import Frequency, TimeInSeconds, ModelName
 from toto.toto.data.util.dataset import MaskedTimeseries
 import pandas as pd
 import numpy as np
-
-MODEL_OPTION = "Datadog/Toto-Open-Base-1.0"
-DAILY_IN_SECONDS = 86400.0  # Daily interval in seconds
 
 
 class TOTOWrapper(FoundationModelWrapper):
@@ -19,16 +16,21 @@ class TOTOWrapper(FoundationModelWrapper):
     Wrapper for TOTO using proper DataDog forecasting implementation
     """
 
-    def __init__(self, alias="toto", min_history=100, num_samples=50, **kwargs):
+    def __init__(
+        self,
+        num_samples: int,
+        alias="Toto",
+        model_option="Datadog/Toto-Open-Base-1.0",
+        **kwargs,
+    ):
 
         self.alias = alias
-        self.min_history = min_history
         self.num_samples = num_samples
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         logging.info(f"Initializing TOTO on device: {self.device}")
 
         # Try to load the best available TOTO model
-        self.toto_model: Toto = Toto.from_pretrained(MODEL_OPTION)
+        self.toto_model: Toto = Toto.from_pretrained(model_option)
 
         # Move model to device with error handling
         self.toto_model.to(self.device)
@@ -43,17 +45,16 @@ class TOTOWrapper(FoundationModelWrapper):
         X: pd.DataFrame,
         forecast_columns: ForecastColumnConfig,
         horizon: int,
-        freq: Frequency
+        freq: Frequency,
     ):
         """
         Predict using TOTO with proper multivariate time series forecasting
         """
 
-
         # Create and preprocess multivariate time series matrix
         multivariate_values = self._create_multivariate_matrix(X, forecast_columns)
 
-        masked_ts = self._prepare_masked_timeseries(multivariate_values)
+        masked_ts = self._prepare_masked_timeseries(multivariate_values, frequency=freq)
 
         # Generate multivariate forecasts
         forecast_result = self.forecaster.forecast(
@@ -99,7 +100,7 @@ class TOTOWrapper(FoundationModelWrapper):
         multivariate_values = multivariate_df.values
 
         return multivariate_values
-    
+
     def _pad_time_series(self, values: np.ndarray, target_length: int) -> np.ndarray:
         """
         Pad time series with trend-based extrapolation to reach target length.
@@ -146,7 +147,7 @@ class TOTOWrapper(FoundationModelWrapper):
         return np.vstack([np.array(padded_values), values])
 
     def _prepare_masked_timeseries(
-        self, multivariate_values: np.ndarray, time_interval: float = DAILY_IN_SECONDS
+        self, multivariate_values: np.ndarray, frequency: Frequency
     ) -> MaskedTimeseries:
         """
         Prepare a MaskedTimeseries object from numpy array for TOTO model input.
@@ -159,7 +160,7 @@ class TOTOWrapper(FoundationModelWrapper):
 
         Args:
             multivariate_values: Numpy array with shape (time_steps, num_series)
-            time_interval: Time interval between steps in seconds (default: daily)
+            frequency: Time frequency of the data (e.g., daily, weekly)
 
         Returns:
             MaskedTimeseries: Properly formatted input for TOTO forecaster
@@ -176,13 +177,13 @@ class TOTOWrapper(FoundationModelWrapper):
         multivariate_values = multivariate_values.T
         num_series, seq_len = multivariate_values.shape
 
-
         # Convert to tensor with batch dimension: (1, num_series, time_steps)
         series_tensor = torch.tensor(
             multivariate_values, dtype=torch.float32, device=self.device
         ).unsqueeze(0)
 
         # Create tensor components with consistent dimensions
+        time_interval = TimeInSeconds[frequency.name].value
         tensors = self._create_tensor_components(num_series, seq_len, time_interval)
 
         # Assemble MaskedTimeseries object
@@ -239,7 +240,6 @@ class TOTOWrapper(FoundationModelWrapper):
             "time_intervals": time_intervals,
         }
 
-
     def _to_nixtla_df(
         self,
         predictions: np.ndarray,
@@ -256,12 +256,11 @@ class TOTOWrapper(FoundationModelWrapper):
             raise ValueError(
                 f"unique_ids must be length {n_series}, got {len(unique_ids)}"
             )
-        
 
         # 1. build the date index for one horizon
         pd_frequency = Frequency.get_alias(frequency, "pandas")
         ds = pd.date_range(
-            start=start_date, periods=horizon+1, freq=pd_frequency, inclusive="right"
+            start=start_date, periods=horizon + 1, freq=pd_frequency, inclusive="right"
         )
 
         # 2. tile/flatten to long form

@@ -12,7 +12,7 @@ from src.configurations.forecast_column import ForecastColumnConfig
 from src.configurations.cross_validation import CrossValidationConfig
 from src.configurations.forecasting import ForecastConfig
 from src.configurations.metrics import MetricConfig
-from src.configurations.enums import ModelName, MetricName, DatasetName
+from src.configurations.enums import ModelName, MetricName, DatasetName, Framework
 from src.configurations.wandb import WandbConfig
 from src.configurations.global_cfg import GlobalConfig
 from src.utils.wandb_orchestrator import WandbOrchestrator
@@ -122,10 +122,13 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
         ),
         forecast=ForecastConfig(
             names=[ModelName[name] for name in forecast["models"]],
-            season_length=forecast["season_length"],
             horizon=forecast["horizon"],
             lags=forecast["lags"],
             date_features=forecast["date_features"],
+            model_config={
+                Framework[fw]: forecast["model_config"][fw]
+                for fw in forecast["model_config"]
+            },
         ),
         metrics=MetricConfig(
             names=[MetricName[name] for name in public_config["metrics"]["metrics"]],
@@ -189,11 +192,6 @@ def main():
             n_windows=cfg.cross_validation.cv_windows,
             step_size=cfg.cross_validation.step_size,
             refit=cfg.cross_validation.refit,
-        )
-
-        # Log head of the cross-validation DataFrame for debugging
-        logging.info(
-            f"Cross-validation DataFrame head for {dataset_name}:\n{cv_df.head()}"
         )
 
         # 4) Evaluation

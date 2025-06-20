@@ -2,10 +2,10 @@ from enum import Enum, auto
 
 
 class Framework(Enum):
-    STATS = auto()
-    ML = auto()
-    NEURAL = auto()
-    FM = auto()
+    STATS = "STATS"
+    ML = "ML"
+    NEURAL = "NEURAL"
+    FM = "FM"
 
 
 class ModelName(Enum):
@@ -75,3 +75,19 @@ class Frequency(Enum):
                 return alias
 
         raise ValueError(f"No alias defined for {freq} in context '{context}'")
+
+    @staticmethod
+    def get_season_length(freq: "Frequency") -> int:
+
+        SEASON_LENGTHS = {
+            Frequency.DAILY: 7,
+            Frequency.WEEKLY: 52,
+        }
+        if freq not in SEASON_LENGTHS:
+            raise ValueError(f"Unsupported frequency: {freq}")
+        return SEASON_LENGTHS[freq]
+
+
+class TimeInSeconds(Enum):
+    DAILY = 86400
+    WEEKLY = 604800
