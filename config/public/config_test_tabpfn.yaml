@@ -13,7 +13,7 @@ input_columns:
   frequency: "frequency"
 
 datasets:
-  - MAISHAMEDS
+  - BAKERY
 
 forecast_columns:
   date:    "date"
@@ -32,8 +32,6 @@ forecast_columns:
 
 forecast:
   models:
-    - LGBM
-    - TOTO
     - TABPFN
   horizon: 4
   lags: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
@@ -41,8 +39,6 @@ forecast:
     ML:
       num_samples: 50
     FM:
-      TOTO:
-        num_samples: 50
       TABPFN:
         n_estimators: 4        # TabPFN ensemble size (internal sampling)
         max_samples: 500       # Max training samples (due to TabPFN limitations)  
@@ -52,8 +48,8 @@ forecast:
   date_features:
     - month
 cross_validation:
-  cv_windows: 6
-  step_size: 4
+  cv_windows: 2
+  step_size: 2
   refit: false
 
 metrics:
@@ -63,4 +59,4 @@ metrics:
     - MSE 
     - MAE
     - RMSE
-  seasonality: 52
+  seasonality: 52 

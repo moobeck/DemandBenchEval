@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from typing import List, Dict
 from demandbench.datasets import Dataset
 from src.forecasting.toto_wrapper import TOTOWrapper
-
+from src.forecasting.tabpfn_wrapper import TabPFNWrapper
 
 ForecastModel: TypeAlias = Any
 
@@ -81,6 +81,11 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
     ),
     ModelName.TOTO: ModelSpec(
         factory=lambda **p: TOTOWrapper(alias="Toto", **p),
+        framework=Framework.FM,
+        default_params=DefaultParams.FM,
+    ),
+    ModelName.TABPFN: ModelSpec(
+        factory=lambda **p: TabPFNWrapper(alias="TabPFN", **p),
         framework=Framework.FM,
         default_params=DefaultParams.FM,
     ),
@@ -153,9 +158,14 @@ class ForecastConfig:
             elif spec.framework == Framework.NEURAL:
                 params["h"] = self.horizon
             elif spec.framework == Framework.FM:
-                if key == ModelName.TOTO:
-                    params["num_samples"]  = self.model_config[Framework.FM]["TOTO"]["num_samples"]
-            frameworks[spec.framework][name] = spec.factory(**params)
+                if key == ModelName.TOTO and TOTO_AVAILABLE:
+                    params.update(self.model_config[Framework.FM]["TOTO"])
+                elif key == ModelName.TABPFN:
+                    params.update(self.model_config[Framework.FM]["TABPFN"])
+            
+            model_instance = spec.factory(**params)
+            if model_instance is not None:  # Skip unavailable models
+                frameworks[spec.framework][name] = model_instance
 
         return frameworks
 
