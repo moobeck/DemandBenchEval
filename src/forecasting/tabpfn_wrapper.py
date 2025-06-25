@@ -3,7 +3,7 @@ import logging
 import torch
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
+
 from tabpfn import TabPFNRegressor
 from src.forecasting.foundation_model_base import FoundationModelWrapper
 from src.configurations.forecast_column import ForecastColumnConfig
@@ -22,7 +22,6 @@ class TabPFNWrapper(FoundationModelWrapper):
         max_samples: int = 10000,
         random_state: int = 42,
         n_lags: int = 10,
-        scaling: bool = True,
         alias="TabPFN",
         **kwargs,
     ):
@@ -34,7 +33,6 @@ class TabPFNWrapper(FoundationModelWrapper):
             max_samples: Maximum samples for TabPFN (due to model limitations)
             random_state: Random state for reproducibility
             n_lags: Number of lag features to create for time series modeling
-            scaling: Whether to apply min-max scaling
             alias: Model alias for output column naming
             **kwargs: Additional TabPFN parameters
         """
@@ -43,7 +41,6 @@ class TabPFNWrapper(FoundationModelWrapper):
         self.max_samples = max_samples
         self.random_state = random_state
         self.n_lags = n_lags
-        self.scaling = scaling
         self.kwargs = kwargs
         
         # Device handling
@@ -52,8 +49,6 @@ class TabPFNWrapper(FoundationModelWrapper):
         
         # Model components
         self.models = {}  # One model per time series
-        self.scalers_X = {}
-        self.scalers_y = {}
         self._is_fitted = False
         self.model_type = f"TabPFN (n_estimators={n_estimators}, device={self.device})"
 
@@ -134,17 +129,6 @@ class TabPFNWrapper(FoundationModelWrapper):
                 if len(X_features) == 0:
                     logging.warning(f"Insufficient data for series {series_id}, skipping")
                     continue
-
-                # Apply scaling if enabled
-                if self.scaling:
-                    scaler_X = MinMaxScaler()
-                    scaler_y = MinMaxScaler()
-                    
-                    X_features = scaler_X.fit_transform(X_features)
-                    y_target = scaler_y.fit_transform(y_target.reshape(-1, 1)).ravel()
-                    
-                    self.scalers_X[series_id] = scaler_X
-                    self.scalers_y[series_id] = scaler_y
 
                 # Handle sample size limitation
                 if len(X_features) > self.max_samples:
@@ -373,20 +357,8 @@ class TabPFNWrapper(FoundationModelWrapper):
             
             X_pred = np.array(features, dtype=np.float32).reshape(1, -1)
             
-            # Apply scaling if enabled
-            if self.scaling and series_id in self.scalers_X:
-                X_pred = self.scalers_X[series_id].transform(X_pred)
-
-            # Make prediction
             try:
-                pred_scaled = model.predict(X_pred)[0]
-                
-                # Inverse transform if scaling was applied
-                if self.scaling and series_id in self.scalers_y:
-                    pred = self.scalers_y[series_id].inverse_transform([[pred_scaled]])[0, 0]
-                else:
-                    pred = pred_scaled
-
+                pred = model.predict(X_pred)[0]
                 predictions.append(pred)
                 
                 # Update target context for next prediction (sliding window)
