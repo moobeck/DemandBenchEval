@@ -178,7 +178,7 @@ def main():
 
         # 2) Preprocessing
         prep = NixtlaPreprocessor(
-            dataset, cfg.input_columns, cfg.forecast_columns, cfg.forecast
+            dataset, cfg.input_columns, cfg.forecast_columns, cfg.forecast, cfg.cross_validation
         )
         prep.merge()
         prep.remove_skus(skus="not_at_min_date")

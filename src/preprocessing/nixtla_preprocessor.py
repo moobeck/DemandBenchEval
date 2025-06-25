@@ -4,13 +4,14 @@ from datetime import datetime
 from utilsforecast.preprocessing import fill_gaps
 from demandbench.datasets import Dataset
 
+from src.preprocessing.scaler import LocalStandardScaler
 from src.configurations.enums import Frequency
 from src.configurations.input_column import InputColumnConfig
 from src.configurations.forecasting import ForecastConfig
 from src.configurations.forecast_column import ForecastColumnConfig
+from src.configurations.cross_validation import CrossValidationConfig
 import logging
 
-from mlforecast.target_transforms import LocalStandardScaler
 from mlforecast import MLForecast
 
 
@@ -25,12 +26,14 @@ class NixtlaPreprocessor:
         input_columns: InputColumnConfig,
         forecast_columns: ForecastColumnConfig,
         forecast: ForecastConfig,
+        cross_validation: CrossValidationConfig,
     ):
 
         self._input_columns = input_columns
         self._dataset = dataset
         self._forecast_columns = forecast_columns
         self._forecast = forecast
+        self._cross_validation = cross_validation
 
         self.df_merged = None
 
@@ -142,10 +145,20 @@ class NixtlaPreprocessor:
         """
         logging.info("Scaling target variable")
 
+
+        freq = self._forecast.freq
+        cross_validation = self._cross_validation
+
+        local_std_scaler = LocalStandardScaler(
+            cv_cfg=cross_validation,
+            freq=freq,
+        )
+
+
         fcst_scaler = MLForecast(
             models=[],
             freq=self._forecast.freq,
-            target_transforms=[LocalStandardScaler()],
+            target_transforms=[local_std_scaler],
         )
 
         selected_columns = [
@@ -162,3 +175,5 @@ class NixtlaPreprocessor:
         )
 
         return df
+    
+
