@@ -6,3 +6,6 @@ wandb/
 AutoGluonModels/
 *.ipynb
 toto/
+mp_news
+
+.ignore/

@@ -12,3 +12,6 @@ data/
 .idea/
 .DS_Store
 wandb/
+
+# ignore folder
+.ignore/
