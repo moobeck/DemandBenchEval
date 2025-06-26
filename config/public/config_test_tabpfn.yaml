@@ -40,10 +40,9 @@ forecast:
       num_samples: 50
     FM:
       TABPFN:
-        n_estimators: 4        # TabPFN ensemble size (internal sampling)
-        max_samples: 500       # Max training samples (due to TabPFN limitations)  
-        n_lags: 8              # Number of lag features
-        scaling: true          # Apply feature scaling
+        n_estimators: 8        # TabPFN ensemble size 
+        max_samples: 10000     # Maximum training samples for TabPFN
+        n_lags: 20             # Number of lag features for temporal modeling
 
   date_features:
     - month

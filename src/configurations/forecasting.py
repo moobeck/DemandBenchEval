@@ -16,7 +16,14 @@ from neuralforecast.auto import (
 from dataclasses import dataclass, field
 from typing import List, Dict
 from demandbench.datasets import Dataset
-from src.forecasting.toto_wrapper import TOTOWrapper
+try:
+    from src.forecasting.toto_wrapper import TOTOWrapper
+    TOTO_AVAILABLE = True
+except (ImportError, ModuleNotFoundError):
+    TOTO_AVAILABLE = False
+    class TOTOWrapper:
+        pass
+
 from src.forecasting.tabpfn_wrapper import TabPFNWrapper
 
 ForecastModel: TypeAlias = Any
@@ -80,7 +87,7 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
         default_params=DefaultParams.ML,
     ),
     ModelName.TOTO: ModelSpec(
-        factory=lambda **p: TOTOWrapper(alias="Toto", **p),
+        factory=lambda **p: TOTOWrapper(alias="Toto", **p) if TOTO_AVAILABLE else None,
         framework=Framework.FM,
         default_params=DefaultParams.FM,
     ),
