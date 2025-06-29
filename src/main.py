@@ -113,6 +113,7 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
             target=forecast_columns["target"],
             cutoff=forecast_columns["cutoff"],
             base_exogenous=[col for col in forecast_columns["exog_vars"]],
+            categorical=[col for col in forecast_columns.get("categorical", [])],
             static=[col for col in forecast_columns["static"]],
         ),
         cross_validation=CrossValidationConfig(
@@ -124,7 +125,6 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
             names=[ModelName[name] for name in forecast["models"]],
             horizon=forecast["horizon"],
             lags=forecast["lags"],
-            date_features=forecast["date_features"],
             model_config={
                 Framework[fw]: forecast["model_config"][fw]
                 for fw in forecast["model_config"]

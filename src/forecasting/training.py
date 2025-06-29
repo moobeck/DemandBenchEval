@@ -37,7 +37,6 @@ class ForecastTrainer:
                     "init_config": lambda trial: (
                         {
                             "lags": self._forecast_config.lags,
-                            "date_features": self._forecast_config.date_features,
                             "target_transforms": [LocalMinMaxScaler()],
                         }
                     ),

@@ -21,11 +21,12 @@ forecast_columns:
   target:  "demand"
   cutoff: "cutoff"
   exog_vars:
+    - not_for_sale
+  static:
     - companyID
     - storeID
     - productID
-    - not_for_sale
-  static:
+  categorical:
     - companyID
     - storeID
     - productID
@@ -50,8 +51,6 @@ forecast:
         n_lags: 8              # Number of lag features
         scaling: true          # Apply feature scaling
 
-  date_features:
-    - month
 cross_validation:
   cv_windows: 6
   step_size: 4
