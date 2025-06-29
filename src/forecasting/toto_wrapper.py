@@ -1,14 +1,23 @@
 from typing import Dict, Any
 import logging
-from toto.toto.model.toto import Toto
-from toto.toto.inference.forecaster import TotoForecaster
 import torch
+import pandas as pd
+import numpy as np
 from src.forecasting.foundation_model_base import FoundationModelWrapper
 from src.configurations.forecast_column import ForecastColumnConfig
 from src.configurations.enums import Frequency, TimeInSeconds, ModelName
-from toto.toto.data.util.dataset import MaskedTimeseries
-import pandas as pd
-import numpy as np
+
+# Import from the cloned TOTO repository
+import sys
+import os
+# Add the toto subdirectory to path to access the modules
+toto_path = os.path.join(os.getcwd(), 'toto', 'toto')
+if toto_path not in sys.path:
+    sys.path.insert(0, toto_path)
+
+from model.toto import Toto
+from inference.forecaster import TotoForecaster
+from data.util.dataset import MaskedTimeseries
 
 
 class TOTOWrapper(FoundationModelWrapper):
@@ -18,27 +27,66 @@ class TOTOWrapper(FoundationModelWrapper):
 
     def __init__(
         self,
-        num_samples: int,
+        num_samples: int = 50, 
+        samples_per_batch: int = 25,  
         alias="Toto",
         model_option="Datadog/Toto-Open-Base-1.0",
+        max_context_length: int = 2048,  
+        max_series_batch: int = 10, 
         **kwargs,
     ):
 
         self.alias = alias
         self.num_samples = num_samples
+        self.samples_per_batch = samples_per_batch
+        self.max_context_length = max_context_length
+        self.max_series_batch = max_series_batch
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        
+        # Clear GPU cache before starting
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            
         logging.info(f"Initializing TOTO on device: {self.device}")
+        logging.info(f"Memory-optimized settings: samples={num_samples}, samples_per_batch={samples_per_batch}, max_context={max_context_length}")
+        
+        # Validate that num_samples is divisible by samples_per_batch
+        if num_samples % samples_per_batch != 0:
+            raise ValueError(f"num_samples ({num_samples}) must be divisible by samples_per_batch ({samples_per_batch})")
 
-        # Try to load the best available TOTO model
-        self.toto_model: Toto = Toto.from_pretrained(model_option)
+        try:
+            # Load the TOTO model
+            self.toto_model: Toto = Toto.from_pretrained(model_option)
+            
+            # Move model to device
+            self.toto_model.to(self.device)
+            
+            # Enable eval mode for inference
+            self.toto_model.eval()
+            
+            # Don't compile for now to save memory
+            # if hasattr(self.toto_model, 'compile'):
+            #     try:
+            #         self.toto_model.compile()
+            #         logging.info("TOTO model compiled for faster inference")
+            #     except Exception as e:
+            #         logging.warning(f"Could not compile TOTO model: {e}")
+            
+            logging.info(f"TOTO model loaded successfully on {self.device}")
 
-        # Move model to device with error handling
-        self.toto_model.to(self.device)
-        logging.info(f"TOTO model loaded successfully on {self.device}")
-
-        # Initialize forecaster with the model's internal model
-        self.forecaster = TotoForecaster(self.toto_model.model)
-        self.model_type = f"TOTO (DataDog on {self.device})"
+            # Initialize forecaster with the model's internal backbone
+            self.forecaster = TotoForecaster(self.toto_model.model)
+            self.model_type = f"TOTO (DataDog on {self.device})"
+            
+            # Log GPU memory usage
+            if torch.cuda.is_available():
+                memory_allocated = torch.cuda.memory_allocated() / 1024**3
+                memory_reserved = torch.cuda.memory_reserved() / 1024**3
+                logging.info(f"GPU memory after model load: {memory_allocated:.2f}GB allocated, {memory_reserved:.2f}GB reserved")
+            
+        except Exception as e:
+            logging.error(f"Failed to initialize TOTO model: {e}")
+            raise RuntimeError(f"TOTO initialization failed: {e}")
 
     def predict(
         self,
@@ -50,34 +98,146 @@ class TOTOWrapper(FoundationModelWrapper):
         """
         Predict using TOTO with proper multivariate time series forecasting
         """
+        try:
+            # Clear GPU cache before prediction
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                
+            # Create multivariate time series matrix
+            multivariate_values, series_ids = self._create_multivariate_matrix(X, forecast_columns)
+            
+            # Check if we need to truncate context for memory
+            if multivariate_values.shape[0] > self.max_context_length:
+                logging.warning(f"Truncating context from {multivariate_values.shape[0]} to {self.max_context_length} timesteps")
+                multivariate_values = multivariate_values[-self.max_context_length:]
+            
+            # Check if we have too many series - batch them if needed
+            n_series = len(series_ids)
+            if n_series > self.max_series_batch:
+                logging.info(f"Processing {n_series} series in batches of {self.max_series_batch}")
+                return self._predict_in_batches(
+                    multivariate_values, series_ids, forecast_columns, horizon, freq, 
+                    start_date=X[forecast_columns.date].max()
+                )
+            
+            # Prepare the MaskedTimeseries object
+            masked_ts = self._prepare_masked_timeseries(multivariate_values, freq)
 
-        # Create and preprocess multivariate time series matrix
-        multivariate_values = self._create_multivariate_matrix(X, forecast_columns)
+            # Use samples_per_batch from config
+            
+            # Generate forecasts using the forecaster
+            with torch.cuda.amp.autocast() if torch.cuda.is_available() else torch.no_grad():
+                forecast_result = self.forecaster.forecast(
+                    masked_ts,
+                    prediction_length=horizon,
+                    num_samples=self.num_samples,
+                    samples_per_batch=self.samples_per_batch,
+                    use_kv_cache=True,
+                )
 
-        masked_ts = self._prepare_masked_timeseries(multivariate_values, frequency=freq)
+            # Extract predictions (use median for better performance than mean)
+            if forecast_result.samples is not None:
+                predictions = forecast_result.median.detach().cpu().numpy()
+            else:
+                predictions = forecast_result.mean.detach().cpu().numpy()
+            
+            # Clean up GPU tensors immediately
+            del forecast_result
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            
+            # Remove batch dimension if present
+            if predictions.ndim == 3 and predictions.shape[0] == 1:
+                predictions = predictions.squeeze(0)
+            
+            # Convert to Nixtla format
+            df = self._to_nixtla_df(
+                predictions=predictions,
+                unique_ids=series_ids,
+                start_date=X[forecast_columns.date].max(),
+                forecast_columns=forecast_columns,
+                frequency=freq,
+            )
 
-        # Generate multivariate forecasts
-        forecast_result = self.forecaster.forecast(
-            masked_ts,
-            prediction_length=horizon,
-            num_samples=self.num_samples,
-        )
+            return df
+            
+        except Exception as e:
+            logging.error(f"TOTO prediction failed: {e}")
+            raise RuntimeError(f"TOTO prediction error: {e}")
 
-        predictions = forecast_result.mean.detach().cpu().numpy().squeeze(axis=0)
-        unique_ids = X[forecast_columns.sku_index].unique().tolist()
-        df = self._to_nixtla_df(
-            predictions=predictions,
-            unique_ids=unique_ids,
-            start_date=X[forecast_columns.date].max(),
-            forecast_columns=forecast_columns,
-            frequency=freq,
-        )
-
-        return df
+    def _predict_in_batches(
+        self, 
+        multivariate_values: np.ndarray, 
+        series_ids: list[str], 
+        forecast_columns: ForecastColumnConfig,
+        horizon: int,
+        freq: Frequency,
+        start_date: str
+    ) -> pd.DataFrame:
+        """
+        Process large numbers of series in smaller batches to manage memory
+        """
+        all_predictions = []
+        n_series = len(series_ids)
+        
+        for start_idx in range(0, n_series, self.max_series_batch):
+            end_idx = min(start_idx + self.max_series_batch, n_series)
+            batch_series_ids = series_ids[start_idx:end_idx]
+            batch_values = multivariate_values[:, start_idx:end_idx]
+            
+            logging.info(f"Processing batch {start_idx//self.max_series_batch + 1}: series {start_idx+1}-{end_idx} of {n_series}")
+            
+            try:
+                # Prepare masked timeseries for this batch
+                masked_ts = self._prepare_masked_timeseries(batch_values, freq)
+                
+                # Generate forecasts for this batch
+                with torch.cuda.amp.autocast() if torch.cuda.is_available() else torch.no_grad():
+                    forecast_result = self.forecaster.forecast(
+                        masked_ts,
+                        prediction_length=horizon,
+                        num_samples=self.num_samples,
+                        samples_per_batch=self.samples_per_batch,
+                        use_kv_cache=True,
+                    )
+                
+                # Extract predictions
+                if forecast_result.samples is not None:
+                    batch_predictions = forecast_result.median.detach().cpu().numpy()
+                else:
+                    batch_predictions = forecast_result.mean.detach().cpu().numpy()
+                
+                # Clean up GPU memory immediately
+                del forecast_result
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                
+                # Remove batch dimension if present
+                if batch_predictions.ndim == 3 and batch_predictions.shape[0] == 1:
+                    batch_predictions = batch_predictions.squeeze(0)
+                
+                # Convert to Nixtla format for this batch
+                batch_df = self._to_nixtla_df(
+                    predictions=batch_predictions,
+                    unique_ids=batch_series_ids,
+                    start_date=start_date,
+                    forecast_columns=forecast_columns,
+                    frequency=freq,
+                )
+                
+                all_predictions.append(batch_df)
+                
+            except Exception as e:
+                logging.error(f"Failed processing batch {start_idx//self.max_series_batch + 1}: {e}")
+                raise
+        
+        # Combine all batch predictions
+        combined_df = pd.concat(all_predictions, ignore_index=True)
+        return combined_df
 
     def _create_multivariate_matrix(
         self, X: pd.DataFrame, forecast_columns: ForecastColumnConfig
-    ) -> tuple:
+    ) -> tuple[np.ndarray, list[str]]:
         """
         Create a multivariate time series matrix from the input DataFrame.
 
@@ -96,55 +256,19 @@ class TOTOWrapper(FoundationModelWrapper):
             values=forecast_columns.target,
         )
 
-        # Convert to numpy array and store column mapping for later reference
+        # Sort columns for consistent ordering
+        multivariate_df = multivariate_df.sort_index(axis=1)
+        
+        # Extract series IDs and convert to list
+        series_ids = multivariate_df.columns.tolist()
+        
+        # Convert to numpy array and handle NaNs
         multivariate_values = multivariate_df.values
+        
+        # Replace NaNs with zeros (TOTO can handle zeros with proper masking)
+        multivariate_values = np.nan_to_num(multivariate_values, nan=0.0)
 
-        return multivariate_values
-
-    def _pad_time_series(self, values: np.ndarray, target_length: int) -> np.ndarray:
-        """
-        Pad time series with trend-based extrapolation to reach target length.
-
-        Args:
-            values: Input array of shape (time_steps, num_series)
-            target_length: Desired length after padding
-
-        Returns:
-            np.ndarray: Padded array with shape (target_length, num_series)
-        """
-        # Early return if no padding needed
-        if len(values) >= target_length:
-            return values
-
-        padding_length = target_length - len(values)
-
-        # Prepare container for padded values
-        padded_values = []
-
-        # Handle the case of insufficient data points for trend calculation
-        if len(values) < 2:
-            # Use first values or zeros if no data available
-            first_vals = values[0] if len(values) > 0 else np.zeros(values.shape[1])
-            padded_values = [first_vals] * padding_length
-        else:
-            # Calculate linear trends for each series
-            for i in range(padding_length):
-                trends = []
-                for j in range(values.shape[1]):
-                    series_vals = values[:, j]
-                    # Calculate linear trend if enough variance in data
-                    if len(series_vals) >= 2 and np.var(series_vals) > 1e-6:
-                        trend = np.polyfit(range(len(series_vals)), series_vals, 1)[0]
-                    else:
-                        trend = 0
-                    # Extrapolate backwards
-                    base_val = series_vals[0] if len(series_vals) > 0 else 0
-                    padded_val = max(0, base_val + trend * (i - padding_length))
-                    trends.append(padded_val)
-                padded_values.append(trends)
-
-        # Stack padded values with original data
-        return np.vstack([np.array(padded_values), values])
+        return multivariate_values, series_ids
 
     def _prepare_masked_timeseries(
         self, multivariate_values: np.ndarray, frequency: Frequency
@@ -152,22 +276,12 @@ class TOTOWrapper(FoundationModelWrapper):
         """
         Prepare a MaskedTimeseries object from numpy array for TOTO model input.
 
-        This method:
-        1. Transposes data to TOTO's expected format
-        2. Converts to PyTorch tensor
-        3. Creates appropriate masks and timestamps
-        4. Assembles the MaskedTimeseries object
-
         Args:
             multivariate_values: Numpy array with shape (time_steps, num_series)
-            frequency: Time frequency of the data (e.g., daily, weekly)
+            frequency: Time frequency of the data
 
         Returns:
             MaskedTimeseries: Properly formatted input for TOTO forecaster
-
-        Raises:
-            ValueError: If input array is empty or improperly shaped
-            RuntimeError: If tensor creation fails
         """
         # Validate input
         if multivariate_values.size == 0:
@@ -177,68 +291,47 @@ class TOTOWrapper(FoundationModelWrapper):
         multivariate_values = multivariate_values.T
         num_series, seq_len = multivariate_values.shape
 
-        # Convert to tensor with batch dimension: (1, num_series, time_steps)
+        # Convert to tensor: (num_series, time_steps) - no batch dimension yet
+        # Use float16 if on GPU for memory efficiency, float32 otherwise
+        # Note: Only the main series data uses float16, masks and timestamps use appropriate types
+        dtype = torch.float16 if self.device == "cuda" else torch.float32
         series_tensor = torch.tensor(
-            multivariate_values, dtype=torch.float32, device=self.device
-        ).unsqueeze(0)
+            multivariate_values, 
+            dtype=dtype, 
+            device=self.device
+        )
 
-        # Create tensor components with consistent dimensions
-        time_interval = TimeInSeconds[frequency.name].value
-        tensors = self._create_tensor_components(num_series, seq_len, time_interval)
+        # Create padding mask (True for valid values)
+        # All values are valid since we replaced NaNs with zeros
+        padding_mask = torch.ones(
+            (num_series, seq_len), dtype=torch.bool, device=self.device
+        )
 
-        # Assemble MaskedTimeseries object
+        # Create ID mask - all series belong to the same group (0)
+        id_mask = torch.zeros(
+            (num_series, seq_len), dtype=torch.long, device=self.device
+        )
+
+        # Create timestamps (dummy timestamps since TOTO doesn't use them in current version)
+        # Each time step gets an incrementally increasing timestamp
+        time_interval = int(TimeInSeconds[frequency.name].value)
+        # Use int64 for timestamps as expected by TOTO
+        timestamps = torch.arange(seq_len, dtype=torch.int64, device=self.device)
+        timestamps = timestamps.unsqueeze(0).expand(num_series, -1) * time_interval
+
+        # Create time intervals tensor (int64 as expected by TOTO)
+        time_intervals = torch.full(
+            (num_series,), time_interval, dtype=torch.int64, device=self.device
+        )
+
+        # Create MaskedTimeseries object (without batch dimension - TotoForecaster will add it)
         return MaskedTimeseries(
             series=series_tensor,
-            padding_mask=tensors["padding_mask"],
-            id_mask=tensors["id_mask"],
-            timestamp_seconds=tensors["timestamps"],
-            time_interval_seconds=tensors["time_intervals"],
+            padding_mask=padding_mask,
+            id_mask=id_mask,
+            timestamp_seconds=timestamps,
+            time_interval_seconds=time_intervals,
         )
-
-    def _create_tensor_components(
-        self, num_series: int, seq_len: int, time_interval: float
-    ) -> dict:
-        """
-        Create tensor components needed for MaskedTimeseries.
-
-        Args:
-            num_series: Number of time series
-            seq_len: Length of each time series
-            time_interval: Time interval between steps in seconds
-
-        Returns:
-            dict: Dictionary containing all required tensor components
-        """
-        # Create attention mask (all values observed)
-        padding_mask = torch.ones(
-            (1, num_series, seq_len), dtype=torch.bool, device=self.device
-        )
-
-        # Create ID mask (all series in same group)
-        id_mask = torch.zeros(
-            (1, num_series, seq_len), dtype=torch.long, device=self.device
-        )
-
-        # Create timestamps tensor
-        timestamps = (
-            torch.arange(seq_len, dtype=torch.float32, device=self.device)
-            .unsqueeze(0)
-            .unsqueeze(0)
-            .expand(1, num_series, -1)
-            * time_interval
-        )
-
-        # Create time intervals tensor
-        time_intervals = torch.full(
-            (1, num_series), time_interval, dtype=torch.float32, device=self.device
-        )
-
-        return {
-            "padding_mask": padding_mask,
-            "id_mask": id_mask,
-            "timestamps": timestamps,
-            "time_intervals": time_intervals,
-        }
 
     def _to_nixtla_df(
         self,
@@ -249,34 +342,60 @@ class TOTOWrapper(FoundationModelWrapper):
         frequency: Frequency,
     ) -> pd.DataFrame:
         """
-        Turn a (n_series × horizon) array into a Nixtla‑compatible DataFrame.
+        Convert TOTO predictions to Nixtla-compatible DataFrame format.
+        
+        Args:
+            predictions: Numpy array with shape (n_series, horizon)
+            unique_ids: List of series identifiers
+            start_date: Starting date for predictions
+            forecast_columns: Column configuration
+            frequency: Data frequency
+            
+        Returns:
+            pd.DataFrame: Nixtla-compatible forecast DataFrame
         """
         n_series, horizon = predictions.shape
+        
         if len(unique_ids) != n_series:
             raise ValueError(
-                f"unique_ids must be length {n_series}, got {len(unique_ids)}"
+                f"unique_ids length ({len(unique_ids)}) must match n_series ({n_series})"
             )
 
-        # 1. build the date index for one horizon
+        # Create date index for forecast horizon
         pd_frequency = Frequency.get_alias(frequency, "pandas")
         ds = pd.date_range(
-            start=start_date, periods=horizon + 1, freq=pd_frequency, inclusive="right"
+            start=start_date, 
+            periods=horizon + 1, 
+            freq=pd_frequency, 
+            inclusive="right"
         )
 
-        # 2. tile/flatten to long form
+        # Create long-form DataFrame
         uid_col = np.repeat(unique_ids, horizon)
-        cutoff = np.repeat([start_date], n_series * horizon)
+        cutoff_col = np.repeat([start_date], n_series * horizon)
         ds_col = np.tile(ds, n_series)
-        yhat = predictions.flatten()
+        yhat_col = predictions.flatten()
 
-        # 3. pack into DataFrame
+        # Assemble DataFrame
         df = pd.DataFrame(
             {
                 forecast_columns.sku_index: uid_col,
                 forecast_columns.date: ds_col,
-                forecast_columns.cutoff: cutoff,
-                self.alias: yhat,
+                forecast_columns.cutoff: cutoff_col,
+                self.alias: yhat_col,
             }
         )
 
         return df
+
+    def __del__(self):
+        """Clean up GPU memory when wrapper is destroyed"""
+        try:
+            if hasattr(self, 'toto_model') and self.toto_model is not None:
+                del self.toto_model
+            if hasattr(self, 'forecaster') and self.forecaster is not None:
+                del self.forecaster
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except Exception:
+            pass  # Ignore cleanup errors

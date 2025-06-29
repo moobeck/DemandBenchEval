@@ -191,9 +191,39 @@ class ForecastTrainer:
         dfs: List[pd.DataFrame],
     ) -> pd.DataFrame:
         """
-        Concatenate and dedupe columns.
+        Concatenate and dedupe columns with robust duplicate handling.
         """
-        combined = pd.concat(dfs, axis=1).reset_index()
+        if not dfs:
+            return pd.DataFrame()
+        
+        if len(dfs) == 1:
+            return dfs[0].reset_index()
+        
+        # Check for duplicate indices in each DataFrame and clean them
+        for i, df in enumerate(dfs):
+            if df.index.duplicated().any():
+                logging.warning(f"DataFrame {i} has {df.index.duplicated().sum()} duplicate indices")
+                # Remove duplicates, keeping the first occurrence
+                dfs[i] = df[~df.index.duplicated(keep='first')]
+        
+        try:
+            combined = pd.concat(dfs, axis=1).reset_index()
+        except pd.errors.InvalidIndexError as e:
+            logging.error(f"Failed to concatenate DataFrames with axis=1: {e}")
+            logging.info("Using outer join to align indices...")
+            
+            # Reset indices to columns for all DataFrames
+            dfs_reset = [df.reset_index() for df in dfs]
+            
+            # Merge DataFrames on the index columns instead of concatenating
+            base_df = dfs_reset[0]
+            for df in dfs_reset[1:]:
+                # Get the index column names (should be the first columns after reset_index)
+                index_cols = df.columns[:2].tolist()  # Assuming 2-level index (sku_index, date)
+                base_df = pd.merge(base_df, df, on=index_cols, how='outer')
+            
+            combined = base_df
+        
         # Drop any duplicated forecast columns, keep first
         combined = combined.loc[:, ~combined.columns.duplicated()]
         return combined

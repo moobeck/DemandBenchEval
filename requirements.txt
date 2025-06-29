@@ -21,6 +21,10 @@ tabpfn>=2.0.0
 torch>=2.5.0
 transformers>=4.0.0
 huggingface_hub>=0.16.0
+einops>=0.7.0
+gluonts[torch]>=0.15.0
+jaxtyping>=0.2.0
+safetensors>=0.4.0
 
 # HTTP clients (if you call APIs)
 requests==2.32.3

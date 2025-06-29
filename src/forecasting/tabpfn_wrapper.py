@@ -351,8 +351,7 @@ class TabPFNWrapper(FoundationModelWrapper):
             except Exception as e:
                 logging.warning(f"Prediction failed at step {step}: {str(e)}")
                 # Use last known value
-                pred = recent_values[-1] if len(recent_values) > 0 else 0.0
-                predictions.append(pred)
+                raise e
 
         return np.array(predictions)
 
