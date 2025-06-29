@@ -222,7 +222,7 @@ class TabPFNWrapper(FoundationModelWrapper):
                 # Add time-varying exogenous features (skip static ones for in-context learning)
                 if forecast_columns.base_exogenous:
                     static_features = forecast_columns.static or []
-                    for exog_col in forecast_columns.base_exogenous[:2]:  # Limit to 2 most important
+                    for exog_col in forecast_columns.base_exogenous:
                         if exog_col in series_df.columns and exog_col not in static_features:
                             val = series_df.iloc[i][exog_col]
                             features.append(float(val))
@@ -291,7 +291,7 @@ class TabPFNWrapper(FoundationModelWrapper):
             # Add time-varying exogenous features (skip static ones for in-context learning)
             if forecast_columns.base_exogenous:
                 static_features = forecast_columns.static or []
-                for exog_col in forecast_columns.base_exogenous[:2]:
+                for exog_col in forecast_columns.base_exogenous:
                     if exog_col in series_df.columns and exog_col not in static_features:
                         val = series_df[exog_col].iloc[-1]  # Use last known value
                         features.append(float(val))
