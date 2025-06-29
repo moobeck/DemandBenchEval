@@ -136,7 +136,7 @@ class ForecastTrainer:
         elif framework == Framework.FM:
             # Foundation Models need all columns including static and exogenous
             cols += self._forecast_columns.static
-            if hasattr(self._forecast_columns, "exogenous"):
+            if self._forecast_columns.exogenous:
                 cols += [
                     col for col in self._forecast_columns.exogenous if col in df.columns
                 ]

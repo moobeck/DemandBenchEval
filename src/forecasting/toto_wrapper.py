@@ -391,9 +391,11 @@ class TOTOWrapper(FoundationModelWrapper):
     def __del__(self):
         """Clean up GPU memory when wrapper is destroyed"""
         try:
-            if hasattr(self, 'toto_model') and self.toto_model is not None:
+            toto_model = getattr(self, 'toto_model', None)
+            if toto_model is not None:
                 del self.toto_model
-            if hasattr(self, 'forecaster') and self.forecaster is not None:
+            forecaster = getattr(self, 'forecaster', None)
+            if forecaster is not None:
                 del self.forecaster
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
