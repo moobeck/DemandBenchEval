@@ -225,10 +225,7 @@ class TabPFNWrapper(FoundationModelWrapper):
                     for exog_col in forecast_columns.base_exogenous[:2]:  # Limit to 2 most important
                         if exog_col in series_df.columns and exog_col not in static_features:
                             val = series_df.iloc[i][exog_col]
-                            if isinstance(val, (int, float)) and np.isfinite(val):
-                                features.append(float(val))
-                            else:
-                                features.append(0.0)
+                            features.append(float(val))
                 
                 X_features.append(features)
                 y_target.append(target_values[i])
@@ -297,10 +294,7 @@ class TabPFNWrapper(FoundationModelWrapper):
                 for exog_col in forecast_columns.base_exogenous[:2]:
                     if exog_col in series_df.columns and exog_col not in static_features:
                         val = series_df[exog_col].iloc[-1]  # Use last known value
-                        if isinstance(val, (int, float)) and np.isfinite(val):
-                            features.append(float(val))
-                        else:
-                            features.append(0.0)
+                        features.append(float(val))
             
             # Ensure correct feature dimension
             if len(features) != self.n_features:
