@@ -212,18 +212,7 @@ class TabPFNWrapper(FoundationModelWrapper):
                 # Lag features (core information)
                 features.extend(target_values[i - self.n_lags : i])
                 
-                # Add simple static info if available
-                if hasattr(forecast_columns, 'static') and forecast_columns.static:
-                    for static_col in forecast_columns.static:
-                        if static_col in series_df.columns:
-                            val = series_df[static_col].iloc[0]  # Static value
-                            if isinstance(val, (int, float)) and np.isfinite(val):
-                                features.append(float(val))
-                            else:
-                                # Simple encoding for categorical
-                                features.append(float(hash(str(val)) % 100))
-                
-                # Add basic time features (let TabPFN handle the complexity)
+                # Add basic time features (temporal variation for in-context learning)
                 current_date = pd.to_datetime(series_df.iloc[i][forecast_columns.date])
                 features.extend([
                     float(current_date.month),
@@ -287,24 +276,12 @@ class TabPFNWrapper(FoundationModelWrapper):
         # Start with last n_lags values
         recent_values = target_values[-self.n_lags:].copy()
         
-        # Get static and other features (same approach as training)
-        static_features = []
-        if hasattr(forecast_columns, 'static') and forecast_columns.static:
-            for static_col in forecast_columns.static:
-                if static_col in series_df.columns:
-                    val = series_df[static_col].iloc[0]
-                    if isinstance(val, (int, float)) and np.isfinite(val):
-                        static_features.append(float(val))
-                    else:
-                        static_features.append(float(hash(str(val)) % 100))
-        
         last_date = pd.to_datetime(series_df[forecast_columns.date].iloc[-1])
         
         # Generate predictions step by step
         for step in range(horizon):
             # Create feature vector
             features = list(recent_values)  # Lag features
-            features.extend(static_features)  # Static features
             
             # Add time features for forecast period
             forecast_date = self._add_time_delta(last_date, step + 1, freq)
