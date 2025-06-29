@@ -166,9 +166,9 @@ class ForecastConfig:
                 params["h"] = self.horizon
             elif spec.framework == Framework.FM:
                 if key == ModelName.TOTO and TOTO_AVAILABLE:
-                    params.update(self.model_config[Framework.FM]["TOTO"])
+                    params.update(self.model_config.get(Framework.FM, {}).get("TOTO", {}))
                 elif key == ModelName.TABPFN:
-                    params.update(self.model_config[Framework.FM]["TABPFN"])
+                    params.update(self.model_config.get(Framework.FM, {}).get("TABPFN", {}))
             
             model_instance = spec.factory(**params)
             if model_instance is not None:  # Skip unavailable models
