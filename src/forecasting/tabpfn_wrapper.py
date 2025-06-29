@@ -137,11 +137,9 @@ class TabPFNWrapper(FoundationModelWrapper):
         
         # Handle sample size limitation
         if len(X_train) > self.max_samples:
-            logging.info(f"Sampling {self.max_samples} from {len(X_train)} samples for TabPFN")
-            np.random.seed(self.random_state)
-            indices = np.random.choice(len(X_train), size=self.max_samples, replace=False)
-            X_train = X_train[indices]
-            y_train = y_train[indices]
+            logging.info(f"Taking most recent {self.max_samples} from {len(X_train)} samples for TabPFN")
+            X_train = X_train[-self.max_samples:]
+            y_train = y_train[-self.max_samples:]
 
         # Create and fit TabPFN model
         self.model = self._create_tabpfn_model()
