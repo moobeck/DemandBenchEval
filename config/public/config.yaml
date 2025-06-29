@@ -13,7 +13,7 @@ input_columns:
   frequency: "frequency"
 
 datasets:
-  - MAISHAMEDS
+  - BAKERY
 
 forecast_columns:
   date:    "date"
@@ -33,9 +33,8 @@ forecast_columns:
 
 forecast:
   models:
+    - ETS
     - LGBM
-    - TOTO
-    - TABPFN
   horizon: 4
   lags: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
   model_config:
@@ -52,15 +51,12 @@ forecast:
         scaling: true          # Apply feature scaling
 
 cross_validation:
-  cv_windows: 6
+  cv_windows: 12
   step_size: 4
   refit: false
 
 metrics:
   metrics:
-    - MASE
-    - MSSE
     - MSE 
     - MAE
     - RMSE
-  seasonality: 52

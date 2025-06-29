@@ -112,6 +112,7 @@ class NixtlaPreprocessor:
                 self._forecast_columns.date,
                 self._input_columns.target,
                 *(self._forecast_columns.exogenous),
+                *(self._forecast_columns.categorical),
             ]
         ]
 
@@ -196,17 +197,12 @@ class NixtlaPreprocessor:
             date_features=date_encoder.get_encoders(),
         )
 
-        selected_columns = [
-            self._forecast_columns.sku_index,
-            self._forecast_columns.date,
-            self._forecast_columns.target,
-        ]
-
-        df[selected_columns] = ml_forecast.preprocess(
-            df[selected_columns],
+        df = ml_forecast.preprocess(
+            df,
             id_col=self._forecast_columns.sku_index,
             time_col=self._forecast_columns.date,
             target_col=self._forecast_columns.target,
+            static_features=self._forecast_columns.static,
         )
 
         moment_encoder = MomentsEncoder(

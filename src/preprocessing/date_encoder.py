@@ -7,7 +7,7 @@ from typing import Callable
 class DateEncoder:
 
     @staticmethod
-    def weekday_sin(dates: pd.Series) -> pd.Series:
+    def weekday_sin(dates: pd.DatetimeIndex) -> pd.Series:
         """
         Returns the sine encoding of the weekday for the given dates.
 
@@ -17,11 +17,11 @@ class DateEncoder:
         Returns:
         - pd.Series: Sine encoded weekday feature.
         """
-        weekdays = dates.dt.dayofweek
+        weekdays = dates.dayofweek
         return np.sin(2 * np.pi * weekdays / 7)
 
     @staticmethod
-    def weekday_cos(dates: pd.Series) -> pd.Series:
+    def weekday_cos(dates: pd.DatetimeIndex) -> pd.Series:
         """
         Returns the cosine encoding of the weekday for the given dates.
 
@@ -31,11 +31,11 @@ class DateEncoder:
         Returns:
         - pd.Series: Cosine encoded weekday feature.
         """
-        weekdays = dates.dt.dayofweek
+        weekdays = dates.dayofweek
         return np.cos(2 * np.pi * weekdays / 7)
 
     @staticmethod
-    def month_sin(dates: pd.Series) -> pd.Series:
+    def month_sin(dates: pd.DatetimeIndex) -> pd.Series:
         """
         Returns the sine encoding of the month for the given dates.
 
@@ -45,11 +45,11 @@ class DateEncoder:
         Returns:
         - pd.Series: Sine encoded month feature.
         """
-        months = dates.dt.month
+        months = dates.month
         return np.sin(2 * np.pi * months / 12)
 
     @staticmethod
-    def month_cos(dates: pd.Series) -> pd.Series:
+    def month_cos(dates: pd.DatetimeIndex) -> pd.Series:
         """
         Returns the cosine encoding of the month for the given dates.
 
@@ -59,7 +59,7 @@ class DateEncoder:
         Returns:
         - pd.Series: Cosine encoded month feature.
         """
-        months = dates.dt.month
+        months = dates.month
         return np.cos(2 * np.pi * months / 12)
 
     def __init__(self, freq: Frequency):

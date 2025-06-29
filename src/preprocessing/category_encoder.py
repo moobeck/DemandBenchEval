@@ -20,15 +20,18 @@ class CategoryEncoder:
         Parameters:
         - columns (list[str]): List of column names to be encoded.
         """
+
+        self._cv_cfg = cv_cfg
+        self._freq = freq
+        self._forecast_columns = forecast_columns
+    
         self._encoder = CatBoostEncoder(
             cols=self._forecast_columns.categorical, return_df=False
         )
         self.out_columns = [
             f"{col}_encoded" for col in self._forecast_columns.categorical
         ]
-        self._cv_cfg = cv_cfg
-        self._freq = freq
-        self._forecast_columns = forecast_columns
+
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """
