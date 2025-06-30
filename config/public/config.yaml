@@ -33,9 +33,23 @@ forecast_columns:
 forecast:
   models:
     - LGBM
-  season_length: 52
+    - TOTO
+    - TABPFN
   horizon: 4
-  lags: [1, 2, 3, 4, 5, 6, 7, 8]
+  lags: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+  model_config:
+    ML:
+      num_samples: 50
+    FM:
+      TOTO:
+        num_samples: 50
+        samples_per_batch: 25  # Must divide num_samples evenly
+      TABPFN:
+        n_estimators: 4        # TabPFN ensemble size (internal sampling)
+        max_samples: 500       # Max training samples (due to TabPFN limitations)  
+        n_lags: 8              # Number of lag features
+        scaling: true          # Apply feature scaling
+
   date_features:
     - month
 cross_validation:
@@ -47,4 +61,7 @@ metrics:
   metrics:
     - MASE
     - MSSE
+    - MSE 
+    - MAE
+    - RMSE
   seasonality: 52

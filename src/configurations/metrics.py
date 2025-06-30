@@ -2,7 +2,7 @@ from src.configurations.enums import MetricName
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, TypeAlias
 from functools import partial
-from utilsforecast.losses import mase, msse, mae, mse
+from utilsforecast.losses import mase, msse, mae, mse, rmse
 
 
 ForecastMetric: TypeAlias = Any
@@ -28,9 +28,8 @@ METRIC_REGISTRY: dict[MetricName, MetricSpec] = {
     MetricName.MAE: MetricSpec(
         factory=lambda **p: partial(mae, **p),
     ),
-    MetricName.MSE: MetricSpec(
-        factory=lambda **p: partial(mse, **p)
-    ),
+    MetricName.MSE: MetricSpec(factory=lambda **p: partial(mse, **p)),
+    MetricName.RMSE: MetricSpec(factory=lambda **p: partial(rmse, **p)),
 }
 
 

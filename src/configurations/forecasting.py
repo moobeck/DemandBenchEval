@@ -2,8 +2,8 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, TypeAlias
 from statsforecast.models import AutoARIMA, AutoTheta, AutoETS, AutoCES
 from mlforecast.auto import AutoCatboost, AutoLightGBM, AutoRandomForest
-from src.configurations.enums import ModelName, Framework, Frequency
-from src.configurations.input_column import InputColumnConfig
+from .enums import ModelName, Framework, Frequency
+from .input_column import InputColumnConfig
 from neuralforecast.auto import (
     AutoVanillaTransformer,
     AutoMLP,
@@ -16,6 +16,15 @@ from neuralforecast.auto import (
 from dataclasses import dataclass, field
 from typing import List, Dict
 from demandbench.datasets import Dataset
+try:
+    from src.forecasting.toto_wrapper import TOTOWrapper
+    TOTO_AVAILABLE = True
+except (ImportError, ModuleNotFoundError):
+    TOTO_AVAILABLE = False
+    class TOTOWrapper:
+        pass
+
+from src.forecasting.tabpfn_wrapper import TabPFNWrapper
 
 ForecastModel: TypeAlias = Any
 
@@ -29,20 +38,16 @@ class ModelSpec:
     factory: Callable[..., ForecastModel]
     framework: Framework
     default_params: Dict[str, Any] = field(default_factory=dict)
+    param_space: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
 class DefaultParams:
 
-    STATS = {
-        "season_length": 7,
-    }
+    STATS = {}
     ML = {}
-    NEURAL = {
-        "h": 14,
-        "backend": "ray",
-        "num_samples": 100
-    }
+    NEURAL = {"h": 14, "backend": "ray", "num_samples": 100}
+    FM = {}
 
 
 MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
@@ -80,6 +85,16 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
         factory=lambda **p: AutoRandomForest(**p),
         framework=Framework.ML,
         default_params=DefaultParams.ML,
+    ),
+    ModelName.TOTO: ModelSpec(
+        factory=lambda **p: TOTOWrapper(alias="Toto", **p) if TOTO_AVAILABLE else None,
+        framework=Framework.FM,
+        default_params=DefaultParams.FM,
+    ),
+    ModelName.TABPFN: ModelSpec(
+        factory=lambda **p: TabPFNWrapper(alias="TabPFN", **p),
+        framework=Framework.FM,
+        default_params=DefaultParams.FM,
     ),
     ModelName.TRANSFORMER: ModelSpec(
         factory=lambda **p: AutoVanillaTransformer(**p),
@@ -123,15 +138,20 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
 class ForecastConfig:
     names: List[ModelName]
     freq: Frequency = Frequency.DAILY
-    season_length: int = 7
     horizon: int = 14
     lags: List[int] = field(default_factory=list)
     date_features: List[str] = field(default_factory=list)
+    model_config: Dict[Framework, Dict[str, Any]] = field(default_factory=dict)
 
     @property
     def models(self) -> Dict[Framework, Dict[ModelName, ForecastModel]]:
 
-        frameworks = {Framework.STATS: {}, Framework.ML: {}, Framework.NEURAL: {}}
+        frameworks = {
+            Framework.STATS: {},
+            Framework.ML: {},
+            Framework.NEURAL: {},
+            Framework.FM: {},
+        }
 
         for name in self.names:
             # map your config.ModelName to ModelKey
@@ -141,18 +161,22 @@ class ForecastConfig:
             # merge defaults with trainer-level params
             params = spec.default_params.copy()
             if spec.framework == Framework.STATS:
-                params["season_length"] = self.season_length
+                params["season_length"] = Frequency.get_season_length(self.freq)
             elif spec.framework == Framework.NEURAL:
                 params["h"] = self.horizon
-
-            # instantiate
-            frameworks[spec.framework][name] = spec.factory(**params)
+            elif spec.framework == Framework.FM:
+                if key == ModelName.TOTO and TOTO_AVAILABLE:
+                    params.update(self.model_config.get(Framework.FM, {}).get("TOTO", {}))
+                elif key == ModelName.TABPFN:
+                    params.update(self.model_config.get(Framework.FM, {}).get("TABPFN", {}))
+            
+            model_instance = spec.factory(**params)
+            if model_instance is not None:  # Skip unavailable models
+                frameworks[spec.framework][name] = model_instance
 
         return frameworks
 
-    
     def set_freq(self, dataset: Dataset, input_column: InputColumnConfig):
-        
         """
         Set the frequency of the forecast configuration based on the dataset.
         """
@@ -160,13 +184,12 @@ class ForecastConfig:
         frequencies = dataset.features[input_column.frequency].unique()
 
         # check if any of the daily frequency identifiers are present
-        if Frequency.get_alias(Frequency.DAILY, 'demandbench') in frequencies:
+        if Frequency.get_alias(Frequency.DAILY, "demandbench") in frequencies:
             self.freq = Frequency.DAILY
-        elif Frequency.get_alias(Frequency.WEEKLY, 'demandbench') in frequencies:
+        elif Frequency.get_alias(Frequency.WEEKLY, "demandbench") in frequencies:
             self.freq = Frequency.WEEKLY
         else:
             raise ValueError(
                 f"Unsupported frequency found in the dataset: {frequencies}. "
                 "Only 'daily' and 'weekly' frequencies are supported."
             )
-

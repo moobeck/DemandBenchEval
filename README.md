@@ -57,14 +57,14 @@ python -m src.main -c config/public/config.yaml -s config/private/config.yaml
 
 Build the container (only needs to be done once):
 ```bash
-docker build --build-arg GITHUB_TOKEN=your_github_token_here -t my-image .
+docker build --build-arg GITHUB_TOKEN=your_github_token_here -t demandbench .
 
 ```
 Run with a bind mount to persist Feather outputs into your local data/ folder:
 ```bash
 docker run --rm \
   -v "$(pwd)/data:/app/data" \
-  forecast-bench \
+  demandbench \
   -c config/public/config.yaml -s config/private/config.yaml
 ```
 This maps your host’s ./data directory into the container’s /app/data, so any files written there (e.g. *.feather) appear locally.

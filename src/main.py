@@ -12,7 +12,7 @@ from src.configurations.forecast_column import ForecastColumnConfig
 from src.configurations.cross_validation import CrossValidationConfig
 from src.configurations.forecasting import ForecastConfig
 from src.configurations.metrics import MetricConfig
-from src.configurations.enums import ModelName, MetricName, DatasetName
+from src.configurations.enums import ModelName, MetricName, DatasetName, Framework
 from src.configurations.wandb import WandbConfig
 from src.configurations.global_cfg import GlobalConfig
 from src.utils.wandb_orchestrator import WandbOrchestrator
@@ -20,7 +20,6 @@ from src.dataset.dataset_factory import DatasetFactory
 from src.preprocessing.nixtla_preprocessor import NixtlaPreprocessor
 from src.forecasting.training import ForecastTrainer
 from src.forecasting.evaluation import Evaluator, EvaluationPlotter
-
 
 
 def parse_args():
@@ -123,10 +122,13 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
         ),
         forecast=ForecastConfig(
             names=[ModelName[name] for name in forecast["models"]],
-            season_length=forecast["season_length"],
             horizon=forecast["horizon"],
             lags=forecast["lags"],
             date_features=forecast["date_features"],
+            model_config={
+                Framework[fw]: forecast["model_config"][fw]
+                for fw in forecast["model_config"]
+            },
         ),
         metrics=MetricConfig(
             names=[MetricName[name] for name in public_config["metrics"]["metrics"]],
@@ -175,10 +177,13 @@ def main():
         cfg.set_dataset(dataset_name, dataset)
 
         # 2) Preprocessing
-        prep = NixtlaPreprocessor(dataset, cfg.input_columns, cfg.forecast_columns, cfg.forecast)
+        prep = NixtlaPreprocessor(
+            dataset, cfg.input_columns, cfg.forecast_columns, cfg.forecast, cfg.cross_validation
+        )
         prep.merge()
         prep.remove_skus(skus="not_at_min_date")
         df = prep.prepare_nixtla()
+        df = prep.scale_target(df)
 
         # 3) Cross-validation
         trainer = ForecastTrainer(cfg.forecast, cfg.forecast_columns)

@@ -2,9 +2,10 @@ from enum import Enum, auto
 
 
 class Framework(Enum):
-    STATS = auto()
-    ML = auto()
-    NEURAL = auto()
+    STATS = "STATS"
+    ML = "ML"
+    NEURAL = "NEURAL"
+    FM = "FM"
 
 
 class ModelName(Enum):
@@ -22,6 +23,8 @@ class ModelName(Enum):
     FEDFORMER = "fedformer"
     TIDE = "tide"
     NHITS = "nhits"
+    TABPFN = "tabpfn"
+    TOTO = "toto"
 
 
 class MetricName(Enum):
@@ -29,6 +32,7 @@ class MetricName(Enum):
     MSSE = "msse"
     MAE = "mae"
     MSE = "mse"
+    RMSE = "rmse"
 
 
 class DatasetName(Enum):
@@ -43,30 +47,47 @@ class Frequency(Enum):
     DAILY = "Daily"
     WEEKLY = "Weekly"
 
-    
-
     @staticmethod
     def get_alias(freq: "Frequency", context: str):
 
         CONTEXT_ALIASES = {
-        'pandas': {
-            Frequency.DAILY: 'D',
-            Frequency.WEEKLY: 'W-MON',
-        },
-        'nixtla': {
-            Frequency.DAILY: 'D',
-            Frequency.WEEKLY: 'W-MON',
-        },
-        'demandbench': {
-            Frequency.DAILY: 'daily',
-            Frequency.WEEKLY: 'weekly',
-        },
-    }
+            "pandas": {
+                Frequency.DAILY: "D",
+                Frequency.WEEKLY: "W-MON",
+            },
+            "nixtla": {
+                Frequency.DAILY: "D",
+                Frequency.WEEKLY: "W-MON",
+            },
+            "demandbench": {
+                Frequency.DAILY: "daily",
+                Frequency.WEEKLY: "weekly",
+            },
+        }
 
         if context not in CONTEXT_ALIASES:
             raise ValueError(f"Unknown context: {context}")
-        try:
-            return CONTEXT_ALIASES[context][freq]
-        except KeyError:
-            raise ValueError(f"No alias defined for {freq} in context '{context}'")
 
+        # Use value-based lookup to handle enum instance issues
+        context_map = CONTEXT_ALIASES[context]
+        for freq_key, alias in context_map.items():
+            if freq.value == freq_key.value:  # Compare enum values instead of objects
+                return alias
+
+        raise ValueError(f"No alias defined for {freq} in context '{context}'")
+
+    @staticmethod
+    def get_season_length(freq: "Frequency") -> int:
+
+        SEASON_LENGTHS = {
+            Frequency.DAILY: 7,
+            Frequency.WEEKLY: 52,
+        }
+        if freq not in SEASON_LENGTHS:
+            raise ValueError(f"Unsupported frequency: {freq}")
+        return SEASON_LENGTHS[freq]
+
+
+class TimeInSeconds(Enum):
+    DAILY = 86400
+    WEEKLY = 604800

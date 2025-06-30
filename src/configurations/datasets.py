@@ -9,5 +9,3 @@ class DatasetConfig:
     """
 
     names: list[DatasetName] = field(default_factory=list)
-
-

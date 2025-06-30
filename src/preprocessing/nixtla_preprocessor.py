@@ -4,15 +4,15 @@ from datetime import datetime
 from utilsforecast.preprocessing import fill_gaps
 from demandbench.datasets import Dataset
 
+from src.preprocessing.scaler import LocalStandardScaler
 from src.configurations.enums import Frequency
 from src.configurations.input_column import InputColumnConfig
 from src.configurations.forecasting import ForecastConfig
 from src.configurations.forecast_column import ForecastColumnConfig
+from src.configurations.cross_validation import CrossValidationConfig
 import logging
 
-
-
-
+from mlforecast import MLForecast
 
 
 class NixtlaPreprocessor:
@@ -25,16 +25,17 @@ class NixtlaPreprocessor:
         dataset: Dataset,
         input_columns: InputColumnConfig,
         forecast_columns: ForecastColumnConfig,
-        forecast: ForecastConfig
+        forecast: ForecastConfig,
+        cross_validation: CrossValidationConfig,
     ):
 
         self._input_columns = input_columns
         self._dataset = dataset
         self._forecast_columns = forecast_columns
         self._forecast = forecast
+        self._cross_validation = cross_validation
 
         self.df_merged = None
-
 
     def merge(self):
         """
@@ -42,10 +43,6 @@ class NixtlaPreprocessor:
         """
 
         self.df_merged = self._dataset.get_merged_data().to_pandas()
-
-
-    
-
 
     def remove_skus(self, skus: Union[List[str], Literal["not_at_min_date"]]):
         """
@@ -81,20 +78,19 @@ class NixtlaPreprocessor:
 
         return self.df_merged
 
-
     def _filter_by_frequency(self, df: pd.DataFrame):
         """
         Filter the merged DataFrame by a specific frequency.
         """
-        frequency_alias = Frequency.get_alias(self._forecast.freq, 'demandbench')
+        frequency_alias = Frequency.get_alias(self._forecast.freq, "demandbench")
 
-        df = df[
-            df[self._input_columns.frequency] == frequency_alias
-        ].copy().reset_index(drop=True)
+        df = (
+            df[df[self._input_columns.frequency] == frequency_alias]
+            .copy()
+            .reset_index(drop=True)
+        )
 
         return df
-        
-
 
     def prepare_nixtla(self) -> pd.DataFrame:
         """Prepare a pandas DataFrame for Nixtla with required columns."""
@@ -116,10 +112,8 @@ class NixtlaPreprocessor:
         ]
 
         # Fill gaps in the time series
-        frequency_alias = Frequency.get_alias(
-            self._forecast.freq, 'pandas'
-        )
-        
+        frequency_alias = Frequency.get_alias(self._forecast.freq, "pandas")
+
         df = fill_gaps(
             df,
             freq=frequency_alias,
@@ -138,3 +132,48 @@ class NixtlaPreprocessor:
             }
         )
         return df
+
+    def scale_target(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Scale the target variable using LocalStandardScaler.
+
+        Parameters:
+        - df (pd.DataFrame): DataFrame containing the target variable to scale.
+
+        Returns:
+        - pd.DataFrame: DataFrame with the scaled target variable.
+        """
+        logging.info("Scaling target variable")
+
+
+        freq = self._forecast.freq
+        cross_validation = self._cross_validation
+
+        local_std_scaler = LocalStandardScaler(
+            cv_cfg=cross_validation,
+            freq=freq,
+        )
+
+
+        fcst_scaler = MLForecast(
+            models=[],
+            freq=self._forecast.freq,
+            target_transforms=[local_std_scaler],
+        )
+
+        selected_columns = [
+            self._forecast_columns.sku_index,
+            self._forecast_columns.date,
+            self._forecast_columns.target,
+        ]
+
+        df[selected_columns] = fcst_scaler.preprocess(
+            df[selected_columns],
+            id_col=self._forecast_columns.sku_index,
+            time_col=self._forecast_columns.date,
+            target_col=self._forecast_columns.target,
+        )
+
+        return df
+    
+
