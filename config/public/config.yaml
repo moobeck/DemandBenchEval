@@ -59,3 +59,4 @@ metrics:
   metrics:
     - MAE
     - RMSE
+  seasonality: null # Set to None for allowing seasonality to be detected automatically based on frequency of the dataset

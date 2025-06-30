@@ -132,6 +132,7 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
         ),
         metrics=MetricConfig(
             names=[MetricName[name] for name in public_config["metrics"]["metrics"]],
+            seasonality=public_config["metrics"].get("seasonality", None),
         ),
         wandb=WandbConfig(
             api_key=(wandb.get("api_key") if wandb else None),
