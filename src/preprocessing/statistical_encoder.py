@@ -1,4 +1,3 @@
-import scipy
 import pandas as pd
 import scipy.stats
 from src.configurations.cross_validation import CrossValidationConfig
