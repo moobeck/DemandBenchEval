@@ -220,18 +220,15 @@ class TabPFNWrapper(FoundationModelWrapper):
                     float(current_date.dayofweek),
                 ])
                 
-                # Add static features (help model distinguish between time series)
-                if forecast_columns.static:
-                    for static_col in forecast_columns.static:
-                        if static_col in series_df.columns:
-                            val = series_df[static_col].iloc[0]  # Static value
-                            features.append(float(val))
-                
-                # Add exogenous features (includes dataset-specific features like feature_01)
+                # Add exogenous features (includes static and dataset-specific features like feature_01)
                 if forecast_columns.exogenous:
                     for exog_col in forecast_columns.exogenous:
                         if exog_col in series_df.columns:
-                            val = series_df.iloc[i][exog_col]
+                            # Use static value for static features, time-varying value for others
+                            if exog_col in (forecast_columns.static or []):
+                                val = series_df[exog_col].iloc[0]  # Static value
+                            else:
+                                val = series_df.iloc[i][exog_col]  # Time-varying value
                             features.append(float(val))
                 
                 X_features.append(features)
@@ -295,18 +292,15 @@ class TabPFNWrapper(FoundationModelWrapper):
                 float(forecast_date.dayofweek),
             ])
             
-            # Add static features (help model distinguish between time series)
-            if forecast_columns.static:
-                for static_col in forecast_columns.static:
-                    if static_col in series_df.columns:
-                        val = series_df[static_col].iloc[0]  # Static value
-                        features.append(float(val))
-            
-            # Add exogenous features (includes dataset-specific features like feature_01)
+            # Add exogenous features (includes static and dataset-specific features like feature_01)
             if forecast_columns.exogenous:
                 for exog_col in forecast_columns.exogenous:
                     if exog_col in series_df.columns:
-                        val = series_df[exog_col].iloc[-1]  # Use last known value
+                        # Use static value for static features, last known value for others
+                        if exog_col in (forecast_columns.static or []):
+                            val = series_df[exog_col].iloc[0]  # Static value
+                        else:
+                            val = series_df[exog_col].iloc[-1]  # Last known value
                         features.append(float(val))
             
             # Ensure correct feature dimension
