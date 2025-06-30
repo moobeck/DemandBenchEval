@@ -13,10 +13,11 @@ import warnings
 
 class TabPFNWrapper(FoundationModelWrapper):
     """
-    Wrapper for TabPFN Regressor following TabPFN's design principles:
-    - Simple tabular data approach
-    - Minimal feature engineering (TabPFN does internal preprocessing)
-    - Cross-sectional prediction style
+    Wrapper for TabPFN Regressor for global time series forecasting:
+    - Fits on global dataset with multiple time series
+    - Uses static features to distinguish between different time series
+    - Includes all exogenous features (base + dataset-specific like feature_01)
+    - Simple tabular approach with lag features and time information
     """
 
     def __init__(
@@ -219,11 +220,17 @@ class TabPFNWrapper(FoundationModelWrapper):
                     float(current_date.dayofweek),
                 ])
                 
-                # Add time-varying exogenous features (skip static ones for in-context learning)
-                if forecast_columns.base_exogenous:
-                    static_features = forecast_columns.static or []
-                    for exog_col in forecast_columns.base_exogenous:
-                        if exog_col in series_df.columns and exog_col not in static_features:
+                # Add static features (help model distinguish between time series)
+                if forecast_columns.static:
+                    for static_col in forecast_columns.static:
+                        if static_col in series_df.columns:
+                            val = series_df[static_col].iloc[0]  # Static value
+                            features.append(float(val))
+                
+                # Add exogenous features (includes dataset-specific features like feature_01)
+                if forecast_columns.exogenous:
+                    for exog_col in forecast_columns.exogenous:
+                        if exog_col in series_df.columns:
                             val = series_df.iloc[i][exog_col]
                             features.append(float(val))
                 
@@ -288,11 +295,17 @@ class TabPFNWrapper(FoundationModelWrapper):
                 float(forecast_date.dayofweek),
             ])
             
-            # Add time-varying exogenous features (skip static ones for in-context learning)
-            if forecast_columns.base_exogenous:
-                static_features = forecast_columns.static or []
-                for exog_col in forecast_columns.base_exogenous:
-                    if exog_col in series_df.columns and exog_col not in static_features:
+            # Add static features (help model distinguish between time series)
+            if forecast_columns.static:
+                for static_col in forecast_columns.static:
+                    if static_col in series_df.columns:
+                        val = series_df[static_col].iloc[0]  # Static value
+                        features.append(float(val))
+            
+            # Add exogenous features (includes dataset-specific features like feature_01)
+            if forecast_columns.exogenous:
+                for exog_col in forecast_columns.exogenous:
+                    if exog_col in series_df.columns:
                         val = series_df[exog_col].iloc[-1]  # Use last known value
                         features.append(float(val))
             
