@@ -163,7 +163,7 @@ class NixtlaPreprocessor:
             for col in self._forecast_columns.exogenous
             if col not in self._forecast_columns.categorical
         ]
-        if not non_cat_exog:
+        if non_cat_exog:
             df[non_cat_exog] = global_min_max_scaler.fit_transform(df[non_cat_exog])
 
         local_std_scaler = LocalStandardScaler(
