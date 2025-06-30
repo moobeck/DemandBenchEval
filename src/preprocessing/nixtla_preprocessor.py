@@ -1,10 +1,14 @@
 import pandas as pd
 from typing import List, Literal, Union
 from datetime import datetime
+from sklearn.preprocessing import MinMaxScaler
 from utilsforecast.preprocessing import fill_gaps
 from demandbench.datasets import Dataset
 
 from src.preprocessing.scaler import LocalStandardScaler
+from src.preprocessing.date_encoder import DateEncoder
+from src.preprocessing.category_encoder import CategoryEncoder
+from src.preprocessing.statistical_encoder import StatisticalFeaturesEncoder
 from src.configurations.enums import Frequency
 from src.configurations.input_column import InputColumnConfig
 from src.configurations.forecasting import ForecastConfig
@@ -108,6 +112,7 @@ class NixtlaPreprocessor:
                 self._forecast_columns.date,
                 self._input_columns.target,
                 *(self._forecast_columns.exogenous),
+                *(self._forecast_columns.categorical),
             ]
         ]
 
@@ -133,47 +138,79 @@ class NixtlaPreprocessor:
         )
         return df
 
-    def scale_target(self, df: pd.DataFrame) -> pd.DataFrame:
+    def preprocess_data(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Scale the target variable using LocalStandardScaler.
+        Preprocess the DataFrame through scaling and encoding.
 
         Parameters:
-        - df (pd.DataFrame): DataFrame containing the target variable to scale.
+        - df (pd.DataFrame): DataFrame containing the target variable to scale and
+            features to encode.
 
         Returns:
         - pd.DataFrame: DataFrame with the scaled target variable.
         """
         logging.info("Scaling target variable")
 
-
         freq = self._forecast.freq
         cross_validation = self._cross_validation
+
+        global_min_max_scaler = MinMaxScaler(
+            feature_range=(0, 1),
+        )
+
+        non_cat_exog = [
+            col
+            for col in self._forecast_columns.exogenous
+            if col not in self._forecast_columns.categorical
+        ]
+        if non_cat_exog:
+            df[non_cat_exog] = global_min_max_scaler.fit_transform(df[non_cat_exog])
 
         local_std_scaler = LocalStandardScaler(
             cv_cfg=cross_validation,
             freq=freq,
         )
 
+        date_encoder = DateEncoder(freq=freq)
+        self._forecast_columns.add_exogenous(date_encoder.out_columns)
 
-        fcst_scaler = MLForecast(
+        category_encoder = CategoryEncoder(
+            cv_cfg=cross_validation, freq=freq, forecast_columns=self._forecast_columns
+        )
+        self._forecast_columns.add_exogenous(category_encoder.out_columns)
+        # If categorical columns were static, rename them to encoded versions
+        self._forecast_columns.rename_static(
+            dict(
+                zip(
+                    self._forecast_columns.categorical,
+                    category_encoder.out_columns,
+                )
+            )
+        )
+
+        df = category_encoder.fit_transform(df)
+
+        ml_forecast = MLForecast(
             models=[],
             freq=self._forecast.freq,
             target_transforms=[local_std_scaler],
+            date_features=date_encoder.get_encoders(),
         )
 
-        selected_columns = [
-            self._forecast_columns.sku_index,
-            self._forecast_columns.date,
-            self._forecast_columns.target,
-        ]
-
-        df[selected_columns] = fcst_scaler.preprocess(
-            df[selected_columns],
+        df = ml_forecast.preprocess(
+            df,
             id_col=self._forecast_columns.sku_index,
             time_col=self._forecast_columns.date,
             target_col=self._forecast_columns.target,
+            static_features=self._forecast_columns.static,
         )
 
-        return df
-    
+        stats_encoder = StatisticalFeaturesEncoder(
+            cv_cfg=cross_validation,
+            freq=freq,
+            forecast_columns=self._forecast_columns,
+        )
+        df = stats_encoder.fit_transform(df)
 
+
+        return df

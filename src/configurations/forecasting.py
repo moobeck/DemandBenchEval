@@ -140,7 +140,6 @@ class ForecastConfig:
     freq: Frequency = Frequency.DAILY
     horizon: int = 14
     lags: List[int] = field(default_factory=list)
-    date_features: List[str] = field(default_factory=list)
     model_config: Dict[Framework, Dict[str, Any]] = field(default_factory=dict)
 
     @property

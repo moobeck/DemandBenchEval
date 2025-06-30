@@ -13,7 +13,7 @@ input_columns:
   frequency: "frequency"
 
 datasets:
-  - MAISHAMEDS
+  - BAKERY
 
 forecast_columns:
   date:    "date"
@@ -21,25 +21,25 @@ forecast_columns:
   target:  "demand"
   cutoff: "cutoff"
   exog_vars:
+    - not_for_sale
+  static:
     - companyID
     - storeID
     - productID
-    - not_for_sale
-  static:
+  categorical:
     - companyID
     - storeID
     - productID
 
 forecast:
   models:
+    - ETS
     - LGBM
-    - TOTO
-    - TABPFN
-  horizon: 4
-  lags: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+  horizon: 14
+  lags: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50]
   model_config:
     ML:
-      num_samples: 50
+      num_samples: 1
     FM:
       TOTO:
         num_samples: 50
@@ -50,18 +50,13 @@ forecast:
         n_lags: 8              # Number of lag features
         scaling: true          # Apply feature scaling
 
-  date_features:
-    - month
 cross_validation:
-  cv_windows: 6
-  step_size: 4
+  cv_windows: 23
+  step_size: 14
   refit: false
 
 metrics:
   metrics:
-    - MASE
-    - MSSE
-    - MSE 
     - MAE
     - RMSE
-  seasonality: 52
+  seasonality: null # Set to None for allowing seasonality to be detected automatically based on frequency of the dataset

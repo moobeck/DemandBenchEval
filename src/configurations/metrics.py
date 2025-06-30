@@ -1,10 +1,8 @@
-from src.configurations.enums import MetricName
+from src.configurations.enums import MetricName, Frequency
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Any, TypeAlias
+from typing import Callable, Dict, Any, TypeAlias, Optional
 from functools import partial
 from utilsforecast.losses import mase, msse, mae, mse, rmse
-
-
 ForecastMetric: TypeAlias = Any
 
 
@@ -33,24 +31,53 @@ METRIC_REGISTRY: dict[MetricName, MetricSpec] = {
 }
 
 
-@dataclass(frozen=True)
+
+
+@dataclass
 class MetricConfig:
     """
     A dataclass to store the metrics used for evaluation.
     """
 
     names: list[MetricName] = field(default_factory=list)
-    seasonality: int = 7
+    seasonality: int = field(default=None, repr=False)
+    metrics: Dict[MetricName, MetricSpec] = field(init=False)
 
-    @property
-    def metrics(self) -> Dict[MetricName, MetricSpec]:
+    def __post_init__(self):
+        self.seasonality_provided = self.seasonality is not None
+        
+
+    def set_seasonality(self, freq: Optional[Frequency] = None):
         """
-        Returns a dictionary of metric names and their corresponding MetricSpec.
+        Sets the seasonality for the metrics based on the frequency of the dataset.
         """
 
-        metrics = {}
+        if freq == Frequency.DAILY:
+            self.seasonality = 7
+        elif freq == Frequency.WEEKLY:
+            self.seasonality = 52
+        else:
+            raise ValueError(f"Unsupported frequency: {freq}")
+
+    def set_metrics(self):
+        """
+        Sets the metrics based on the names provided in the configuration.
+        """
+        metrics: Dict[MetricName, MetricSpec] = {}
         for name in self.names:
-            metric_spec = METRIC_REGISTRY[name]
-            metrics[name] = metric_spec.factory(**metric_spec.default_params)
+            spec = METRIC_REGISTRY[name]
+            
+            # Make a shallow copy of default_params so we don't mutate the registry
+            params = spec.default_params.copy()
+            
+            # If seasonality is a supported param, override it
+            if "seasonality" in params:
+                params["seasonality"] = self.seasonality
+            
+            # Instantiate the metric with the (possibly overridden) params
+            metrics[name] = spec.factory(**params)
 
-        return metrics
+            self.metrics = metrics
+
+        
+

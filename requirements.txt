@@ -16,6 +16,8 @@ utilsforecast==0.2.12
 neuralforecast== 3.0.1
 wandb==0.19.11
 tabpfn>=2.0.0
+category_encoders==2.8.1
+
 
 # TOTO dependencies
 torch>=2.5.0

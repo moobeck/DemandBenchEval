@@ -113,6 +113,7 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
             target=forecast_columns["target"],
             cutoff=forecast_columns["cutoff"],
             base_exogenous=[col for col in forecast_columns["exog_vars"]],
+            categorical=[col for col in forecast_columns.get("categorical", [])],
             static=[col for col in forecast_columns["static"]],
         ),
         cross_validation=CrossValidationConfig(
@@ -124,7 +125,6 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
             names=[ModelName[name] for name in forecast["models"]],
             horizon=forecast["horizon"],
             lags=forecast["lags"],
-            date_features=forecast["date_features"],
             model_config={
                 Framework[fw]: forecast["model_config"][fw]
                 for fw in forecast["model_config"]
@@ -132,7 +132,7 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
         ),
         metrics=MetricConfig(
             names=[MetricName[name] for name in public_config["metrics"]["metrics"]],
-            seasonality=public_config["metrics"]["seasonality"],
+            seasonality=public_config["metrics"].get("seasonality", None),
         ),
         wandb=WandbConfig(
             api_key=(wandb.get("api_key") if wandb else None),
@@ -183,7 +183,7 @@ def main():
         prep.merge()
         prep.remove_skus(skus="not_at_min_date")
         df = prep.prepare_nixtla()
-        df = prep.scale_target(df)
+        df = prep.preprocess_data(df)
 
         # 3) Cross-validation
         trainer = ForecastTrainer(cfg.forecast, cfg.forecast_columns)
