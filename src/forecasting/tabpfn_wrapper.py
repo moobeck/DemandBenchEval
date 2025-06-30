@@ -345,15 +345,8 @@ class TabPFNWrapper(FoundationModelWrapper):
             return date + pd.Timedelta(days=steps)
         elif freq == Frequency.WEEKLY:
             return date + pd.Timedelta(weeks=steps)
-        elif freq == Frequency.MONTHLY:
-            return date + pd.DateOffset(months=steps)
-        elif freq == Frequency.QUARTERLY:
-            return date + pd.DateOffset(months=3 * steps)
-        elif freq == Frequency.YEARLY:
-            return date + pd.DateOffset(years=steps)
         else:
-            # Default to daily
-            return date + pd.Timedelta(days=steps)
+            raise ValueError(f"Unsupported frequency: {freq}")
 
     def _to_nixtla_df(
         self,
