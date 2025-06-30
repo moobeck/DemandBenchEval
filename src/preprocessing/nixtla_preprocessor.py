@@ -8,7 +8,7 @@ from demandbench.datasets import Dataset
 from src.preprocessing.scaler import LocalStandardScaler
 from src.preprocessing.date_encoder import DateEncoder
 from src.preprocessing.category_encoder import CategoryEncoder
-from src.preprocessing.moment_encoder import MomentsEncoder
+from src.preprocessing.statistical_encoder import StatisticalFeaturesEncoder
 from src.configurations.enums import Frequency
 from src.configurations.input_column import InputColumnConfig
 from src.configurations.forecasting import ForecastConfig
@@ -205,12 +205,12 @@ class NixtlaPreprocessor:
             static_features=self._forecast_columns.static,
         )
 
-        moment_encoder = MomentsEncoder(
+        stats_encoder = StatisticalFeaturesEncoder(
             cv_cfg=cross_validation,
             freq=freq,
             forecast_columns=self._forecast_columns,
         )
-        df = moment_encoder.fit_transform(df)
+        df = stats_encoder.fit_transform(df)
 
 
         return df

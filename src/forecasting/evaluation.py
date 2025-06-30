@@ -143,7 +143,7 @@ class EvaluationPlotter:
 
     def plot_error_distributions(self):
         """
-        Plots violin plots for the specified metrics across models, with mean lines.
+        Plots box plots for the specified metrics across models, with mean lines.
         """
 
         logging.info("Plotting error distributions...")
@@ -156,30 +156,31 @@ class EvaluationPlotter:
             x="model",
             y="error",
             col="metric",
-            kind="violin",
-            inner=None,
+            kind="box",
             sharey=True,
             height=5,
             aspect=1,
+            width=0.6,
         )
 
         g.set(ylim=self.ylim)
 
         # Overlay mean lines
-        for ax, metric in zip(g.axes.flatten(), [m for m in self.metrics]):
+        for ax, metric in zip(g.axes.flatten(), self.metrics):
             means = (
-                long_df[long_df["metric"] == metric].groupby("model")["error"].mean()
+                long_df[long_df["metric"] == metric]
+                .groupby("model")["error"].mean()
             )
             for idx, model in enumerate(models):
-                m_val = means.get(model, None)
+                m_val = means.get(model)
                 if m_val is not None:
                     ax.hlines(
                         y=m_val,
-                        xmin=idx - 0.2,
-                        xmax=idx + 0.2,
-                        linewidth=3,
+                        xmin=idx - 0.3,
+                        xmax=idx + 0.3,
+                        linewidth=2,
                         colors="orange",
-                        linestyles="dotted",
+                        linestyles="dashed",
                     )
 
         # Labels & titles
@@ -188,3 +189,4 @@ class EvaluationPlotter:
         plt.tight_layout()
 
         return g
+

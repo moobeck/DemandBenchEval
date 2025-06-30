@@ -6,7 +6,7 @@ from src.configurations.enums import Frequency
 from src.configurations.forecast_column import ForecastColumnConfig
 
 
-class MomentsEncoder:
+class StatisticalFeaturesEncoder:
 
     def __init__(
         self,
@@ -21,9 +21,13 @@ class MomentsEncoder:
         self.cv_cfg = cv_cfg
         self.freq = freq
         self.forecast_columns = forecast_columns
-        self.skewness_col = "skewness"
-        self.kurtosis_col = "kurtosis"
-        self.out_columns = [self.skewness_col, self.kurtosis_col]
+        self.skewness_col = f"{self.forecast_columns.target}_skewness"
+        self.kurtosis_col = f"{self.forecast_columns.target}_kurtosis"
+        self.quantiles = [0.1, 0.25, 0.5, 0.75, 0.9]
+        self.quantile_cols = [
+            f"{self.forecast_columns.target}_quantile_{q:.2f}" for q in self.quantiles
+        ]
+        self.out_columns = [self.skewness_col, self.kurtosis_col] + self.quantile_cols
 
 
 
@@ -46,6 +50,10 @@ class MomentsEncoder:
             .agg(
                 skewness=lambda x: scipy.stats.skew(x) if len(x) >= 4 else 0,
                 kurtosis=lambda x: scipy.stats.kurtosis(x) if len(x) >= 4 else 0,
+                **{
+                    f"quantile_{q:.2f}": lambda x, q=q: x.quantile(q) if len(x) >= 4 else 0
+                    for q in self.quantiles
+                }
             )        
         )
 
@@ -61,7 +69,8 @@ class MomentsEncoder:
         # 4) rename or assign to your desired column names
         df = df.rename(columns={
             "skewness": self.skewness_col,
-            "kurtosis": self.kurtosis_col
+            "kurtosis": self.kurtosis_col, 
+            **{f"quantile_{q:.2f}": col for q, col in zip(self.quantiles, self.quantile_cols)}
         })
 
         return df
