@@ -4,8 +4,7 @@ from datetime import datetime
 from sklearn.preprocessing import MinMaxScaler
 from utilsforecast.preprocessing import fill_gaps
 from demandbench.datasets import Dataset
-from mlforecast.feature_engineering import transform_exog
-from src.preprocessing.scaler import Local90QuantileScaler
+from src.preprocessing.scaler import LocalMaxScaler
 from src.preprocessing.date_encoder import DateEncoder
 from src.preprocessing.category_encoder import CategoryEncoder
 from src.preprocessing.statistical_encoder import StatisticalFeaturesEncoder
@@ -168,9 +167,7 @@ class NixtlaPreprocessor:
         if non_cat_exog:
             df[non_cat_exog] = global_min_max_scaler.fit_transform(df[non_cat_exog])
 
-  
-        
-        local_scaler = Local90QuantileScaler(
+        local_scaler = LocalMaxScaler(
             cv_cfg=cross_validation,
             freq=freq,
         )
