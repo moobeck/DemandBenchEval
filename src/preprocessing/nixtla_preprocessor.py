@@ -154,6 +154,8 @@ class NixtlaPreprocessor:
         freq = self._forecast.freq
         cross_validation = self._cross_validation
 
+
+
         global_min_max_scaler = MinMaxScaler(
             feature_range=(0, 1),
         )
@@ -166,6 +168,8 @@ class NixtlaPreprocessor:
         if non_cat_exog:
             df[non_cat_exog] = global_min_max_scaler.fit_transform(df[non_cat_exog])
 
+  
+        
         local_std_scaler = LocalStandardScaler(
             cv_cfg=cross_validation,
             freq=freq,
@@ -174,9 +178,14 @@ class NixtlaPreprocessor:
         date_encoder = DateEncoder(freq=freq)
         self._forecast_columns.add_exogenous(date_encoder.out_columns)
 
+
+
         category_encoder = CategoryEncoder(
             cv_cfg=cross_validation, freq=freq, forecast_columns=self._forecast_columns
         )
+
+        df = category_encoder.fit_transform(df)
+
         self._forecast_columns.add_exogenous(category_encoder.out_columns)
         # If categorical columns were static, rename them to encoded versions
         self._forecast_columns.rename_static(
@@ -187,8 +196,6 @@ class NixtlaPreprocessor:
                 )
             )
         )
-
-        df = category_encoder.fit_transform(df)
 
         ml_forecast = MLForecast(
             models=[],
@@ -212,5 +219,7 @@ class NixtlaPreprocessor:
         )
         df = stats_encoder.fit_transform(df)
 
+        self._forecast_columns.add_exogenous(stats_encoder.out_columns)
+        self._forecast_columns.add_static(stats_encoder.out_columns)
 
         return df
