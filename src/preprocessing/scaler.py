@@ -97,6 +97,13 @@ class Local90QuantileScaler(BaseTargetTransform):
         self.quantile = quantile
         self.stats_: pd.DataFrame = None
 
+    def _nonzero_quantile(self, x):
+        perc = x.quantile(self.quantile)
+        nz = x[x > 0]
+        min_nz = nz.min() if not nz.empty else 0
+        return max(perc, min_nz)
+
+
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         # determine cutoff based on frequency and CV windows
         if self.freq == Frequency.DAILY:
@@ -107,17 +114,12 @@ class Local90QuantileScaler(BaseTargetTransform):
             raise ValueError(f"Unsupported frequency: {self.freq}")
 
         cutoff = df[self.time_col].max() - offset
-        df_train = df[df[self.time_col] <= cutoff]
+        df_train: pd.DataFrame = df[df[self.time_col] <= cutoff]
 
         # compute 90th percentile per series
-        self.stats_ = (
-            df_train.groupby(self.id_col)[self.target_col]
-            .quantile(self.quantile)
-            .reset_index(name="q90")
-        )
-
-        # Avoid division by zero
-        self.stats_["q90"].replace(0, 1.0, inplace=True)
+        self.stats_ = df_train.groupby(self.id_col)[self.target_col].agg(
+            q90=self._nonzero_quantile
+        ).reset_index()
 
         # merge and scale
         df = df.merge(self.stats_, on=self.id_col, how="left")
