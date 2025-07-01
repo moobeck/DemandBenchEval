@@ -4,8 +4,8 @@ from datetime import datetime
 from sklearn.preprocessing import MinMaxScaler
 from utilsforecast.preprocessing import fill_gaps
 from demandbench.datasets import Dataset
-
-from src.preprocessing.scaler import LocalStandardScaler
+from mlforecast.feature_engineering import transform_exog
+from src.preprocessing.scaler import LocalStandardScaler, LocalMaxScaler
 from src.preprocessing.date_encoder import DateEncoder
 from src.preprocessing.category_encoder import CategoryEncoder
 from src.preprocessing.statistical_encoder import StatisticalFeaturesEncoder
@@ -170,7 +170,7 @@ class NixtlaPreprocessor:
 
   
         
-        local_std_scaler = LocalStandardScaler(
+        local_scaler = LocalMaxScaler(
             cv_cfg=cross_validation,
             freq=freq,
         )
@@ -200,7 +200,7 @@ class NixtlaPreprocessor:
         ml_forecast = MLForecast(
             models=[],
             freq=self._forecast.freq,
-            target_transforms=[local_std_scaler],
+            target_transforms=[local_scaler],
             date_features=date_encoder.get_encoders(),
         )
 
@@ -220,6 +220,5 @@ class NixtlaPreprocessor:
         df = stats_encoder.fit_transform(df)
 
         self._forecast_columns.add_exogenous(stats_encoder.out_columns)
-        self._forecast_columns.add_static(stats_encoder.out_columns)
 
         return df

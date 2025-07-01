@@ -65,6 +65,7 @@ class StatisticalFeaturesEncoder:
             right_on=self.forecast_columns.sku_index,
         )
 
+
         # 4) rename or assign to your desired column names
         df = df.rename(columns={
             "skewness": self.skewness_col,
