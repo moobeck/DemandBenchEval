@@ -52,7 +52,7 @@ class LocalMaxScaler(BaseTargetTransform):
     def __init__(self, cv_cfg: CrossValidationConfig, freq: Frequency):
         self.cv_cfg = cv_cfg
         self.freq = freq
-        self.stats_: pd.DataFrame
+        self.stats_ = None
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         if self.freq == Frequency.DAILY:
