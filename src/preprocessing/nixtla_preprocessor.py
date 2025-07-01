@@ -5,7 +5,7 @@ from sklearn.preprocessing import MinMaxScaler
 from utilsforecast.preprocessing import fill_gaps
 from demandbench.datasets import Dataset
 from mlforecast.feature_engineering import transform_exog
-from src.preprocessing.scaler import LocalStandardScaler, LocalMaxScaler
+from src.preprocessing.scaler import LocalMaxScaler
 from src.preprocessing.date_encoder import DateEncoder
 from src.preprocessing.category_encoder import CategoryEncoder
 from src.preprocessing.statistical_encoder import StatisticalFeaturesEncoder
