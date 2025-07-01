@@ -4,6 +4,7 @@ from demandbench.datasets import (
     load_favorita,
     load_bakery,
     load_yaz,
+    load_maishameds
 )
 from src.configurations.enums import DatasetName
 
@@ -31,6 +32,6 @@ class DatasetFactory:
         elif dataset_name == DatasetName.YAZ:
             return load_yaz()
         elif dataset_name == DatasetName.MAISHAMEDS:
-            raise ValueError(f"Dataset {dataset_name} is not available in current demandbench version")
+            return load_maishameds()
         else:
             raise ValueError(f"Unknown dataset name: {dataset_name}")
