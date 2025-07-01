@@ -11,7 +11,7 @@ class LocalStandardScaler(BaseTargetTransform):
     def __init__(self, cv_cfg: CrossValidationConfig, freq: Frequency):
         self.cv_cfg = cv_cfg
         self.freq = freq
-        self.stats_: pd.DataFrame
+        self.stats_: pd.DataFrame = None
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         if self.freq == Frequency.DAILY:
@@ -52,7 +52,7 @@ class LocalMaxScaler(BaseTargetTransform):
     def __init__(self, cv_cfg: CrossValidationConfig, freq: Frequency):
         self.cv_cfg = cv_cfg
         self.freq = freq
-        self.stats_ = None
+        self.stats_: pd.DataFrame = None
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         if self.freq == Frequency.DAILY:
@@ -95,7 +95,7 @@ class Local90QuantileScaler(BaseTargetTransform):
         self.cv_cfg = cv_cfg
         self.freq = freq
         self.quantile = quantile
-        self.stats_: pd.DataFrame
+        self.stats_: pd.DataFrame = None
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         # determine cutoff based on frequency and CV windows
