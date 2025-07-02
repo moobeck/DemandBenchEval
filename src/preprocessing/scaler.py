@@ -54,10 +54,6 @@ class LocalStandardScaler(TargetScaler):
     """Standardizes each series to have mean 0 and standard deviation 1,
     based on a training cutoff defined by the CV config."""
 
-    def __init__(self, cv_cfg: CrossValidationConfig, freq: Frequency):
-        self.cv_cfg = cv_cfg
-        self.freq = freq
-        self.stats_: pd.DataFrame = None
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         cutoff = self._calculate_cutoff(df)
@@ -88,10 +84,6 @@ class LocalMaxScaler(TargetScaler):
     """Scales each series by dividing by the maximum value in the training set,
     based on a training cutoff defined by the CV config."""
 
-    def __init__(self, cv_cfg: CrossValidationConfig, freq: Frequency):
-        self.cv_cfg = cv_cfg
-        self.freq = freq
-        self.stats_: pd.DataFrame = None
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
 
@@ -123,15 +115,15 @@ class LocalMaxScaler(TargetScaler):
         return df.drop(columns=["max_"])
     
 
-class LocalRobustScaler(BaseTargetTransform):
+class LocalRobustScaler(TargetScaler):
     """Scales each series by dividing by a certain quantile (default 90th percentile)
     based on a training cutoff defined by the CV config."""
 
     def __init__(self, cv_cfg: CrossValidationConfig, freq: Frequency, quantile: float = 0.9):
-        self.cv_cfg = cv_cfg
-        self.freq = freq
+        super().__init__(cv_cfg, freq)
         self.quantile = quantile
-        self.stats_: pd.DataFrame = None
+        if not (0 < quantile < 1):
+            raise ValueError("Quantile must be between 0 and 1.")
 
     def _nonzero_quantile(self, x: pd.Series) -> float:
         """Calculate quantile for a series. If the quantile is zero, return the minimum non-zero value instead."""
