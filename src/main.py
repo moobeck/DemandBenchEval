@@ -12,9 +12,10 @@ from src.configurations.forecast_column import ForecastColumnConfig
 from src.configurations.cross_validation import CrossValidationConfig
 from src.configurations.forecasting import ForecastConfig
 from src.configurations.metrics import MetricConfig
-from src.configurations.enums import ModelName, MetricName, DatasetName, Framework
+from src.configurations.enums import ModelName, MetricName, DatasetName, Framework, TargetScalerType
 from src.configurations.wandb import WandbConfig
 from src.configurations.global_cfg import GlobalConfig
+from src.configurations.preprocessing import PreprocessingConfig
 from src.utils.wandb_orchestrator import WandbOrchestrator
 from src.dataset.dataset_factory import DatasetFactory
 from src.preprocessing.nixtla_preprocessor import NixtlaPreprocessor
@@ -71,6 +72,9 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
     input_colums = public_config.get("input_columns", {})
     if not input_colums:
         logging.warning("No input columns provided in the public config.")
+    preprocessing = public_config.get("preprocessing", {})
+    if not preprocessing:
+        logging.warning("No preprocessing settings provided in the public config.")
     forecast_columns = public_config.get("forecast_columns", {})
     if not forecast_columns:
         logging.warning("No forecast columns provided in the public config.")
@@ -106,6 +110,9 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
             date=input_colums["date"],
             target=input_colums["target"],
             frequency=input_colums["frequency"],
+        ),
+        preprocessing=PreprocessingConfig(
+            target_transform=TargetScalerType[preprocessing["target_transform"]],
         ),
         forecast_columns=ForecastColumnConfig(
             sku_index=forecast_columns["sku_index"],
@@ -178,7 +185,8 @@ def main():
 
         # 2) Preprocessing
         prep = NixtlaPreprocessor(
-            dataset, cfg.input_columns, cfg.forecast_columns, cfg.forecast, cfg.cross_validation
+            dataset, cfg.input_columns, cfg.preprocessing,
+            cfg.forecast_columns, cfg.forecast, cfg.cross_validation
         )
         prep.merge()
         prep.remove_skus(skus="not_at_min_date")

@@ -20,6 +20,8 @@ class StatisticalFeaturesEncoder:
         self.cv_cfg = cv_cfg
         self.freq = freq
         self.forecast_columns = forecast_columns
+        self.mean_col = f"{self.forecast_columns.target}_mean"
+        self.std_col = f"{self.forecast_columns.target}_std"
         self.skewness_col = f"{self.forecast_columns.target}_skewness"
         self.kurtosis_col = f"{self.forecast_columns.target}_kurtosis"
         self.quantiles = [0.1, 0.25, 0.5, 0.75, 0.9]
@@ -47,6 +49,8 @@ class StatisticalFeaturesEncoder:
             df_train
             .groupby(self.forecast_columns.sku_index)[self.forecast_columns.target]
             .agg(
+                mean="mean",
+                std="std",
                 skewness=lambda x: scipy.stats.skew(x) if len(x) >= 4 else 0,
                 kurtosis=lambda x: scipy.stats.kurtosis(x) if len(x) >= 4 else 0,
                 **{
@@ -65,8 +69,11 @@ class StatisticalFeaturesEncoder:
             right_on=self.forecast_columns.sku_index,
         )
 
+
         # 4) rename or assign to your desired column names
         df = df.rename(columns={
+            "mean": self.mean_col,
+            "std": self.std_col,
             "skewness": self.skewness_col,
             "kurtosis": self.kurtosis_col, 
             **{f"quantile_{q:.2f}": col for q, col in zip(self.quantiles, self.quantile_cols)}
