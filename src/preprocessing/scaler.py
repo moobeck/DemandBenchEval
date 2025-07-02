@@ -108,14 +108,7 @@ class Local90QuantileScaler(BaseTargetTransform):
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         # determine cutoff based on frequency and CV windows
-        if self.freq == Frequency.DAILY:
-            offset = pd.Timedelta(days=self.cv_cfg.cv_windows * self.cv_cfg.step_size)
-        elif self.freq == Frequency.WEEKLY:
-            offset = pd.Timedelta(weeks=self.cv_cfg.cv_windows * self.cv_cfg.step_size)
-        else:
-            raise ValueError(f"Unsupported frequency: {self.freq}")
-
-        cutoff = df[self.time_col].max() - offset
+        cutoff = _calculate_cutoff(self.freq, self.cv_cfg, self.time_col, df)
         df_train: pd.DataFrame = df[df[self.time_col] <= cutoff]
 
         # compute 90th percentile per series
