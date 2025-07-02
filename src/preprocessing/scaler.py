@@ -72,6 +72,8 @@ class LocalMaxScaler(BaseTargetTransform):
             .agg(max_="max")
             .reset_index()
         )
+        # Avoid division by zero
+        self.stats_["max_"].replace(0, 1.0, inplace=True)
 
         df = df.merge(self.stats_, on=self.id_col, how="left")
         df[self.target_col] = df[self.target_col] / df["max_"]
