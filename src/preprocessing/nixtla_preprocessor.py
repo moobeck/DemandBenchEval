@@ -4,12 +4,13 @@ from datetime import datetime
 from sklearn.preprocessing import MinMaxScaler
 from utilsforecast.preprocessing import fill_gaps
 from demandbench.datasets import Dataset
-from src.preprocessing.scaler import LocalMaxScaler
+from src.preprocessing.scaler import TargetScalerFactory
 from src.preprocessing.date_encoder import DateEncoder
 from src.preprocessing.category_encoder import CategoryEncoder
 from src.preprocessing.statistical_encoder import StatisticalFeaturesEncoder
 from src.configurations.enums import Frequency
 from src.configurations.input_column import InputColumnConfig
+from src.configurations.preprocessing import PreprocessingConfig
 from src.configurations.forecasting import ForecastConfig
 from src.configurations.forecast_column import ForecastColumnConfig
 from src.configurations.cross_validation import CrossValidationConfig
@@ -27,12 +28,14 @@ class NixtlaPreprocessor:
         self,
         dataset: Dataset,
         input_columns: InputColumnConfig,
+        preprocessing: PreprocessingConfig,
         forecast_columns: ForecastColumnConfig,
         forecast: ForecastConfig,
         cross_validation: CrossValidationConfig,
     ):
 
         self._input_columns = input_columns
+        self._preprocessing = preprocessing
         self._dataset = dataset
         self._forecast_columns = forecast_columns
         self._forecast = forecast
@@ -167,9 +170,8 @@ class NixtlaPreprocessor:
         if non_cat_exog:
             df[non_cat_exog] = global_min_max_scaler.fit_transform(df[non_cat_exog])
 
-        local_scaler = LocalMaxScaler(
-            cv_cfg=cross_validation,
-            freq=freq,
+        local_scaler = TargetScalerFactory.create_scaler(
+            self._preprocessing, cross_validation, freq
         )
 
         date_encoder = DateEncoder(freq=freq)

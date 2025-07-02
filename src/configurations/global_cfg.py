@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from src.configurations.file_path import FilePathConfig
 from src.configurations.datasets import DatasetConfig
 from src.configurations.input_column import InputColumnConfig
+from src.configurations.preprocessing import PreprocessingConfig
 from src.configurations.forecast_column import ForecastColumnConfig
 from src.configurations.cross_validation import CrossValidationConfig
 from src.configurations.forecasting import ForecastConfig
@@ -17,6 +18,7 @@ class GlobalConfig:
     filepaths: FilePathConfig
     datasets: DatasetConfig
     input_columns: InputColumnConfig
+    preprocessing: PreprocessingConfig
     forecast_columns: ForecastColumnConfig
     cross_validation: CrossValidationConfig
     forecast: ForecastConfig

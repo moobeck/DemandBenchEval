@@ -91,3 +91,9 @@ class Frequency(Enum):
 class TimeInSeconds(Enum):
     DAILY = 86400
     WEEKLY = 604800
+
+
+class TargetScalerType(Enum):
+    LOCAL_STANDARD = "local_standard"
+    LOCAL_MAX = "local_max"
+    LOCAL_ROBUST = "local_robust"

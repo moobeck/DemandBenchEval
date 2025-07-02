@@ -30,6 +30,10 @@ forecast_columns:
     - companyID
     - storeID
     - productID
+  
+
+preprocessing:
+  target_transform: "LOCAL_MAX" # Options: "LOCAL_MAX", "LOCAL_STANDARD", "LOCAL_ROBUST"
 
 forecast:
   models:
