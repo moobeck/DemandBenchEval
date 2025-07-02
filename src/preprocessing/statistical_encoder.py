@@ -72,6 +72,8 @@ class StatisticalFeaturesEncoder:
 
         # 4) rename or assign to your desired column names
         df = df.rename(columns={
+            "mean": self.mean_col,
+            "std": self.std_col,
             "skewness": self.skewness_col,
             "kurtosis": self.kurtosis_col, 
             **{f"quantile_{q:.2f}": col for q, col in zip(self.quantiles, self.quantile_cols)}
