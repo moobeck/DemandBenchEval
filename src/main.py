@@ -207,10 +207,6 @@ def main():
 
         # save df as feather file
         df.to_feather(cfg.filepaths.eval_results.replace(".feather", "processed_dataset.feather"))
-        # Also save the forecasting columns configuration 
-        import pickle
-        with open(cfg.filepaths.eval_results.replace(".feather", "forecast_columns.pkl"), "wb") as f:
-            pickle.dump(cfg.forecast_columns, f)
 
         # 3) Cross-validation
         trainer = ForecastTrainer(cfg.forecast, cfg.forecast_columns)
