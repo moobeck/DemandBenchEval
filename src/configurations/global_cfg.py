@@ -39,3 +39,5 @@ class GlobalConfig:
                 freq=self.forecast.freq
             )
         self.metrics.set_metrics()
+
+        self.cross_validation.set_dataset_config(dataset_name)

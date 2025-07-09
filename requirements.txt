@@ -40,4 +40,6 @@ pytz==2025.2
 seaborn==0.13.2
 
 # DemandBench from GitHub branch
-git+https://github.com/a11to1n3/DemandBench.git@for-summerschool
+git+https://github.com/a11to1n3/DemandBench.git
+git+https://github.com/a11to1n3/DemandBench-Favorita-Dataset.git
+git+https://github.com/a11to1n3/DemandBench-M5-Dataset.git

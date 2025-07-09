@@ -38,10 +38,14 @@ class MetricName(Enum):
 class DatasetName(Enum):
     M5 = "m5"
     FAVORITA = "favorita"
+    ROHLIK = "rohlik"
+    ROSSMANN = "rossmann"
     BAKERY = "bakery"
     YAZ = "yaz"
-    MAISHAMEDS = "maishameds"
-
+    PHARMACY = "pharmacy"
+    HOTEL = "hoteldemand"
+    ONLINERETAIL = "onlineretail"
+    
 
 class Frequency(Enum):
     DAILY = "Daily"

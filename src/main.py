@@ -3,13 +3,12 @@ import logging
 import yaml
 import random
 import numpy as np
-import torch
 from typing import Any
 from src.configurations.file_path import FilePathConfig
 from src.configurations.datasets import DatasetConfig
 from src.configurations.input_column import InputColumnConfig
 from src.configurations.forecast_column import ForecastColumnConfig
-from src.configurations.cross_validation import CrossValidationConfig
+from src.configurations.cross_validation import CrossValidationConfig, CrossValWindowConfig, CrossValDatasetConfig
 from src.configurations.forecasting import ForecastConfig
 from src.configurations.metrics import MetricConfig
 from src.configurations.enums import ModelName, MetricName, DatasetName, Framework, TargetScalerType
@@ -124,9 +123,22 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
             static=[col for col in forecast_columns["static"]],
         ),
         cross_validation=CrossValidationConfig(
-            cv_windows=cross_validation["cv_windows"],
-            step_size=cross_validation["step_size"],
-            refit=cross_validation["refit"],
+            data={
+                DatasetName[name]: CrossValDatasetConfig(
+                    test=CrossValWindowConfig(
+                        n_windows=cv["test"]["n_windows"],
+                        step_size=cv["test"]["step_size"],
+                        refit=cv["test"]["refit"],
+                    ),
+                    val=CrossValWindowConfig(
+                        n_windows=cv["val"]["n_windows"],
+                        step_size=cv["val"]["step_size"],
+                        refit=cv["val"]["refit"],
+                    ),
+                )
+                for name, cv in cross_validation.items()
+            }
+
         ),
         forecast=ForecastConfig(
             names=[ModelName[name] for name in forecast["models"]],
@@ -193,13 +205,18 @@ def main():
         df = prep.prepare_nixtla()
         df = prep.preprocess_data(df)
 
+        # save df as feather file
+        df.to_feather(cfg.filepaths.eval_results.replace(".feather", "processed_dataset.feather"))
+        # Also save the forecasting columns configuration 
+        import pickle
+        with open(cfg.filepaths.eval_results.replace(".feather", "forecast_columns.pkl"), "wb") as f:
+            pickle.dump(cfg.forecast_columns, f)
+
         # 3) Cross-validation
         trainer = ForecastTrainer(cfg.forecast, cfg.forecast_columns)
         cv_df = trainer.cross_validate(
             df=df,
-            n_windows=cfg.cross_validation.cv_windows,
-            step_size=cfg.cross_validation.step_size,
-            refit=cfg.cross_validation.refit,
+            cv_config=cfg.cross_validation.dataset_config,
         )
 
         # 4) Evaluation

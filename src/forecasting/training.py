@@ -10,7 +10,8 @@ from src.forecasting.engine import (
 )
 from src.configurations.forecast_column import ForecastColumnConfig
 from src.configurations.forecasting import ForecastConfig
-from src.configurations.enums import Framework, Frequency, ModelName
+from src.configurations.enums import Framework, Frequency
+from src.configurations.cross_validation import CrossValDatasetConfig
 from mlforecast.target_transforms import LocalMinMaxScaler
 
 
@@ -93,7 +94,7 @@ class ForecastTrainer:
     def cross_validate(
         self,
         df: pd.DataFrame,
-        **kwargs,
+        cv_config: CrossValDatasetConfig
     ) -> pd.DataFrame:
         """
         Perform cross-validation for each forecasting framework and
@@ -107,7 +108,7 @@ class ForecastTrainer:
                 continue
 
             logging.info(f"Cross-validating with {framework.name}...")
-            cv_input = self._prepare_cv_inputs(framework, df, **kwargs)
+            cv_input = self._prepare_cv_inputs(framework, df, cv_config=cv_config)
             df_cv = self._run_framework_cv(engine, **cv_input)
             results.append(df_cv)
 
@@ -120,13 +121,13 @@ class ForecastTrainer:
         self,
         framework: Framework,
         df: pd.DataFrame,
-        **user_kwargs: Any,
+        cv_config: CrossValDatasetConfig,
     ) -> Dict[str, Any]:
         """
         Build the arguments needed for a framework's cross_validation call.
         """
         cols = list(self._forecast_columns.ts_base_cols)
-        kwargs: Dict[str, Any] = user_kwargs.copy()
+        kwargs: Dict[str, Any] = {"cv_config": cv_config}
 
         if framework == Framework.NEURAL:
             # Neural wants static_df separate
