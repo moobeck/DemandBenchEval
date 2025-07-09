@@ -142,8 +142,6 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
         ),
         forecast=ForecastConfig(
             names=[ModelName[name] for name in forecast["models"]],
-            horizon=forecast["horizon"],
-            lags=forecast["lags"],
             model_config={
                 Framework[fw]: forecast["model_config"][fw]
                 for fw in forecast["model_config"]

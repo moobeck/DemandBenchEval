@@ -192,3 +192,33 @@ class ForecastConfig:
                 f"Unsupported frequency found in the dataset: {frequencies}. "
                 "Only 'daily' and 'weekly' frequencies are supported."
             )
+
+    def set_lags(self):
+        """
+        Set the lags for the forecast configuration the frequency defined in the dataset.
+        """
+        if not self.lags:
+            # Use the default lags based on frequency
+            if self.freq == Frequency.DAILY:
+                self.lags = range(1, 50)
+                
+            elif self.freq == Frequency.WEEKLY:
+                self.lags = range(1, 15)
+            else:
+                raise ValueError(f"Unsupported frequency: {self.freq}")
+            
+            tabpfn_config = self.model_config.get(Framework.FM, {}).get("TABPFN")
+            if tabpfn_config and "n_lags" in tabpfn_config:
+                tabpfn_config["n_lags"] = len(self.lags)
+
+
+    def set_horizon(self):
+        """
+        Set the horizon based on the frequency defined in the dataset.
+        """
+        if self.freq == Frequency.DAILY:
+            self.horizon = 7
+        elif self.freq == Frequency.WEEKLY:
+            self.horizon = 4
+        else:
+            raise ValueError(f"Unsupported frequency: {self.freq}")
