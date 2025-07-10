@@ -44,11 +44,14 @@ class CategoryEncoder:
         - pd.DataFrame: DataFrame with encoded features.
         """
 
+        n_windows = self._cv_cfg.test.n_windows
+        step_size = self._cv_cfg.test.step_size
+
         if self._freq == Frequency.DAILY:
-            offset = pd.Timedelta(days=self._cv_cfg.cv_windows * self._cv_cfg.step_size)
+            offset = pd.Timedelta(days=n_windows * step_size)
         elif self._freq == Frequency.WEEKLY:
             offset = pd.Timedelta(
-                weeks=self._cv_cfg.cv_windows * self._cv_cfg.step_size
+                weeks=n_windows * step_size
             )
         else:
             raise ValueError(f"Unsupported frequency: {self._freq}")

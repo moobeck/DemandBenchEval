@@ -20,6 +20,16 @@ forecast_columns:
   sku_index:   "skuID"
   target:  "demand"
   cutoff: "cutoff"
+  exog_vars:
+    - not_for_sale
+  static:
+    - companyID
+    - storeID
+    - productID
+  categorical:
+    - companyID
+    - storeID
+    - productID
 
 preprocessing:
   target_transform: "LOCAL_MAX" # Options: "LOCAL_MAX", "LOCAL_STANDARD", "LOCAL_ROBUST"
@@ -43,83 +53,83 @@ forecast:
 cross_validation:
   M5:
     test:
-      cv_windows: 322
+      n_windows: 322
       step_size: 1
       refit: false
     val:
-      cv_windows: 100
+      n_windows: 100
       step_size: 1
       refit: false
   FAVORITA:
     test:
-      cv_windows: 322
+      n_windows: 322
       step_size: 1
       refit: false
     val:
-      cv_windows: 100
+      n_windows: 100
       step_size: 1
       refit: false
   ROHLIK:
     test:
-      cv_windows: 280   # 20% of 1402 days
+      n_windows: 280   # 20% of 1402 days
       step_size: 1
       refit: false
     val:
-      cv_windows: 140   # 10% of 1402 days
+      n_windows: 140   # 10% of 1402 days
       step_size: 1
       refit: false
   ROSSMANN:
     test:
-      cv_windows: 188   # 20% of 942 days
+      n_windows: 188   # 20% of 942 days
       step_size: 1
       refit: false
     val:
-      cv_windows: 94    # 10% of 942 days
+      n_windows: 94    # 10% of 942 days
       step_size: 1
       refit: false
   BAKERY:
     test:
-      cv_windows: 243   # 20% of 1215 days
+      n_windows: 243   # 20% of 1215 days
       step_size: 1
       refit: false
     val:
-      cv_windows: 121   # 10% of 1215 days
+      n_windows: 121   # 10% of 1215 days
       step_size: 1
       refit: false
   YAZ:
     test:
-      cv_windows: 153   # 20% of 765 days
+      n_windows: 153   # 20% of 765 days
       step_size: 1
       refit: false
     val:
-      cv_windows: 76    # 10% of 765 days
+      n_windows: 76    # 10% of 765 days
       step_size: 1
       refit: false
   PHARMACY:
     test:
-      cv_windows: 24   # 20% of 827 days
+      n_windows: 24   # 20% of 827 days
       step_size: 1
       refit: false
     val:
-      cv_windows: 12    # 10% of 827 days
+      n_windows: 12    # 10% of 827 days
       step_size: 1
       refit: false
   HOTEL:
     test:
-      cv_windows: 645   # 20% of 3227 days
+      n_windows: 645   # 20% of 3227 days
       step_size: 1
       refit: false
     val:
-      cv_windows: 322   # 10% of 3227 days
+      n_windows: 322   # 10% of 3227 days
       step_size: 1
       refit: false
   ONLINERETAIL:
     test:
-      cv_windows: 147   # 20% of 739 days
+      n_windows: 147   # 20% of 739 days
       step_size: 1
       refit: false
     val:
-      cv_windows: 73    # 10% of 739 days
+      n_windows: 73    # 10% of 739 days
       step_size: 1
       refit: false
 

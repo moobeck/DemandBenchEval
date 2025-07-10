@@ -35,9 +35,9 @@ class StatisticalFeaturesEncoder:
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         # 1) compute cutoff exactly as before
         if self.freq == Frequency.DAILY:
-            offset = pd.Timedelta(days=self.cv_cfg.cv_windows * self.cv_cfg.step_size)
+            offset = pd.Timedelta(days=self.cv_cfg.test.n_windows * self.cv_cfg.test.step_size)
         elif self.freq == Frequency.WEEKLY:
-            offset = pd.Timedelta(weeks=self.cv_cfg.cv_windows * self.cv_cfg.step_size)
+            offset = pd.Timedelta(weeks=self.cv_cfg.test.n_windows * self.cv_cfg.test.step_size)
         else:
             raise ValueError(f"Unsupported frequency: {self.freq}")
 

@@ -77,8 +77,8 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
     forecast_columns = public_config.get("forecast_columns", {})
     if not forecast_columns:
         logging.warning("No forecast columns provided in the public config.")
-    cross_validation = public_config.get("cross_validation", {})
-    if not cross_validation:
+    cross_validation_data = public_config.get("cross_validation", {})
+    if not cross_validation_data:
         logging.warning("No cross-validation settings provided in the public config.")
     forecast = public_config.get("forecast", {})
     if not forecast:
@@ -136,7 +136,7 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
                         refit=cv["val"]["refit"],
                     ),
                 )
-                for name, cv in cross_validation.items()
+                for name, cv in cross_validation_data.items()
             }
 
         ),
@@ -210,7 +210,7 @@ def main():
         trainer = ForecastTrainer(cfg.forecast, cfg.forecast_columns)
         cv_df = trainer.cross_validate(
             df=df,
-            cv_config=cfg.cross_validation.dataset_config,
+            cv_config=cfg.cross_validation,
         )
 
         # 4) Evaluation

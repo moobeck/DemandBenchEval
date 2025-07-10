@@ -156,6 +156,9 @@ class StatsForecastEngine(ForecastEngine):
         df: pd.DataFrame,
         h: int,
         cv_config: CrossValDatasetConfig,
+        id_col: str = None,
+        target_col: str = None,
+        time_col: str = None,
     ):
         n_windows = cv_config.test.n_windows
         step_size = cv_config.test.step_size
@@ -167,6 +170,9 @@ class StatsForecastEngine(ForecastEngine):
             n_windows=n_windows,
             step_size=step_size,
             refit=refit,
+            id_col=id_col,
+            target_col=target_col,
+            time_col=time_col,
         )
 
 
@@ -183,6 +189,9 @@ class AutoMLForecastEngine(ForecastEngine):
         cv_config: CrossValDatasetConfig,
         forecast_columns: ForecastColumnConfig = None,
         forecast_config: ForecastConfig = None,
+        id_col: str = None,
+        target_col: str = None,
+        time_col: str = None,
     ):
 
         
@@ -215,6 +224,9 @@ class AutoMLForecastEngine(ForecastEngine):
             step_size=step_size_val,
             num_samples=self.num_samples,
             refit=refit_val,
+            id_col=id_col,
+            target_col=target_col,
+            time_col=time_col,
         )
 
         # Now get the models to do the cross-validation
@@ -230,6 +242,9 @@ class AutoMLForecastEngine(ForecastEngine):
                 refit=refit_test,
                 h=h,
                 max_horizon=forecast_config.horizon,
+                id_col=id_col,
+                target_col=target_col,
+                time_col=time_col
             )
 
             dfs.append(df)
@@ -247,7 +262,9 @@ class NeuralForecastEngine(ForecastEngine):
         self,
         df: pd.DataFrame,
         cv_config: CrossValDatasetConfig,
-        **kwargs,
+        id_col: str = None,
+        target_col: str = None,
+        time_col: str = None,
     ):
         return self._engine.cross_validation(
             df=df,
@@ -255,5 +272,7 @@ class NeuralForecastEngine(ForecastEngine):
             step_size=cv_config.test.step_size,
             refit=cv_config.test.refit,
             verbose=True,
-            **kwargs,
+            id_col=id_col,
+            target_col=target_col,
+            time_col=time_col,
         )
