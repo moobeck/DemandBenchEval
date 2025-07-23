@@ -31,7 +31,7 @@ class GlobalConfig:
         Sets the dataset for the configuration.
         """
         self.filepaths.set_file_paths(dataset_name)
-        self.forecast_columns.set_exogenous(dataset)
+        self.forecast_columns.set_columns(dataset)
         self.forecast.set_freq(dataset, self.input_columns)
         self.forecast.set_horizon()
         self.forecast.set_lags()

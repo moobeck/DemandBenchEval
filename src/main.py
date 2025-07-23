@@ -20,6 +20,7 @@ from src.dataset.dataset_factory import DatasetFactory
 from src.preprocessing.nixtla_preprocessor import NixtlaPreprocessor
 from src.forecasting.training import ForecastTrainer
 from src.forecasting.evaluation import Evaluator, EvaluationPlotter
+import torch
 
 
 def parse_args():
@@ -116,11 +117,10 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
         forecast_columns=ForecastColumnConfig(
             sku_index=forecast_columns["sku_index"],
             date=forecast_columns["date"],
+            product_index=forecast_columns.get("product_index", "productID"),
+            store_index=forecast_columns.get("store_index", "storeID"),
             target=forecast_columns["target"],
             cutoff=forecast_columns["cutoff"],
-            base_exogenous=[col for col in forecast_columns["exog_vars"]],
-            categorical=[col for col in forecast_columns.get("categorical", [])],
-            static=[col for col in forecast_columns["static"]],
         ),
         cross_validation=CrossValidationConfig(
             data={

@@ -18,18 +18,10 @@ datasets:
 forecast_columns:
   date:    "date"
   sku_index:   "skuID"
+  product_index: "productID"
+  store_index: "storeID"
   target:  "demand"
   cutoff: "cutoff"
-  exog_vars:
-    - not_for_sale
-  static:
-    - companyID
-    - storeID
-    - productID
-  categorical:
-    - companyID
-    - storeID
-    - productID
 
 preprocessing:
   target_transform: "LOCAL_MAX" # Options: "LOCAL_MAX", "LOCAL_STANDARD", "LOCAL_ROBUST"
