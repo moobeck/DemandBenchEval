@@ -33,11 +33,7 @@ class ForecastColumnConfig:
         """
         Sets the base exogenous features for dataset.
         """
-        self.base_exogenous = []
-        if len(dataset.metadata.stores) > 1:
-            self.base_exogenous.append(self.store_index)
-        if len(dataset.metadata.products) > 1:
-            self.base_exogenous.append(self.product_index)
+        self.base_exogenous = [self.store_index, self.product_index]
 
 
     def set_exogenous(self, dataset: Dataset):

@@ -4,11 +4,9 @@ from demandbench.datasets import (
     load_favorita,
     load_rohlik,
     load_rossmann,
-    load_sid,
     load_bakery,
     load_yaz,
     load_pharmacy,
-    load_mclinica,
     load_hoteldemand,
     load_onlineretail,
     

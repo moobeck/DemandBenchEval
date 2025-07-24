@@ -13,7 +13,7 @@ input_columns:
   frequency: "frequency"
 
 datasets:
-  - HOTEL
+  - BAKERY
 
 forecast_columns:
   date:    "date"
