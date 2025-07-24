@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, TypeAlias
+import logging
 from statsforecast.models import AutoARIMA, AutoTheta, AutoETS, AutoCES
 from mlforecast.auto import AutoCatboost, AutoLightGBM, AutoRandomForest
 from .enums import ModelName, Framework, Frequency
@@ -25,8 +26,92 @@ except (ImportError, ModuleNotFoundError):
         pass
 
 from src.forecasting.tabpfn_wrapper import TabPFNWrapper
-
+from .mixture import TGMM
+from neuralforecast.losses.pytorch import MAE
 ForecastModel: TypeAlias = Any
+
+
+def create_loss(mixture_config: Dict[str, Any]) -> Any:
+    """
+    Create a loss function based on the mixture_config.
+
+    Args:
+        mixture_config (Dict[str, Any]): Configuration dictionary for the mixture model.
+
+    Returns:
+        An instance of a loss function (TGMM or MAE).
+
+    Notes:
+        - If mixture_config is empty or None, returns MAE loss.
+        - If mixture_config contains TGMM settings, returns a TGMM instance.
+    """
+    logger = logging.getLogger(__name__)
+    
+    if not mixture_config:
+        logger.info("No mixture configuration found, using default MAE loss")
+        return MAE()
+    
+    if "TGMM" in mixture_config:
+        tgmm_config = mixture_config["TGMM"]
+        logger.info(f"Creating TGMM loss with configuration: {tgmm_config}")
+        
+        # Extract TGMM parameters with defaults
+        n_components = tgmm_config.get("num_components", 1)
+        horizon_correlation = tgmm_config.get("horizon_correlation", True)
+        weighted = tgmm_config.get("weighted", True)
+        
+        # Create and return TGMM instance
+        tgmm_loss = TGMM(
+            n_components=n_components,
+            horizon_correlation=horizon_correlation,
+            weighted=weighted
+        )
+        logger.info(f"Successfully created TGMM loss with {n_components} components")
+        return tgmm_loss
+    else:
+        # If mixture_config exists but doesn't contain TGMM, default to MAE
+        logger.warning(f"Mixture configuration found but no supported mixture type: {list(mixture_config.keys())}. Using MAE loss.")
+        return MAE()
+
+
+def validate_mixture_config(mixture_config: Dict[str, Any]) -> bool:
+    """
+    Validate the mixture model configuration.
+    
+    Args:
+        mixture_config: Dictionary containing mixture model configuration
+        
+    Returns:
+        True if configuration is valid, False otherwise
+        
+    Raises:
+        ValueError: If configuration contains invalid values
+    """
+    if not mixture_config:
+        return True
+        
+    if "TGMM" in mixture_config:
+        tgmm_config = mixture_config["TGMM"]
+        
+        # Validate num_components
+        num_components = tgmm_config.get("num_components", 1)
+        if not isinstance(num_components, int) or num_components < 1:
+            raise ValueError("num_components must be a positive integer")
+            
+        # Validate boolean parameters
+        for param in ["horizon_correlation", "weighted"]:
+            if param in tgmm_config and not isinstance(tgmm_config[param], bool):
+                raise ValueError(f"{param} must be a boolean value")
+                
+        return True
+    
+    # If we reach here, mixture_config has unsupported mixture types
+    supported_types = ["TGMM"]
+    available_types = list(mixture_config.keys())
+    raise ValueError(
+        f"Unsupported mixture type(s): {available_types}. "
+        f"Supported types: {supported_types}"
+    )
 
 
 @dataclass(frozen=True)
@@ -163,6 +248,21 @@ class ForecastConfig:
                 params["season_length"] = Frequency.get_season_length(self.freq)
             elif spec.framework == Framework.NEURAL:
                 params["h"] = self.horizon
+                
+                # Check for mixture model configuration in NEURAL framework
+                neural_config = self.model_config.get(Framework.NEURAL, {})
+                if "MIXTURE" in neural_config:
+                    mixture_config = neural_config["MIXTURE"]
+                    logger = logging.getLogger(__name__)
+                    logger.info(f"Found MIXTURE configuration in NEURAL framework for model {key}: {mixture_config}")
+                    
+                    # Validate the mixture configuration
+                    validate_mixture_config(mixture_config)
+                    
+                    loss_function = create_loss(mixture_config)
+                    params["loss"] = loss_function
+                    logger.info(f"Added mixture loss to {key} model parameters")
+                
             elif spec.framework == Framework.FM:
                 if key == ModelName.TOTO and TOTO_AVAILABLE:
                     params.update(self.model_config.get(Framework.FM, {}).get("TOTO", {}))
