@@ -101,6 +101,7 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
 
     return GlobalConfig(
         filepaths=FilePathConfig(
+            cv_results_dir=filepaths.get("cv_results_dir", "results/cv_results"),
             eval_results_dir=filepaths.get("eval_results_dir", "results/eval_results"),
             eval_plots_dir=filepaths.get("eval_plots_dir", "results/eval_plots"),
         ),
@@ -212,6 +213,9 @@ def main():
             df=df,
             cv_config=cfg.cross_validation,
         )
+
+        # save cv_df as feather file
+        cv_df.to_feather(cfg.filepaths.eval_results.replace(".feather", "cv_results.feather"))
 
         # 4) Evaluation
         evaluator = Evaluator(cfg.metrics, cfg.forecast_columns)
