@@ -69,9 +69,10 @@ def create_loss(mixture_config: Dict[str, Any]) -> Any:
         logger.info(f"Successfully created TGMM loss with {n_components} components")
         return tgmm_loss
     else:
-        # If mixture_config exists but doesn't contain TGMM, default to MAE
-        logger.warning(f"Mixture configuration found but no supported mixture type: {list(mixture_config.keys())}. Using MAE loss.")
-        return MAE()
+        raise ValueError(
+            f"Mixture configuration found but no supported mixture type: {list(mixture_config.keys())}. "
+            "Supported types: ['TGMM']"
+        )
 
 
 def validate_mixture_config(mixture_config: Dict[str, Any]) -> bool:
