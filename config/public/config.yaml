@@ -29,8 +29,7 @@ preprocessing:
 
 forecast:
   models:
-    - ETS
-    - LGBM
+    - TIDE
   model_config:
     ML:
       num_samples: 1
@@ -46,6 +45,7 @@ forecast:
       MIXTURE:
         TGMM:
           num_components: 10
+          horizon_correlation: true
 
 
 cross_validation:

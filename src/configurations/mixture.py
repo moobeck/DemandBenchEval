@@ -8,12 +8,12 @@ from torch.distributions import (
     Normal,
     MixtureSameFamily,
     Categorical,
-    AffineTransform,
-    TransformedDistribution,
 )
 from torch.distributions.exp_family import ExponentialFamily
 from torch.distributions.uniform import Uniform
 import math
+import logging
+from typing import Dict, Any
 
 
 def quantiles_to_outputs(quantiles):
@@ -258,3 +258,49 @@ class TGMM(nn.Module):
             log_prob_x = torch.sum(log_prob_x, dim=1, keepdim=True)
         loss_values = -torch.logsumexp(log_prob_x + log_mix_prob, dim=-1)
         return weighted_average(loss_values, weights=mask)
+    
+
+
+class MixtureLossFactory:
+    """
+    Factory class to create mixture-specific loss functions based on configuration.
+    """
+
+    @staticmethod
+    def create_loss(mixture_config: Dict[str, Any]) -> Any:
+        """
+        Create a mixture-specific loss function based on the mixture_config.
+
+        Args:
+            mixture_config (Dict[str, Any]): Configuration dictionary for the mixture model.
+
+        Returns:
+            An instance of a loss function (TGMM or MAE).
+
+        Notes:
+            - If mixture_config is empty or None, returns MAE loss.
+            - If mixture_config contains TGMM settings, returns a TGMM instance.
+        """
+
+        if "TGMM" in mixture_config:
+            tgmm_config = mixture_config["TGMM"]
+            logging.info(f"Creating TGMM loss with configuration: {tgmm_config}")
+
+            # Extract TGMM parameters with defaults
+            n_components = tgmm_config.get("num_components", 1)
+            horizon_correlation = tgmm_config.get("horizon_correlation", True)
+            weighted = tgmm_config.get("weighted", True)
+
+            # Create and return TGMM instance
+            tgmm_loss = TGMM(
+                n_components=n_components,
+                horizon_correlation=horizon_correlation,
+                weighted=weighted
+            )
+            logging.info(f"Successfully created TGMM loss with {n_components} components")
+            return tgmm_loss
+        else:
+            raise ValueError(
+                f"Mixture configuration found but no supported mixture type: {list(mixture_config.keys())}. "
+                "Supported types: ['TGMM']"
+            )
