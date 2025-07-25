@@ -23,6 +23,9 @@ from src.forecasting.evaluation import Evaluator, EvaluationPlotter
 import torch
 
 
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"  # Use GPU 1 only
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Full pipeline: preprocess → train → cross‐validate → evaluate"
