@@ -14,7 +14,7 @@ input_columns:
   frequency: "frequency"
 
 datasets:
-  - BAKERY
+  - PHARMACY
 
 forecast_columns:
   date:    "date"
