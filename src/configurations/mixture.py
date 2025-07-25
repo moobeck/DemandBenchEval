@@ -163,17 +163,100 @@ class TGMM(nn.Module):
         if self.return_params:
             self.output_names = self.output_names + self.param_names
         self.output_names.insert(0, "")
-        self.n_outputs = 2 + weighted
+        
+        # Modified: Calculate output multiplier based on horizon correlation
+        if self.weighted and self.horizon_correlation:
+            # When horizon_correlation=True and weighted=True:
+            # - means and stds: n_components each for every timestep
+            # - weights: n_components only once (shared across timesteps)
+            self.means_outputs = n_components
+            self.stds_outputs = n_components  
+            self.weights_outputs = n_components
+            self.n_outputs = 2  # means and stds vary by timestep
+            self.outputsize_multiplier = self.n_outputs * n_components
+            self.weights_multiplier = n_components  # separate multiplier for weights
+        else:
+            # Original behavior
+            self.n_outputs = 2 + weighted
+            self.outputsize_multiplier = self.n_outputs * n_components
+            self.weights_multiplier = None
+            
         self.n_components = n_components
-        self.outputsize_multiplier = self.n_outputs * n_components
         self.is_distribution_output = True
         self.has_predicted = False
 
     def domain_map(self, output: torch.Tensor):
-        output = output.reshape(
-            output.shape[0], output.shape[1], -1, self.outputsize_multiplier
-        )
-        return torch.tensor_split(output, self.n_outputs, dim=-1)
+        """
+        Modified domain_map to handle different weight dimensions based on horizon_correlation.
+        
+        Expected input shapes:
+        - If horizon_correlation=True and weighted=True:
+        output: [batch, time_steps, (means + stds) * n_components + weights * n_components]
+        where weights dimension is independent of time_steps
+        - Otherwise: original behavior
+        """
+        if self.weighted and self.horizon_correlation:
+            batch_size, time_steps = output.shape[0], output.shape[1]
+            total_features = output.shape[-1]
+            
+            # Calculate expected sizes per timestep
+            means_stds_per_timestep = 2 * self.n_components
+            weights_total = self.n_components
+            expected_total = means_stds_per_timestep * time_steps + weights_total
+            
+            # Check if output shape matches expected shape for horizon correlation mode
+            if total_features != expected_total:
+                # Fall back to original behavior if shape doesn't match
+                output = output.reshape(
+                    output.shape[0], output.shape[1], -1, self.outputsize_multiplier
+                )
+                return torch.tensor_split(output, self.n_outputs, dim=-1)
+            
+            # Reshape output to [batch, -1] to work with total flattened dimensions
+            output_flat = output.reshape(batch_size, -1)
+            
+            # Split into means/stds (time-varying) and weights (time-invariant)
+            means_stds_total = means_stds_per_timestep * time_steps
+            means_stds_flat = output_flat[..., :means_stds_total]
+            weights_flat = output_flat[..., means_stds_total:means_stds_total + weights_total]
+            
+            # Reshape means_stds back to [batch, time_steps, means_stds_per_timestep]
+            means_stds = means_stds_flat.reshape(batch_size, time_steps, means_stds_per_timestep)
+            means_stds = means_stds.unsqueeze(-2)  # Add component dimension: [batch, time_steps, 1, means_stds_per_timestep]
+            means, stds = torch.tensor_split(means_stds, 2, dim=-1)
+            
+            # Handle weights: [batch, n_components] -> [batch, time_steps, 1, n_components]
+            weights = weights_flat.unsqueeze(1).unsqueeze(1)  # [batch, 1, 1, n_components]
+            weights = weights.expand(batch_size, time_steps, 1, self.n_components)
+            
+            return (means, stds, weights)
+        else:
+            # Original behavior
+            output = output.reshape(
+                output.shape[0], output.shape[1], -1, self.outputsize_multiplier
+            )
+            return torch.tensor_split(output, self.n_outputs, dim=-1)
+    
+    def get_expected_output_size(self, time_steps: int) -> int:
+        """
+        Helper method to calculate the expected output size from the neural network.
+        This helps when defining the neural network architecture.
+        
+        Args:
+            time_steps: Number of time steps in the sequence
+            
+        Returns:
+            Expected size of the last dimension of the network output
+        """
+        if self.weighted and self.horizon_correlation:
+            # means and stds: n_components each per timestep
+            means_stds_size = 2 * self.n_components * time_steps
+            # weights: n_components total (shared across timesteps) 
+            weights_size = self.n_components
+            return means_stds_size + weights_size
+        else:
+            # Original: all parameters per timestep
+            return self.outputsize_multiplier * time_steps
 
     def scale_decouple(
         self,
@@ -183,7 +266,11 @@ class TGMM(nn.Module):
         eps: float = 0.2,
     ):
         if self.weighted:
-            means, stds, weights = output
+            if len(output) == 3:
+                means, stds, weights = output
+            else:
+                means, stds = output
+                weights = torch.full_like(means, fill_value=1 / self.n_components)
             weights = F.softmax(weights, dim=-1)
         else:
             means, stds = output
