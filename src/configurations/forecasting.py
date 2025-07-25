@@ -47,7 +47,7 @@ class DefaultParams:
 
     STATS = {}
     ML = {}
-    NEURAL = {"h": 14, "backend": "ray", "num_samples": 100}
+    NEURAL = {"h": 14, "backend": "ray", "gpus": 1, "cpus": 1, "num_samples": 1}
     FM = {}
 
 
