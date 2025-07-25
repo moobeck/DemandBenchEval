@@ -265,9 +265,11 @@ class NeuralForecastEngine(ForecastEngine):
         id_col: str = None,
         target_col: str = None,
         time_col: str = None,
+        static_df: pd.DataFrame = None,
     ):
         return self._engine.cross_validation(
             df=df,
+            static_df=static_df,
             n_windows=cv_config.test.n_windows,
             step_size=cv_config.test.step_size,
             refit=cv_config.test.refit,
