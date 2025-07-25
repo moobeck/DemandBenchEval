@@ -18,6 +18,7 @@ from src.configurations.preprocessing import PreprocessingConfig
 from src.utils.wandb_orchestrator import WandbOrchestrator
 from src.dataset.dataset_factory import DatasetFactory
 from src.preprocessing.nixtla_preprocessor import NixtlaPreprocessor
+from src.preprocessing.statistics import SKUStatistics
 from src.forecasting.training import ForecastTrainer
 from src.forecasting.evaluation import Evaluator, EvaluationPlotter
 import torch
@@ -104,6 +105,7 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
 
     return GlobalConfig(
         filepaths=FilePathConfig(
+            sku_stats_dir=filepaths.get("sku_stats_dir", "results/sku_stats"),
             cv_results_dir=filepaths.get("cv_results_dir", "results/cv_results"),
             eval_results_dir=filepaths.get("eval_results_dir", "results/eval_results"),
             eval_plots_dir=filepaths.get("eval_plots_dir", "results/eval_plots"),
@@ -205,6 +207,17 @@ def main():
         prep.merge()
         prep.remove_skus(skus="not_at_min_date")
         df = prep.prepare_nixtla()
+
+        # Calculate SKU statistics
+        sku_stats = SKUStatistics(
+            df=df,
+            forecast_columns=cfg.forecast_columns,
+            cross_validation=cfg.cross_validation,
+            freq=cfg.forecast.freq,
+        )
+        sku_stats_df = sku_stats.compute_statistics()
+        sku_stats_df.to_feather(cfg.filepaths.sku_stats.replace(".feather", f"_{dataset_name.value}.feather"))
+
         df = prep.preprocess_data(df)
 
         # save df as feather file

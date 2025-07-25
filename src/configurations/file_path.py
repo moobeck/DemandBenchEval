@@ -7,6 +7,8 @@ class FilePathConfig:
     """
     A dataclass to store the paths of the input and output files.
     """
+    sku_stats_dir: str = None
+    sku_stats: str = None
     cv_results_dir: str = None
     cv_results: str = None
     eval_results_dir: str = None
@@ -18,6 +20,7 @@ class FilePathConfig:
         """
         Sets the file paths based on the dataset name.
         """
+        self.sku_stats = f"{self.sku_stats_dir}/{dataset_name.value}.feather"
         self.cv_results = f"{self.cv_results_dir}/{dataset_name.value}.feather"
         self.eval_results = f"{self.eval_results_dir}/{dataset_name.value}.feather"
         self.eval_plots = f"{self.eval_plots_dir}/{dataset_name.value}.png"
