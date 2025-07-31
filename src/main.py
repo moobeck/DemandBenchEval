@@ -25,7 +25,7 @@ import torch
 
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"  # Use GPU 1 only
+os.environ["CUDA_VISIBLE_DEVICES"] = os.getenv("CUDA_VISIBLE_DEVICES", "1")  # Default to GPU 1 if not set
 
 def parse_args():
     parser = argparse.ArgumentParser(
