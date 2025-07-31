@@ -32,4 +32,5 @@ class CrossValidationConfig:
             self.val = dataset_config.get('val')
 
         else: 
-            logging.warning(f"No cross-validation config found for dataset: {dataset_name}")
+            raise ValueError(f"No cross-validation config found for dataset: {dataset_name}")
+    
