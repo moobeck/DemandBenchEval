@@ -8,7 +8,7 @@ from .enums import DatasetName
 class CrossValWindowConfig:
     n_windows: int
     step_size: int
-    refit: int
+    refit: bool
 
 class CrossValDatasetConfig(TypedDict):
     test: CrossValWindowConfig
