@@ -212,13 +212,13 @@ class ForecastConfig:
                 params["config"] = {
                     "stat_exog_list": self.columns_config.static,
                     "future_exog_list": [col for col in self.columns_config.exogenous if col not in self.columns_config.static],
+                    "input_size": self.neuralconfig.input_size,
                 }
 
                 mixture_config = self.neuralconfig.mixture
                 params["gpus"] = self.neuralconfig.gpus
                 params["cpus"] = self.neuralconfig.cpus
                 params["num_samples"] = self.neuralconfig.num_samples
-                params["input_size"] = self.neuralconfig.input_size
                 if mixture_config:
                     loss_function = MixtureLossFactory.create_loss(mixture_config)
                     params["loss"] = loss_function
