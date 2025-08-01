@@ -209,7 +209,7 @@ class ForecastConfig:
             elif spec.framework == Framework.NEURAL:
                 params["h"] = self.horizon
                 
-                params["config"] = {
+                params["config"] = lambda trial: {
                     "stat_exog_list": self.columns_config.static,
                     "future_exog_list": [col for col in self.columns_config.exogenous if col not in self.columns_config.static],
                     "input_size": self.neuralconfig.input_size,
