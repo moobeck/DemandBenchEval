@@ -159,6 +159,7 @@ class NeuralForecastConfig:
     gpus: int = 1
     cpus: int = 1
     num_samples: int = 1
+    input_size: int = 1
 
 
 @dataclass
@@ -182,6 +183,7 @@ class ForecastConfig:
             gpus=neural_cfg.get("gpus", 1),
             cpus=neural_cfg.get("cpus", 1),
             num_samples=neural_cfg.get("num_samples", 1),
+            input_size=len(self.lags)
         )
 
 
