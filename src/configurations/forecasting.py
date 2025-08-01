@@ -201,6 +201,9 @@ class ForecastConfig:
                 }
 
                 mixture_config = self.neuralconfig.mixture
+                params["gpus"] = self.neuralconfig.gpus
+                params["cpus"] = self.neuralconfig.cpus
+                params["num_samples"] = self.neuralconfig.num_samples
                 if mixture_config:
                     loss_function = MixtureLossFactory.create_loss(mixture_config)
                     params["loss"] = loss_function

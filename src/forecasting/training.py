@@ -52,11 +52,7 @@ class ForecastTrainer:
             ),
             Framework.NEURAL: (
                 NeuralForecastEngine,
-                {
-                    "gpus": self._forecast_config.neuralconfig.gpus,
-                    "cpus": self._forecast_config.neuralconfig.cpus,
-                    "num_samples": self._forecast_config.neuralconfig.num_samples,
-                },
+                {},
             ),
             Framework.FM: (
                 FoundationModelEngine,

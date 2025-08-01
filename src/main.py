@@ -107,10 +107,11 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
 
     return GlobalConfig(
         filepaths=FilePathConfig(
-            sku_stats_dir=filepaths.get("sku_stats_dir", "results/sku_stats"),
-            cv_results_dir=filepaths.get("cv_results_dir", "results/cv_results"),
-            eval_results_dir=filepaths.get("eval_results_dir", "results/eval_results"),
-            eval_plots_dir=filepaths.get("eval_plots_dir", "results/eval_plots"),
+            processed_data_dir=filepaths.get("processed_data_dir", "data/processed"),
+            sku_stats_dir=filepaths.get("sku_stats_dir", "data/sku_stats"),
+            cv_results_dir=filepaths.get("cv_results_dir", "data/cv_results"),
+            eval_results_dir=filepaths.get("eval_results_dir", "data/eval_results"),
+            eval_plots_dir=filepaths.get("eval_plots_dir", "data/eval_plots"),
         ),
         datasets=DatasetConfig(names=[DatasetName[name] for name in dataset_names]),
         input_columns=InputColumnConfig(
