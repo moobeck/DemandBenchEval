@@ -205,15 +205,11 @@ class AutoMLForecastEngine(ForecastEngine):
         step_size_test = cv_config.test.step_size
         refit_test = cv_config.test.refit
 
-        # Calculate the offset based on the frequency ('D'. 'W', raise error if not supported)
-        if forecast_config.freq == Frequency.DAILY:
-            offset = pd.Timedelta(days=n_windows_val * step_size_val)
-        elif forecast_config.freq == Frequency.WEEKLY:
-            offset = pd.Timedelta(weeks=n_windows_val * step_size_val)
-        else:
-            raise ValueError(f"Unsupported frequency: {forecast_config.freq}")
-
-        cutoff = df[forecast_columns.date].max() - offset
+        cutoff = self._engine.get_cutoff_date(
+            max_date=df[forecast_columns.date].max(),
+            freq=forecast_config.freq,
+            split='val'
+        )
         df_fit = df[df[forecast_columns.date] <= cutoff]
 
         # Fit the model with the filtered df

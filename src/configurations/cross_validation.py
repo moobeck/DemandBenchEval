@@ -1,7 +1,8 @@
 from dataclasses import dataclass
-import logging
-from typing import Dict, TypedDict
-from .enums import DatasetName
+from typing import Dict, TypedDict, List, Literal
+from .enums import DatasetName, Frequency
+import pandas as pd
+
 
 
 @dataclass(frozen=True)
@@ -34,3 +35,25 @@ class CrossValidationConfig:
         else: 
             raise ValueError(f"No cross-validation config found for dataset: {dataset_name}")
     
+
+    def get_cutoff_date(self, max_date: pd.Timestamp, freq: Frequency,  split: Literal['test', 'val']) -> pd.Timestamp:
+        """
+        Calculate the cutoff date for training data based on frequency and split type.
+        """
+        if split == 'test':
+            config = self.test
+        elif split == 'val':
+            config = self.val
+        else:
+            raise ValueError(f"Unsupported split: {split}")
+
+        n_windows = config.n_windows
+        step_size = config.step_size
+
+        if freq == Frequency.DAILY:
+            offset = pd.Timedelta(days=n_windows * step_size)
+        elif freq == Frequency.WEEKLY:
+            offset = pd.Timedelta(weeks=n_windows * step_size)
+        else:
+            raise ValueError(f"Unsupported frequency: {freq}")
+        return max_date - offset

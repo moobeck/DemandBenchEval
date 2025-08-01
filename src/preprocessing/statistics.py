@@ -27,30 +27,19 @@ class SKUStatistics:
         self._freq = freq
         self.quantiles = quantiles if quantiles is not None else [0.1, 0.25, 0.5, 0.75, 0.9]
 
-    def get_training_data(self) -> pd.DataFrame:
-        """
-        Get the training data based on cross-validation config and frequency.
-        """
-        n_windows = self._cv_cfg.test.n_windows
-        step_size = self._cv_cfg.test.step_size
-
-        if self._freq == Frequency.DAILY:
-            offset = pd.Timedelta(days=n_windows * step_size)
-        elif self._freq == Frequency.WEEKLY:
-            offset = pd.Timedelta(weeks=n_windows * step_size)
-        else:
-            raise ValueError(f"Unsupported frequency: {self._freq}")
-
-        cutoff = self.df[self._forecast_columns.date].max() - offset
-        df_train = self.df[self.df[self._forecast_columns.date] <= cutoff]
-        return df_train
 
     def compute_statistics(self) -> pd.DataFrame:
         """
         Compute statistics for each SKU in the training data.
         Returns a DataFrame: index=sku, columns=[mean, std, min, max, quantile_xx]
         """
-        df_train = self.get_training_data()
+
+        cutoff = self._cv_cfg.get_cutoff_date(
+            max_date=self.df[self._forecast_columns.date].max(),
+            freq=self._freq,
+            split='test'
+        )
+        df_train = self.df[self.df[self._forecast_columns.date] <= cutoff]
         rows = []
         for sku, group in df_train.groupby(self._forecast_columns.sku_index):
             target = group[self._forecast_columns.target].dropna().values

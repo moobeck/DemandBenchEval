@@ -34,14 +34,12 @@ class StatisticalFeaturesEncoder:
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         # 1) compute cutoff exactly as before
-        if self.freq == Frequency.DAILY:
-            offset = pd.Timedelta(days=self.cv_cfg.test.n_windows * self.cv_cfg.test.step_size)
-        elif self.freq == Frequency.WEEKLY:
-            offset = pd.Timedelta(weeks=self.cv_cfg.test.n_windows * self.cv_cfg.test.step_size)
-        else:
-            raise ValueError(f"Unsupported frequency: {self.freq}")
+        cutoff = self.cv_cfg.get_cutoff_date(
+            max_date=df[self.forecast_columns.date].max(),
+            freq=self.freq,
+            split='test'
+        )
 
-        cutoff = df[self.forecast_columns.date].max() - offset
         df_train = df[df[self.forecast_columns.date] <= cutoff]
 
         # 2) vectorized groupby + agg
