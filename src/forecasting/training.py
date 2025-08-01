@@ -133,13 +133,18 @@ class ForecastTrainer:
         if framework == Framework.NEURAL:
             # Neural wants static_df separate
             kwargs["static_df"] = self._build_static_df(df)
+            cols += self._forecast_columns.static
+            if self._forecast_columns.exogenous:
+                cols += [
+                    col for col in self._forecast_columns.exogenous if col in df.columns if col not in cols
+                ]
 
         elif framework == Framework.FM:
             # Foundation Models need all columns including static and exogenous
             cols += self._forecast_columns.static
             if self._forecast_columns.exogenous:
                 cols += [
-                    col for col in self._forecast_columns.exogenous if col in df.columns
+                    col for col in self._forecast_columns.exogenous if col in df.columns if col not in cols
                 ]
             kwargs["forecast_columns"] = self._forecast_columns
             kwargs["forecast_config"] = self._forecast_config
@@ -148,11 +153,6 @@ class ForecastTrainer:
         else:
             kwargs["h"] = self._forecast_config.horizon
 
-            if framework == Framework.ML:
-                # ML wants static_features inline
-                cols += self._forecast_columns.static
-                kwargs["forecast_columns"] = self._forecast_columns
-                kwargs["forecast_config"] = self._forecast_config
 
         return {
             "df": df[cols],
