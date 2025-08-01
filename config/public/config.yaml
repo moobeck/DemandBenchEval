@@ -2,6 +2,7 @@ log_wandb: false
 seed: 42
 
 filepaths:
+  processed_data_dir: "data/processed/"
   sku_stats_dir: "data/sku_stats/"
   cv_results_dir: "data/cv_results/"
   eval_results_dir: "data/eval_results/"

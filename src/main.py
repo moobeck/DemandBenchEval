@@ -216,12 +216,12 @@ def main():
             freq=cfg.forecast.freq,
         )
         sku_stats_df = sku_stats.compute_statistics()
-        sku_stats_df.to_feather(cfg.filepaths.sku_stats.replace(".feather", f"_{dataset_name.value}.feather"))
+        sku_stats_df.to_feather(cfg.filepaths.sku_stats)
 
         df = prep.preprocess_data(df)
 
         # save df as feather file
-        df.to_feather(cfg.filepaths.eval_results.replace(".feather", "processed_dataset.feather"))
+        df.to_feather(cfg.filepaths.processed_data)
 
         # 3) Cross-validation
         trainer = ForecastTrainer(cfg.forecast, cfg.forecast_columns)
@@ -231,7 +231,7 @@ def main():
         )
 
         # save cv_df as feather file
-        cv_df.to_feather(cfg.filepaths.eval_results.replace(".feather", "cv_results.feather"))
+        cv_df.to_feather(cfg.filepaths.cv_results)
 
         # 4) Evaluation
         evaluator = Evaluator(cfg.metrics, cfg.forecast_columns)
