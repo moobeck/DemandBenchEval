@@ -35,6 +35,7 @@ class GlobalConfig:
         self.forecast.set_freq(dataset, self.input_columns)
         self.forecast.set_horizon()
         self.forecast.set_lags()
+        self.forecast.set_columns(self.forecast_columns)
 
         if not self.metrics.seasonality_provided:
             self.metrics.set_seasonality(

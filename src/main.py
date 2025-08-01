@@ -23,7 +23,6 @@ from src.forecasting.training import ForecastTrainer
 from src.forecasting.evaluation import Evaluator, EvaluationPlotter
 import torch
 
-
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = os.getenv("CUDA_VISIBLE_DEVICES", "1")  # Default to GPU 1 if not set
 

@@ -47,7 +47,7 @@ forecast:
       gpus: 1
       cpus: 1
       num_samples: 1
-      MIXTURE:
+      mixture:
         TGMM:
           num_components: 10
           horizon_correlation: true

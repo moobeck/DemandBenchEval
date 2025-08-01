@@ -30,6 +30,7 @@ class ForecastTrainer:
         self._forecast_config = forecast_config
         self._forecast_columns = forecast_columns
 
+
         self._factory = {
             Framework.STATS: (StatsForecastEngine, {}),
             Framework.ML: (
@@ -38,7 +39,6 @@ class ForecastTrainer:
                     "init_config": lambda trial: (
                         {
                             "lags": self._forecast_config.lags,
-                            "target_transforms": [LocalMinMaxScaler()],
                         }
                     ),
                     "fit_config": lambda trial: {
@@ -50,7 +50,14 @@ class ForecastTrainer:
                     ] if Framework.ML in forecast_config.model_config else None,
                 },
             ),
-            Framework.NEURAL: (NeuralForecastEngine, {}),
+            Framework.NEURAL: (
+                NeuralForecastEngine,
+                {
+                    "gpus": self._forecast_config.neuralconfig.gpus,
+                    "cpus": self._forecast_config.neuralconfig.cpus,
+                    "num_samples": self._forecast_config.neuralconfig.num_samples,
+                },
+            ),
             Framework.FM: (
                 FoundationModelEngine,
                 {},
@@ -61,16 +68,14 @@ class ForecastTrainer:
 
     def _build_frameworks(self) -> Dict[Framework, ForecastEngine]:
         fw_instances = {}
-        models_dict = self._forecast_config.models  # Access models once and cache
+        models_dict = self._forecast_config.models 
 
         for fw, (cls, extra) in self._factory.items():
-            # Check if framework has models using a more robust comparison
-            # Find matching framework by value instead of object identity
             matching_fw = None
             for models_fw in models_dict.keys():
                 if (
                     fw.value == models_fw.value
-                ):  # Compare enum values instead of objects
+                ):  
                     matching_fw = models_fw
                     break
 
@@ -86,7 +91,7 @@ class ForecastTrainer:
             params = {
                 "models": models,
                 "freq": Frequency.get_alias(self._forecast_config.freq, "nixtla"),
-                **extra,  # framework-specific kwargs
+                **extra,  
             }
             fw_instances[fw] = cls(**params)
         return fw_instances

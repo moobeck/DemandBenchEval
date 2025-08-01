@@ -4,6 +4,7 @@ import logging
 from statsforecast.models import AutoARIMA, AutoTheta, AutoETS, AutoCES
 from mlforecast.auto import AutoCatboost, AutoLightGBM, AutoRandomForest
 from .enums import ModelName, Framework, Frequency
+from .forecast_column import ForecastColumnConfig
 from .input_column import InputColumnConfig
 from neuralforecast.auto import (
     AutoVanillaTransformer,
@@ -136,6 +137,18 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
 }
 
 
+
+@dataclass(frozen=True)
+class NeuralForecastConfig:
+    """
+    Configuration for neural forecasting models.
+    """
+    mixture: Dict[str, Any] = field(default_factory=dict)
+    gpus: int = 1
+    cpus: int = 1
+    num_samples: int = 1
+
+
 @dataclass
 class ForecastConfig:
     names: List[ModelName]
@@ -143,7 +156,22 @@ class ForecastConfig:
     horizon: int = 14
     lags: List[int] = field(default_factory=list)
     model_config: Dict[Framework, Dict[str, Any]] = field(default_factory=dict)
-    lags_config: Dict[str, Dict[str, int]] = field(default_factory=dict)  # <-- add this
+    lags_config: Dict[str, Dict[str, int]] = field(default_factory=dict)
+    columns_config: ForecastColumnConfig = field(default_factory=ForecastColumnConfig)
+
+    @property
+    def neuralconfig(self) -> NeuralForecastConfig:
+        """
+        Get the neural network configuration from the model_config.
+        """
+        neural_cfg = self.model_config.get(Framework.NEURAL, {})
+        return NeuralForecastConfig(
+            mixture=neural_cfg.get("mixture", {}),
+            gpus=neural_cfg.get("gpus", 1),
+            cpus=neural_cfg.get("cpus", 1),
+            num_samples=neural_cfg.get("num_samples", 1),
+        )
+
 
     @property
     def models(self) -> Dict[Framework, Dict[ModelName, ForecastModel]]:
@@ -166,19 +194,14 @@ class ForecastConfig:
                 params["season_length"] = Frequency.get_season_length(self.freq)
             elif spec.framework == Framework.NEURAL:
                 params["h"] = self.horizon
+                
+                params["config"] = {
+                    "stat_exog_list": self.columns_config.static,
+                    "future_exog_list": [col for col in self.columns_config.exogenous if col not in self.columns_config.static],
+                }
 
-                # Override resource allocation and num_samples from config.yaml if provided
-                neural_config = self.model_config.get(Framework.NEURAL, {})
-                if "gpus" in neural_config:
-                    params["gpus"] = neural_config["gpus"]
-                if "cpus" in neural_config:
-                    params["cpus"] = neural_config["cpus"]
-                if "num_samples" in neural_config:
-                    params["num_samples"] = neural_config["num_samples"]
-
-                # Check for mixture model configuration in NEURAL framework
-                if "MIXTURE" in neural_config:
-                    mixture_config = neural_config["MIXTURE"]
+                mixture_config = self.neuralconfig.mixture
+                if mixture_config:
                     loss_function = MixtureLossFactory.create_loss(mixture_config)
                     params["loss"] = loss_function
 
@@ -244,3 +267,13 @@ class ForecastConfig:
             self.horizon = 4
         else:
             raise ValueError(f"Unsupported frequency: {self.freq}")
+    
+    def set_columns(self, columns_config: ForecastColumnConfig):
+        """
+        Set the input columns for the forecast configuration based on the dataset.
+        """
+        self.columns_config = columns_config 
+
+
+
+        
