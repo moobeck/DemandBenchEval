@@ -44,6 +44,9 @@ forecast:
         max_samples: 500       # Max training samples (due to TabPFN limitations)  
         scaling: true          # Apply feature scaling
     NEURAL:
+      gpus: 1
+      cpus: 1
+      num_samples: 1
       MIXTURE:
         TGMM:
           num_components: 10
@@ -138,3 +141,32 @@ metrics:
     - MSSE
     - MASE
   seasonality: null # Set to None for allowing seasonality to be detected automatically based on frequency of the dataset
+
+lags:
+  PHARMACY:
+    daily: 50
+    weekly: 15
+  M5:
+    daily: 50
+    weekly: 15
+  FAVORITA:
+    daily: 50
+    weekly: 15
+  ROHLIK:
+    daily: 50
+    weekly: 15
+  ROSSMANN:
+    daily: 50
+    weekly: 15
+  BAKERY:
+    daily: 50
+    weekly: 15
+  YAZ:
+    daily: 50
+    weekly: 15
+  HOTEL:
+    daily: 50
+    weekly: 15
+  ONLINERETAIL:
+    daily: 50
+    weekly: 15

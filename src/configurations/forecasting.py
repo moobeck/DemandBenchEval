@@ -28,6 +28,7 @@ except (ImportError, ModuleNotFoundError):
 from src.forecasting.tabpfn_wrapper import TabPFNWrapper
 from .mixture import MixtureLossFactory
 from neuralforecast.losses.pytorch import MAE
+import os
 ForecastModel: TypeAlias = Any
 
 @dataclass(frozen=True)
@@ -47,7 +48,7 @@ class DefaultParams:
 
     STATS = {}
     ML = {}
-    NEURAL = {"h": 14, "backend": "ray", "gpus": 1, "cpus": 1, "num_samples": 1}
+    NEURAL = {}
     FM = {}
 
 
@@ -142,6 +143,7 @@ class ForecastConfig:
     horizon: int = 14
     lags: List[int] = field(default_factory=list)
     model_config: Dict[Framework, Dict[str, Any]] = field(default_factory=dict)
+    lags_config: Dict[str, Dict[str, int]] = field(default_factory=dict)  # <-- add this
 
     @property
     def models(self) -> Dict[Framework, Dict[ModelName, ForecastModel]]:
@@ -164,20 +166,28 @@ class ForecastConfig:
                 params["season_length"] = Frequency.get_season_length(self.freq)
             elif spec.framework == Framework.NEURAL:
                 params["h"] = self.horizon
-                
-                # Check for mixture model configuration in NEURAL framework
+
+                # Override resource allocation and num_samples from config.yaml if provided
                 neural_config = self.model_config.get(Framework.NEURAL, {})
+                if "gpus" in neural_config:
+                    params["gpus"] = neural_config["gpus"]
+                if "cpus" in neural_config:
+                    params["cpus"] = neural_config["cpus"]
+                if "num_samples" in neural_config:
+                    params["num_samples"] = neural_config["num_samples"]
+
+                # Check for mixture model configuration in NEURAL framework
                 if "MIXTURE" in neural_config:
                     mixture_config = neural_config["MIXTURE"]
                     loss_function = MixtureLossFactory.create_loss(mixture_config)
                     params["loss"] = loss_function
-                
+
             elif spec.framework == Framework.FM:
                 if key == ModelName.TOTO and TOTO_AVAILABLE:
                     params.update(self.model_config.get(Framework.FM, {}).get("TOTO", {}))
                 elif key == ModelName.TABPFN:
                     params.update(self.model_config.get(Framework.FM, {}).get("TABPFN", {}))
-            
+
             model_instance = spec.factory(**params)
             if model_instance is not None:  # Skip unavailable models
                 frameworks[spec.framework][name] = model_instance
@@ -202,24 +212,27 @@ class ForecastConfig:
                 "Only 'daily' and 'weekly' frequencies are supported."
             )
 
-    def set_lags(self):
+    def set_lags(self, dataset_name: str = None):
         """
-        Set the lags for the forecast configuration the frequency defined in the dataset.
+        Set the lags for the forecast configuration based on frequency and dataset.
         """
         if not self.lags:
-            # Use the default lags based on frequency
+            # Determine dataset name
+            ds_name = dataset_name or (self.model_config.get("dataset_name") if self.model_config else None)
+            lags_cfg = self.lags_config.get(ds_name, {}) if ds_name else {}
+
             if self.freq == Frequency.DAILY:
-                self.lags = range(1, 50)
-                
+                n_lags = lags_cfg.get("daily", 50)
+                self.lags = range(1, n_lags + 1)
             elif self.freq == Frequency.WEEKLY:
-                self.lags = range(1, 15)
+                n_lags = lags_cfg.get("weekly", 15)
+                self.lags = range(1, n_lags + 1)
             else:
                 raise ValueError(f"Unsupported frequency: {self.freq}")
-            
+
             tabpfn_config = self.model_config.get(Framework.FM, {}).get("TABPFN")
             if tabpfn_config and "n_lags" in tabpfn_config:
                 tabpfn_config["n_lags"] = len(self.lags)
-
 
     def set_horizon(self):
         """

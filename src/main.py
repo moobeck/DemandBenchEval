@@ -91,6 +91,9 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
     metrics = public_config.get("metrics", {})
     if not metrics:
         logging.warning("No metrics settings provided in the public config.")
+    lags = public_config.get("lags", [])
+    if not lags:
+        logging.warning("No lags provided in the public config.")
 
     log_wandb = public_config.get("log_wandb", False)
     wandb: dict = private_config.get("wandb", {})  #
@@ -152,6 +155,7 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
                 Framework[fw]: forecast["model_config"][fw]
                 for fw in forecast["model_config"]
             },
+            lags_config=lags,
         ),
         metrics=MetricConfig(
             names=[MetricName[name] for name in public_config["metrics"]["metrics"]],
