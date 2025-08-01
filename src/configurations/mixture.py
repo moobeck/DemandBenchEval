@@ -14,60 +14,16 @@ from torch.distributions.uniform import Uniform
 import math
 import logging
 from typing import Dict, Any
+from neuralforecast.losses.pytorch import quantiles_to_outputs, level_to_outputs, weighted_average
 
 
-def quantiles_to_outputs(quantiles):
-    output_names = []
-    for q in quantiles:
-        if q < 0.50:
-            output_names.append(f"-lo-{np.round(100-200*q,2)}")
-        elif q > 0.50:
-            output_names.append(f"-hi-{np.round(100-200*(1-q),2)}")
-        else:
-            output_names.append("-median")
-    return quantiles, output_names
-
-def level_to_outputs(level):
-    qs = sum([[50 - l / 2, 50 + l / 2] for l in level], [])
-    output_names = sum([[f"-lo-{l}", f"-hi-{l}"] for l in level], [])
-
-    sort_idx = np.argsort(qs)
-    quantiles = np.array(qs)[sort_idx]
-
-    # Add default median
-    quantiles = np.concatenate([np.array([50]), quantiles])
-    quantiles = torch.Tensor(quantiles) / 100
-    output_names = list(np.array(output_names)[sort_idx])
-    output_names.insert(0, "-median")
-
-    return quantiles, output_names
-
-def weighted_average(
-    x: torch.Tensor, weights: Optional[torch.Tensor] = None, dim=None
-) -> torch.Tensor:
-    if weights is not None:
-        weighted_tensor = torch.where(weights != 0, x * weights, torch.zeros_like(x))
-        sum_weights = torch.clamp(
-            weights.sum(dim=dim) if dim else weights.sum(), min=1.0
-        )
-        return (
-            weighted_tensor.sum(dim=dim) if dim else weighted_tensor.sum()
-        ) / sum_weights
-    else:
-        return x.mean(dim=dim)
-
-def divideno_nan(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
-    div = a / b
-    return torch.nan_to_num(div, nan=0.0, posinf=0.0, neginf=0.0)
-
-def weightedmean(losses, weights):
-    return divideno_nan(torch.sum(losses * weights), torch.sum(weights))
 
 
 class TruncatedNormal(Distribution):
     arg_constraints = {'loc': constraints.real, 'scale': constraints.positive}
     support = constraints.interval(0., 1.)
     has_rsample = False
+    MIN_CLAMP_VALUE = 1e-10
 
     def __init__(self, loc, scale, low=0., high=1., validate_args=None):
         self.loc = loc
@@ -84,7 +40,7 @@ class TruncatedNormal(Distribution):
         base_log_prob = self.base_dist.log_prob(value)
         low_cdf = self.base_dist.cdf(self.low)
         high_cdf = self.base_dist.cdf(self.high)
-        Z = torch.clamp(high_cdf - low_cdf, min=1e-10)
+        Z = torch.clamp(high_cdf - low_cdf, min=self.MIN_CLAMP_VALUE)
         log_prob = base_log_prob - torch.log(Z)
         inside = (value >= self.low) & (value <= self.high)
         return torch.where(inside, log_prob, torch.tensor(-float('inf')).to(log_prob))
@@ -96,7 +52,7 @@ class TruncatedNormal(Distribution):
             high_cdf = self.base_dist.cdf(self.high)
             u = torch.rand(shape, dtype=self.loc.dtype, device=self.loc.device)
             u = low_cdf + u * (high_cdf - low_cdf)
-            u = torch.clamp(u, min=1e-10, max=1.-1e-10)
+            u = torch.clamp(u, min=self.MIN_CLAMP_VALUE, max=1. - self.MIN_CLAMP_VALUE)
             sample = self.base_dist.icdf(u)
         return sample
 
@@ -110,7 +66,7 @@ class TruncatedNormal(Distribution):
         Phi_a = 0.5 * (1 + torch.erf(a / math.sqrt(2)))
         Phi_b = 0.5 * (1 + torch.erf(b / math.sqrt(2)))
         Z = Phi_b - Phi_a
-        Z = torch.clamp(Z, min=0.1)
+        Z = torch.clamp(Z, min=self.MIN_CLAMP_VALUE, max=1. - self.MIN_CLAMP_VALUE)
         mean = self.loc + self.scale * (phi_a - phi_b) / Z
         return mean
 
