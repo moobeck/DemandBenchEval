@@ -23,6 +23,8 @@ class ModelName(Enum):
     FEDFORMER = "fedformer"
     TIDE = "tide"
     NHITS = "nhits"
+    DEEPAR = "depar"
+    BITCN = "bitcn"
     TABPFN = "tabpfn"
     TOTO = "toto"
 
