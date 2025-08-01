@@ -14,6 +14,8 @@ from neuralforecast.auto import (
     AutoFEDformer,
     AutoNHITS,
     AutoTiDE,
+    AutoDeepAR,
+    AutoBiTCN,
 )
 from dataclasses import dataclass, field
 from typing import List, Dict, Any
@@ -131,6 +133,16 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
     ),
     ModelName.NHITS: ModelSpec(
         factory=lambda **p: AutoNHITS(**p),
+        framework=Framework.NEURAL,
+        default_params=DefaultParams.NEURAL,
+    ),
+    ModelName.DEEPAR: ModelSpec(
+        factory=lambda **p: AutoDeepAR(**p),
+        framework=Framework.NEURAL,
+        default_params=DefaultParams.NEURAL,
+    ),
+    ModelName.BITCN: ModelSpec(
+        factory=lambda **p: AutoBiTCN(**p),
         framework=Framework.NEURAL,
         default_params=DefaultParams.NEURAL,
     ),
