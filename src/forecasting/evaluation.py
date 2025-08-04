@@ -3,10 +3,10 @@ from utilsforecast.evaluation import evaluate
 import logging
 from src.configurations.metrics import MetricConfig
 from src.configurations.forecast_column import ForecastColumnConfig
+from src.configurations.mixture import quantiles_to_level
 import seaborn as sns
 from typing import Optional, List, Dict, Any
 from matplotlib import pyplot as plt
-
 
 
 
@@ -74,7 +74,7 @@ class Evaluator:
         if quantiles is None:
             return None
 
-        return [int(round(q * 100, 0)) for q in quantiles]
+        return quantiles_to_level(quantiles)
 
     def evaluate(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """
