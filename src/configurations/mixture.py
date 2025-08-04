@@ -249,13 +249,15 @@ class MixtureLossFactory:
             horizon_correlation = tgmm_config.get("horizon_correlation", True)
             weighted = tgmm_config.get("weighted", True)
             return_params = tgmm_config.get("return_params", True)
+            quantiles = tgmm_config.get("quantiles", None)
 
             # Create and return TGMM instance
             tgmm_loss = TGMM(
                 n_components=n_components,
                 horizon_correlation=horizon_correlation,
                 weighted=weighted, 
-                return_params=return_params
+                return_params=return_params, 
+                quantiles=quantiles
             )
             logging.info(f"Successfully created TGMM loss with {n_components} components")
             return tgmm_loss
