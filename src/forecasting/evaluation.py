@@ -71,15 +71,10 @@ class Evaluator:
         """
         quantiles = self._metric_config.quantiles
 
-        if quantiles is None or len(quantiles) < 2:
+        if quantiles is None:
             return None
 
-        levels = []
-        for i in range(1, len(quantiles) - 1):
-            level = (quantiles[i] - quantiles[0]) * 100
-            levels.append(int(round(level)))
-
-        return levels
+        return [int(round(q * 100, 0)) for q in quantiles]
 
     def evaluate(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """
