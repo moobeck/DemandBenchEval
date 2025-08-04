@@ -2,6 +2,9 @@ log_wandb: false
 seed: 42
 
 filepaths:
+  processed_data_dir: "data/processed/"
+  sku_stats_dir: "data/sku_stats/"
+  cv_results_dir: "data/cv_results/"
   eval_results_dir: "data/eval_results/"
   eval_plots_dir: "data/eval_plots/"
 
@@ -13,34 +16,22 @@ input_columns:
   frequency: "frequency"
 
 datasets:
-  - MAISHAMEDS
+  - PHARMACY
 
 forecast_columns:
   date:    "date"
   sku_index:   "skuID"
+  product_index: "productID"
+  store_index: "storeID"
   target:  "demand"
   cutoff: "cutoff"
-  exog_vars:
-    - not_for_sale
-  static:
-    - companyID
-    - storeID
-    - productID
-  categorical:
-    - companyID
-    - storeID
-    - productID
-  
 
 preprocessing:
   target_transform: "LOCAL_MAX" # Options: "LOCAL_MAX", "LOCAL_STANDARD", "LOCAL_ROBUST"
 
 forecast:
   models:
-    - ETS
-    - LGBM
-  horizon: 4
-  lags: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    - TIDE
   model_config:
     ML:
       num_samples: 1
@@ -51,16 +42,131 @@ forecast:
       TABPFN:
         n_estimators: 4        # TabPFN ensemble size (internal sampling)
         max_samples: 500       # Max training samples (due to TabPFN limitations)  
-        n_lags: 8              # Number of lag features
         scaling: true          # Apply feature scaling
+    NEURAL:
+      gpus: 1
+      cpus: 1
+      num_samples: 1
+      mixture:
+        TGMM:
+          num_components: 10
+          horizon_correlation: true
+
 
 cross_validation:
-  cv_windows: 6
-  step_size: 4
-  refit: false
+  M5:
+    test:
+      n_windows: 322
+      step_size: 1
+      refit: false
+    val:
+      n_windows: 100
+      step_size: 1
+      refit: false
+  FAVORITA:
+    test:
+      n_windows: 322
+      step_size: 1
+      refit: false
+    val:
+      n_windows: 100
+      step_size: 1
+      refit: false
+  ROHLIK:
+    test:
+      n_windows: 280   # 20% of 1402 days
+      step_size: 1
+      refit: false
+    val:
+      n_windows: 140   # 10% of 1402 days
+      step_size: 1
+      refit: false
+  ROSSMANN:
+    test:
+      n_windows: 188   # 20% of 942 days
+      step_size: 1
+      refit: false
+    val:
+      n_windows: 94    # 10% of 942 days
+      step_size: 1
+      refit: false
+  BAKERY:
+    test:
+      n_windows: 243   # 20% of 1215 days
+      step_size: 1
+      refit: false
+    val:
+      n_windows: 121   # 10% of 1215 days
+      step_size: 1
+      refit: false
+  YAZ:
+    test:
+      n_windows: 153   # 20% of 765 days
+      step_size: 1
+      refit: false
+    val:
+      n_windows: 76    # 10% of 765 days
+      step_size: 1
+      refit: false
+  PHARMACY:
+    test:
+      n_windows: 24   # 20% of 827 days
+      step_size: 1
+      refit: false
+    val:
+      n_windows: 12    # 10% of 827 days
+      step_size: 1
+      refit: false
+  HOTEL:
+    test:
+      n_windows: 645   # 20% of 3227 days
+      step_size: 1
+      refit: false
+    val:
+      n_windows: 322   # 10% of 3227 days
+      step_size: 1
+      refit: false
+  ONLINERETAIL:
+    test:
+      n_windows: 147   # 20% of 739 days
+      step_size: 1
+      refit: false
+    val:
+      n_windows: 73    # 10% of 739 days
+      step_size: 1
+      refit: false
 
 metrics:
   metrics:
-    - MASE
     - MSSE
+    - MASE
   seasonality: null # Set to None for allowing seasonality to be detected automatically based on frequency of the dataset
+
+lags:
+  PHARMACY:
+    daily: 50
+    weekly: 15
+  M5:
+    daily: 50
+    weekly: 15
+  FAVORITA:
+    daily: 50
+    weekly: 15
+  ROHLIK:
+    daily: 50
+    weekly: 15
+  ROSSMANN:
+    daily: 50
+    weekly: 15
+  BAKERY:
+    daily: 50
+    weekly: 15
+  YAZ:
+    daily: 50
+    weekly: 15
+  HOTEL:
+    daily: 50
+    weekly: 15
+  ONLINERETAIL:
+    daily: 50
+    weekly: 15

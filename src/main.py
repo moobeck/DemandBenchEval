@@ -3,13 +3,12 @@ import logging
 import yaml
 import random
 import numpy as np
-import torch
 from typing import Any
 from src.configurations.file_path import FilePathConfig
 from src.configurations.datasets import DatasetConfig
 from src.configurations.input_column import InputColumnConfig
 from src.configurations.forecast_column import ForecastColumnConfig
-from src.configurations.cross_validation import CrossValidationConfig
+from src.configurations.cross_validation import CrossValidationConfig, CrossValWindowConfig, CrossValDatasetConfig
 from src.configurations.forecasting import ForecastConfig
 from src.configurations.metrics import MetricConfig
 from src.configurations.enums import ModelName, MetricName, DatasetName, Framework, TargetScalerType
@@ -19,9 +18,13 @@ from src.configurations.preprocessing import PreprocessingConfig
 from src.utils.wandb_orchestrator import WandbOrchestrator
 from src.dataset.dataset_factory import DatasetFactory
 from src.preprocessing.nixtla_preprocessor import NixtlaPreprocessor
+from src.preprocessing.statistics import SKUStatistics
 from src.forecasting.training import ForecastTrainer
 from src.forecasting.evaluation import Evaluator, EvaluationPlotter
+import torch
 
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = os.getenv("CUDA_VISIBLE_DEVICES", "1")  # Default to GPU 1 if not set
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -78,8 +81,8 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
     forecast_columns = public_config.get("forecast_columns", {})
     if not forecast_columns:
         logging.warning("No forecast columns provided in the public config.")
-    cross_validation = public_config.get("cross_validation", {})
-    if not cross_validation:
+    cross_validation_data = public_config.get("cross_validation", {})
+    if not cross_validation_data:
         logging.warning("No cross-validation settings provided in the public config.")
     forecast = public_config.get("forecast", {})
     if not forecast:
@@ -87,6 +90,9 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
     metrics = public_config.get("metrics", {})
     if not metrics:
         logging.warning("No metrics settings provided in the public config.")
+    lags = public_config.get("lags", [])
+    if not lags:
+        logging.warning("No lags provided in the public config.")
 
     log_wandb = public_config.get("log_wandb", False)
     wandb: dict = private_config.get("wandb", {})  #
@@ -101,8 +107,11 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
 
     return GlobalConfig(
         filepaths=FilePathConfig(
-            eval_results_dir=filepaths.get("eval_results_dir", "results/eval_results"),
-            eval_plots_dir=filepaths.get("eval_plots_dir", "results/eval_plots"),
+            processed_data_dir=filepaths.get("processed_data_dir", "data/processed"),
+            sku_stats_dir=filepaths.get("sku_stats_dir", "data/sku_stats"),
+            cv_results_dir=filepaths.get("cv_results_dir", "data/cv_results"),
+            eval_results_dir=filepaths.get("eval_results_dir", "data/eval_results"),
+            eval_plots_dir=filepaths.get("eval_plots_dir", "data/eval_plots"),
         ),
         datasets=DatasetConfig(names=[DatasetName[name] for name in dataset_names]),
         input_columns=InputColumnConfig(
@@ -117,25 +126,36 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
         forecast_columns=ForecastColumnConfig(
             sku_index=forecast_columns["sku_index"],
             date=forecast_columns["date"],
+            product_index=forecast_columns.get("product_index", "productID"),
+            store_index=forecast_columns.get("store_index", "storeID"),
             target=forecast_columns["target"],
             cutoff=forecast_columns["cutoff"],
-            base_exogenous=[col for col in forecast_columns["exog_vars"]],
-            categorical=[col for col in forecast_columns.get("categorical", [])],
-            static=[col for col in forecast_columns["static"]],
         ),
         cross_validation=CrossValidationConfig(
-            cv_windows=cross_validation["cv_windows"],
-            step_size=cross_validation["step_size"],
-            refit=cross_validation["refit"],
+            data={
+                DatasetName[name]: CrossValDatasetConfig(
+                    test=CrossValWindowConfig(
+                        n_windows=cv["test"]["n_windows"],
+                        step_size=cv["test"]["step_size"],
+                        refit=cv["test"]["refit"],
+                    ),
+                    val=CrossValWindowConfig(
+                        n_windows=cv["val"]["n_windows"],
+                        step_size=cv["val"]["step_size"],
+                        refit=cv["val"]["refit"],
+                    ),
+                )
+                for name, cv in cross_validation_data.items()
+            }
+
         ),
         forecast=ForecastConfig(
             names=[ModelName[name] for name in forecast["models"]],
-            horizon=forecast["horizon"],
-            lags=forecast["lags"],
             model_config={
                 Framework[fw]: forecast["model_config"][fw]
                 for fw in forecast["model_config"]
             },
+            lags_config=lags,
         ),
         metrics=MetricConfig(
             names=[MetricName[name] for name in public_config["metrics"]["metrics"]],
@@ -191,16 +211,31 @@ def main():
         prep.merge()
         prep.remove_skus(skus="not_at_min_date")
         df = prep.prepare_nixtla()
+
+        # Calculate SKU statistics
+        sku_stats = SKUStatistics(
+            df=df,
+            forecast_columns=cfg.forecast_columns,
+            cross_validation=cfg.cross_validation,
+            freq=cfg.forecast.freq,
+        )
+        sku_stats_df = sku_stats.compute_statistics()
+        sku_stats_df.to_feather(cfg.filepaths.sku_stats)
+
         df = prep.preprocess_data(df)
+
+        # save df as feather file
+        df.to_feather(cfg.filepaths.processed_data)
 
         # 3) Cross-validation
         trainer = ForecastTrainer(cfg.forecast, cfg.forecast_columns)
         cv_df = trainer.cross_validate(
             df=df,
-            n_windows=cfg.cross_validation.cv_windows,
-            step_size=cfg.cross_validation.step_size,
-            refit=cfg.cross_validation.refit,
+            cv_config=cfg.cross_validation,
         )
+
+        # save cv_df as feather file
+        cv_df.to_feather(cfg.filepaths.cv_results)
 
         # 4) Evaluation
         evaluator = Evaluator(cfg.metrics, cfg.forecast_columns)

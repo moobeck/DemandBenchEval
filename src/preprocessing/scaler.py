@@ -22,15 +22,11 @@ class TargetScaler(BaseTargetTransform):
 
     def _calculate_cutoff(self, df: pd.DataFrame) -> pd.Timestamp:
         """Calculate the cutoff timestamp based on frequency and CV configuration."""
-        if self.freq == Frequency.DAILY:
-            offset = pd.Timedelta(days=self.cv_cfg.cv_windows * self.cv_cfg.step_size)
-        elif self.freq == Frequency.WEEKLY:
-            offset = pd.Timedelta(weeks=self.cv_cfg.cv_windows * self.cv_cfg.step_size)
-        else:
-            raise ValueError(f"Unsupported frequency: {self.freq}")
-
-        return df[self.time_col].max() - offset
-
+        return self.cv_cfg.get_cutoff_date(
+            max_date=df[self.time_col].max(),
+            freq=self.freq,
+            split='test'
+        )
 
 
 class TargetScalerFactory:

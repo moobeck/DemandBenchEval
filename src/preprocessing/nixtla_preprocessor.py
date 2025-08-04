@@ -114,7 +114,6 @@ class NixtlaPreprocessor:
                 self._forecast_columns.date,
                 self._input_columns.target,
                 *(self._forecast_columns.exogenous),
-                *(self._forecast_columns.categorical),
             ]
         ]
 

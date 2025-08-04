@@ -11,6 +11,7 @@ from src.configurations.forecast_column import ForecastColumnConfig
 from src.configurations.forecasting import ForecastConfig
 from src.configurations.enums import Frequency
 from src.forecasting.foundation_model_base import FoundationModelWrapper
+from src.configurations.cross_validation import CrossValDatasetConfig
 
 import logging
 
@@ -68,12 +69,9 @@ class FoundationModelEngine(ForecastEngine):
         self,
         df: pd.DataFrame,
         h: int,
-        n_windows: int,
-        step_size: int,
-        refit: bool = False,
+        cv_config: CrossValDatasetConfig,
         forecast_columns: ForecastColumnConfig = None,
         forecast_config: ForecastConfig = None,
-        **kwargs,
     ) -> pd.DataFrame:
         """
         Perform cross-validation for foundation models.
@@ -81,6 +79,9 @@ class FoundationModelEngine(ForecastEngine):
         """
 
         results = []
+
+        n_windows = cv_config.test.n_windows
+        step_size = cv_config.test.step_size
 
         # Calculate time splits
         if forecast_config.freq == Frequency.DAILY:
@@ -154,18 +155,24 @@ class StatsForecastEngine(ForecastEngine):
         self,
         df: pd.DataFrame,
         h: int,
-        n_windows: int,
-        step_size: int,
-        refit: bool = False,
-        **kwargs,
+        cv_config: CrossValDatasetConfig,
+        id_col: str = None,
+        target_col: str = None,
+        time_col: str = None,
     ):
+        n_windows = cv_config.test.n_windows
+        step_size = cv_config.test.step_size
+        refit = cv_config.test.refit
+
         return self._engine.cross_validation(
             df=df,
             h=h,
             n_windows=n_windows,
             step_size=step_size,
             refit=refit,
-            **kwargs,
+            id_col=id_col,
+            target_col=target_col,
+            time_col=time_col,
         )
 
 
@@ -174,43 +181,48 @@ class AutoMLForecastEngine(ForecastEngine):
         self._engine: AutoMLForecast = AutoMLForecast(*args, **kw)
         self.num_samples = num_samples
 
+
     def cross_validation(
         self,
         df: pd.DataFrame,
         h: int,
-        n_windows: int,
-        step_size: int,
-        refit: bool = False,
+        cv_config: CrossValDatasetConfig,
         forecast_columns: ForecastColumnConfig = None,
         forecast_config: ForecastConfig = None,
-        **kwargs,
+        id_col: str = None,
+        target_col: str = None,
+        time_col: str = None,
     ):
 
-        if refit:
-            raise ValueError("refit=True is not supported for AutoMLForecastEngine.")
+        
 
         # Filter out the n_windows to get the df used to fit the model
+        n_windows_val = cv_config.val.n_windows
+        step_size_val = cv_config.val.step_size
+        refit_val = cv_config.val.refit
 
-        # Calculate the offset based on the frequency ('D'. 'W', raise error if not supported)
-        if forecast_config.freq == Frequency.DAILY:
-            offset = pd.Timedelta(days=n_windows * step_size)
-        elif forecast_config.freq == Frequency.WEEKLY:
-            offset = pd.Timedelta(weeks=n_windows * step_size)
-        else:
-            raise ValueError(f"Unsupported frequency: {forecast_config.freq}")
+        n_windows_test = cv_config.test.n_windows
+        step_size_test = cv_config.test.step_size
+        refit_test = cv_config.test.refit
 
-        cutoff = df[forecast_columns.date].max() - offset
+        cutoff = self._engine.get_cutoff_date(
+            max_date=df[forecast_columns.date].max(),
+            freq=forecast_config.freq,
+            split='val'
+        )
         df_fit = df[df[forecast_columns.date] <= cutoff]
 
         # Fit the model with the filtered df
         self._engine = self._engine.fit(
             df=df_fit,
             h=h,
-            n_windows=n_windows,
-            step_size=step_size,
+            n_windows=n_windows_val,
+            step_size=step_size_val,
             num_samples=self.num_samples,
-            refit=refit,
-            **kwargs,
+            refit=refit_val,
+            id_col=id_col,
+            target_col=target_col,
+            time_col=time_col,
         )
 
         # Now get the models to do the cross-validation
@@ -221,12 +233,14 @@ class AutoMLForecastEngine(ForecastEngine):
             # Get the cross-validation results for each model
             df = model.cross_validation(
                 df=df,
-                n_windows=n_windows,
-                step_size=step_size,
-                refit=refit,
+                n_windows=n_windows_test,
+                step_size=step_size_test,
+                refit=refit_test,
                 h=h,
                 max_horizon=forecast_config.horizon,
-                **kwargs,
+                id_col=id_col,
+                target_col=target_col,
+                time_col=time_col
             )
 
             dfs.append(df)
@@ -243,16 +257,20 @@ class NeuralForecastEngine(ForecastEngine):
     def cross_validation(
         self,
         df: pd.DataFrame,
-        n_windows: int,
-        step_size: int,
-        refit: bool = False,
-        **kwargs,
+        cv_config: CrossValDatasetConfig,
+        id_col: str = None,
+        target_col: str = None,
+        time_col: str = None,
+        static_df: pd.DataFrame = None,
     ):
         return self._engine.cross_validation(
             df=df,
-            n_windows=n_windows,
-            step_size=step_size,
-            refit=refit,
+            static_df=static_df,
+            n_windows=cv_config.test.n_windows,
+            step_size=cv_config.test.step_size,
+            refit=cv_config.test.refit,
             verbose=True,
-            **kwargs,
+            id_col=id_col,
+            target_col=target_col,
+            time_col=time_col,
         )

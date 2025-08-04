@@ -10,7 +10,8 @@ from src.forecasting.engine import (
 )
 from src.configurations.forecast_column import ForecastColumnConfig
 from src.configurations.forecasting import ForecastConfig
-from src.configurations.enums import Framework, Frequency, ModelName
+from src.configurations.enums import Framework, Frequency
+from src.configurations.cross_validation import CrossValDatasetConfig
 from mlforecast.target_transforms import LocalMinMaxScaler
 
 
@@ -29,6 +30,7 @@ class ForecastTrainer:
         self._forecast_config = forecast_config
         self._forecast_columns = forecast_columns
 
+
         self._factory = {
             Framework.STATS: (StatsForecastEngine, {}),
             Framework.ML: (
@@ -37,7 +39,6 @@ class ForecastTrainer:
                     "init_config": lambda trial: (
                         {
                             "lags": self._forecast_config.lags,
-                            "target_transforms": [LocalMinMaxScaler()],
                         }
                     ),
                     "fit_config": lambda trial: {
@@ -49,7 +50,10 @@ class ForecastTrainer:
                     ] if Framework.ML in forecast_config.model_config else None,
                 },
             ),
-            Framework.NEURAL: (NeuralForecastEngine, {}),
+            Framework.NEURAL: (
+                NeuralForecastEngine,
+                {},
+            ),
             Framework.FM: (
                 FoundationModelEngine,
                 {},
@@ -60,16 +64,14 @@ class ForecastTrainer:
 
     def _build_frameworks(self) -> Dict[Framework, ForecastEngine]:
         fw_instances = {}
-        models_dict = self._forecast_config.models  # Access models once and cache
+        models_dict = self._forecast_config.models 
 
         for fw, (cls, extra) in self._factory.items():
-            # Check if framework has models using a more robust comparison
-            # Find matching framework by value instead of object identity
             matching_fw = None
             for models_fw in models_dict.keys():
                 if (
                     fw.value == models_fw.value
-                ):  # Compare enum values instead of objects
+                ):  
                     matching_fw = models_fw
                     break
 
@@ -85,7 +87,7 @@ class ForecastTrainer:
             params = {
                 "models": models,
                 "freq": Frequency.get_alias(self._forecast_config.freq, "nixtla"),
-                **extra,  # framework-specific kwargs
+                **extra,  
             }
             fw_instances[fw] = cls(**params)
         return fw_instances
@@ -93,7 +95,7 @@ class ForecastTrainer:
     def cross_validate(
         self,
         df: pd.DataFrame,
-        **kwargs,
+        cv_config: CrossValDatasetConfig
     ) -> pd.DataFrame:
         """
         Perform cross-validation for each forecasting framework and
@@ -107,7 +109,7 @@ class ForecastTrainer:
                 continue
 
             logging.info(f"Cross-validating with {framework.name}...")
-            cv_input = self._prepare_cv_inputs(framework, df, **kwargs)
+            cv_input = self._prepare_cv_inputs(framework, df, cv_config=cv_config)
             df_cv = self._run_framework_cv(engine, **cv_input)
             results.append(df_cv)
 
@@ -120,24 +122,29 @@ class ForecastTrainer:
         self,
         framework: Framework,
         df: pd.DataFrame,
-        **user_kwargs: Any,
+        cv_config: CrossValDatasetConfig,
     ) -> Dict[str, Any]:
         """
         Build the arguments needed for a framework's cross_validation call.
         """
         cols = list(self._forecast_columns.ts_base_cols)
-        kwargs: Dict[str, Any] = user_kwargs.copy()
+        kwargs: Dict[str, Any] = {"cv_config": cv_config}
 
         if framework == Framework.NEURAL:
             # Neural wants static_df separate
             kwargs["static_df"] = self._build_static_df(df)
+            cols += self._forecast_columns.static
+            if self._forecast_columns.exogenous:
+                cols += [
+                    col for col in self._forecast_columns.exogenous if col in df.columns if col not in cols
+                ]
 
         elif framework == Framework.FM:
             # Foundation Models need all columns including static and exogenous
             cols += self._forecast_columns.static
             if self._forecast_columns.exogenous:
                 cols += [
-                    col for col in self._forecast_columns.exogenous if col in df.columns
+                    col for col in self._forecast_columns.exogenous if col in df.columns if col not in cols
                 ]
             kwargs["forecast_columns"] = self._forecast_columns
             kwargs["forecast_config"] = self._forecast_config
@@ -146,11 +153,6 @@ class ForecastTrainer:
         else:
             kwargs["h"] = self._forecast_config.horizon
 
-            if framework == Framework.ML:
-                # ML wants static_features inline
-                cols += self._forecast_columns.static
-                kwargs["forecast_columns"] = self._forecast_columns
-                kwargs["forecast_config"] = self._forecast_config
 
         return {
             "df": df[cols],

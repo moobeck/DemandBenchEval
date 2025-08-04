@@ -44,16 +44,12 @@ class CategoryEncoder:
         - pd.DataFrame: DataFrame with encoded features.
         """
 
-        if self._freq == Frequency.DAILY:
-            offset = pd.Timedelta(days=self._cv_cfg.cv_windows * self._cv_cfg.step_size)
-        elif self._freq == Frequency.WEEKLY:
-            offset = pd.Timedelta(
-                weeks=self._cv_cfg.cv_windows * self._cv_cfg.step_size
-            )
-        else:
-            raise ValueError(f"Unsupported frequency: {self._freq}")
+        cutoff = self._cv_cfg.get_cutoff_date(
+            max_date=df[self._forecast_columns.date].max(),
+            freq=self._freq,
+            split='test'
+        )
 
-        cutoff = df[self._forecast_columns.date].max() - offset
         df_train = df[df[self._forecast_columns.date] <= cutoff]
 
         # Fit the encoder on the training data
