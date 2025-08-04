@@ -38,18 +38,31 @@ class Evaluator:
         """
         Get the model columns from the DataFrame.
         """
-        model_cols = [
-            col
-            for col in df.columns
-            if col
-            not in [
-                self._forecast_columns.sku_index,
-                self._forecast_columns.date,
-                self._forecast_columns.target,
-                self._forecast_columns.cutoff,
-                "metric",
-            ]
+        # Get all columns that are not metadata columns
+        metadata_cols = {
+            self._forecast_columns.sku_index,
+            self._forecast_columns.date,
+            self._forecast_columns.target,
+            self._forecast_columns.cutoff,
+            "metric",
+        }
+        
+        # Find potential model columns (exclude metadata)
+        potential_model_cols = [
+            col for col in df.columns 
+            if col not in metadata_cols
         ]
+        
+        # Extract unique model names by removing suffixes like -median, -lo-90, etc.
+        model_names = set()
+        for col in potential_model_cols:
+            # Split by '-' and take the first part as the base model name
+            base_name = col.split('-')[0]
+            model_names.add(base_name)
+        
+        # Filter to only include the base model columns that exist in the DataFrame
+        model_cols = [name for name in model_names if name in df.columns]
+        
         return model_cols
     
     def _get_level(self):
@@ -64,7 +77,7 @@ class Evaluator:
         levels = []
         for i in range(1, len(quantiles) - 1):
             level = (quantiles[i] - quantiles[0]) * 100
-            levels.append(int(level))
+            levels.append(int(round(level)))
 
         return levels
 
@@ -75,11 +88,10 @@ class Evaluator:
 
         logging.info("Starting evaluation...")
 
-        model_cols = self._get_model_cols(df)
 
         return evaluate(
             df=df,
-            models=model_cols,
+            models=self._get_model_cols(df),
             target_col=self._forecast_columns.target,
             time_col=self._forecast_columns.date,
             id_col=self._forecast_columns.sku_index,
