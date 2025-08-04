@@ -35,6 +35,7 @@ class MetricName(Enum):
     MAE = "mae"
     MSE = "mse"
     RMSE = "rmse"
+    SCALED_MQLOSS = "scaled_mqloss"
 
 
 class DatasetName(Enum):
