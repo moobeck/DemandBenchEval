@@ -24,6 +24,7 @@ class TruncatedNormal(Distribution):
     support = constraints.interval(0., 1.)
     has_rsample = False
     MIN_CLAMP_VALUE = 1e-10
+    N_SAMPLES = 1000
 
     def __init__(self, loc, scale, low=0., high=1., validate_args=None):
         self.loc = loc
@@ -58,17 +59,8 @@ class TruncatedNormal(Distribution):
 
     @property
     def mean(self):
-        a = (self.low - self.loc) / self.scale
-        b = (self.high - self.loc) / self.scale
-        sqrt_2pi = math.sqrt(2 * math.pi)
-        phi_a = torch.exp(-0.5 * a**2) / sqrt_2pi
-        phi_b = torch.exp(-0.5 * b**2) / sqrt_2pi
-        Phi_a = 0.5 * (1 + torch.erf(a / math.sqrt(2)))
-        Phi_b = 0.5 * (1 + torch.erf(b / math.sqrt(2)))
-        Z = Phi_b - Phi_a
-        Z = torch.clamp(Z, min=self.MIN_CLAMP_VALUE, max=1. - self.MIN_CLAMP_VALUE)
-        mean = self.loc + self.scale * (phi_a - phi_b) / Z
-        return mean
+        samples = self.sample(sample_shape=(self.N_SAMPLES,))
+        return torch.mean(samples, dim=0)
 
     def expand(self, batch_shape, _instance=None):
         new = self._get_checked_instance(TruncatedNormal, _instance)
