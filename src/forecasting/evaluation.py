@@ -8,10 +8,20 @@ from typing import Optional, List, Dict, Any
 from matplotlib import pyplot as plt
 
 
+
+
+
+
+
+        
+
+
 class Evaluator:
     """
     A class to evaluate the performance of a forecasting model using various metrics.
     """
+
+
 
     def __init__(
         self,
@@ -41,6 +51,22 @@ class Evaluator:
             ]
         ]
         return model_cols
+    
+    def _get_level(self):
+        """
+        Calculate the quantile levels based on the provided quantiles.
+        """
+        quantiles = self._metric_config.quantiles
+
+        if quantiles is None or len(quantiles) < 2:
+            return None
+
+        levels = []
+        for i in range(1, len(quantiles) - 1):
+            level = (quantiles[i] - quantiles[0]) * 100
+            levels.append(int(level))
+
+        return levels
 
     def evaluate(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """
@@ -58,6 +84,7 @@ class Evaluator:
             time_col=self._forecast_columns.date,
             id_col=self._forecast_columns.sku_index,
             metrics=list(self.metrics.values()),
+            level=self._get_level(),
             **kwargs
         )
 
