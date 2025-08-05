@@ -29,6 +29,120 @@ class ForecastEngine(ABC):
             pd.DataFrame: Cross-validation results.
         """
         pass
+    
+    def get_cutoff_date(
+        self,
+        max_date: pd.Timestamp,
+        freq: Frequency,
+        n_windows: int,
+        step_size: int,
+        split: str = 'val'
+    ) -> pd.Timestamp:
+        """
+        Calculate cutoff date for cross-validation splits.
+        
+        This method is available to all forecast engines and provides
+        consistent cutoff date calculation across different frameworks.
+        
+        Parameters:
+        -----------
+        max_date : pd.Timestamp
+            Maximum date in the dataset
+        freq : Frequency
+            Data frequency (DAILY or WEEKLY)
+        n_windows : int
+            Number of validation windows
+        step_size : int
+            Step size between windows
+        split : str
+            Split type ('val' or 'test')
+            
+        Returns:
+        --------
+        pd.Timestamp
+            Calculated cutoff date
+        """
+        if freq == Frequency.DAILY:
+            offset = pd.Timedelta(days=n_windows * step_size)
+        elif freq == Frequency.WEEKLY:
+            offset = pd.Timedelta(weeks=n_windows * step_size)
+        else:
+            raise ValueError(f"Unsupported frequency: {freq}")
+        
+        return max_date - offset
+    
+    def create_time_offset(self, freq: Frequency, periods: int) -> pd.Timedelta:
+        """
+        Create time offset based on frequency and number of periods.
+        
+        Parameters:
+        -----------
+        freq : Frequency
+            Data frequency (DAILY or WEEKLY)
+        periods : int
+            Number of periods
+            
+        Returns:
+        --------
+        pd.Timedelta
+            Time offset
+        """
+        if freq == Frequency.DAILY:
+            return pd.Timedelta(days=periods)
+        elif freq == Frequency.WEEKLY:
+            return pd.Timedelta(weeks=periods)
+        else:
+            raise ValueError(f"Unsupported frequency: {freq}")
+    
+    def validate_cv_params(self, n_windows: int, step_size: int, h: int) -> None:
+        """
+        Validate cross-validation parameters.
+        
+        Parameters:
+        -----------
+        n_windows : int
+            Number of validation windows
+        step_size : int
+            Step size between windows
+        h : int
+            Forecast horizon
+            
+        Raises:
+        -------
+        ValueError
+            If parameters are invalid
+        """
+        if n_windows <= 0:
+            raise ValueError("n_windows must be positive")
+        if step_size <= 0:
+            raise ValueError("step_size must be positive")
+        if h <= 0:
+            raise ValueError("forecast horizon (h) must be positive")
+    
+    def extract_cv_config(self, cv_config: CrossValDatasetConfig, split: str = 'test') -> tuple[int, int, bool]:
+        """
+        Extract cross-validation configuration for a specific split.
+        
+        Parameters:
+        -----------
+        cv_config : CrossValDatasetConfig
+            Cross-validation configuration (TypedDict)
+        split : str
+            Split type ('test' or 'val')
+            
+        Returns:
+        --------
+        tuple[int, int, bool]
+            n_windows, step_size, refit
+        """
+        if split == 'test':
+            config = cv_config['test']
+            return config.n_windows, config.step_size, config.refit
+        elif split == 'val':
+            config = cv_config['val']
+            return config.n_windows, config.step_size, config.refit
+        else:
+            raise ValueError(f"Unsupported split type: {split}")
 
     @staticmethod
     def _combine_results(
@@ -80,16 +194,14 @@ class FoundationModelEngine(ForecastEngine):
 
         results = []
 
-        n_windows = cv_config.test.n_windows
-        step_size = cv_config.test.step_size
+        # Extract cross-validation configuration
+        n_windows, step_size, _ = self.extract_cv_config(cv_config, 'test')
+        
+        # Validate parameters
+        self.validate_cv_params(n_windows, step_size, h)
 
         # Calculate time splits
-        if forecast_config.freq == Frequency.DAILY:
-            offset = pd.Timedelta(days=n_windows * step_size)
-        elif forecast_config.freq == Frequency.WEEKLY:
-            offset = pd.Timedelta(weeks=n_windows * step_size)
-        else:
-            raise ValueError(f"Unsupported frequency: {forecast_config.freq}")
+        offset = self.create_time_offset(forecast_config.freq, n_windows * step_size)
 
         for model_name, model in self.models.items():
             logging.info(f"Cross-validating foundation model: {model_name}")
@@ -98,11 +210,7 @@ class FoundationModelEngine(ForecastEngine):
             # For each cross-validation window
             for window in range(n_windows):
                 # Calculate cutoff point for this window
-                cutoff_offset = (
-                    pd.Timedelta(days=window * step_size)
-                    if forecast_config.freq == Frequency.DAILY
-                    else pd.Timedelta(weeks=window * step_size)
-                )
+                cutoff_offset = self.create_time_offset(forecast_config.freq, window * step_size)
                 cutoff = df[forecast_columns.date].max() - offset + cutoff_offset
 
                 # Split data into train and test
@@ -160,9 +268,9 @@ class StatsForecastEngine(ForecastEngine):
         target_col: str = None,
         time_col: str = None,
     ):
-        n_windows = cv_config.test.n_windows
-        step_size = cv_config.test.step_size
-        refit = cv_config.test.refit
+        # Extract and validate cross-validation configuration
+        n_windows, step_size, refit = self.extract_cv_config(cv_config, 'test')
+        self.validate_cv_params(n_windows, step_size, h)
 
         return self._engine.cross_validation(
             df=df,
@@ -195,19 +303,20 @@ class AutoMLForecastEngine(ForecastEngine):
     ):
 
         
+        # Extract cross-validation configuration
+        n_windows_val, step_size_val, refit_val = self.extract_cv_config(cv_config, 'val')
+        n_windows_test, step_size_test, refit_test = self.extract_cv_config(cv_config, 'test')
+        
+        # Validate cross-validation parameters
+        self.validate_cv_params(n_windows_val, step_size_val, h)
+        self.validate_cv_params(n_windows_test, step_size_test, h)
 
-        # Filter out the n_windows to get the df used to fit the model
-        n_windows_val = cv_config.val.n_windows
-        step_size_val = cv_config.val.step_size
-        refit_val = cv_config.val.refit
-
-        n_windows_test = cv_config.test.n_windows
-        step_size_test = cv_config.test.step_size
-        refit_test = cv_config.test.refit
-
-        cutoff = self._engine.get_cutoff_date(
+        # Calculate cutoff date using engine's method
+        cutoff = self.get_cutoff_date(
             max_date=df[forecast_columns.date].max(),
             freq=forecast_config.freq,
+            n_windows=n_windows_val,
+            step_size=step_size_val,
             split='val'
         )
         df_fit = df[df[forecast_columns.date] <= cutoff]
@@ -263,12 +372,15 @@ class NeuralForecastEngine(ForecastEngine):
         time_col: str = None,
         static_df: pd.DataFrame = None,
     ):
+        # Extract cross-validation configuration
+        n_windows, step_size, refit = self.extract_cv_config(cv_config, 'test')
+        
         return self._engine.cross_validation(
             df=df,
             static_df=static_df,
-            n_windows=cv_config.test.n_windows,
-            step_size=cv_config.test.step_size,
-            refit=cv_config.test.refit,
+            n_windows=n_windows,
+            step_size=step_size,
+            refit=refit,
             verbose=True,
             id_col=id_col,
             target_col=target_col,
