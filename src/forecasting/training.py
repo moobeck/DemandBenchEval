@@ -151,7 +151,10 @@ class ForecastTrainer:
             kwargs["h"] = self._forecast_config.horizon
 
         else:
+            # ML framework also needs forecast_columns and forecast_config for some operations
             kwargs["h"] = self._forecast_config.horizon
+            kwargs["forecast_columns"] = self._forecast_columns
+            kwargs["forecast_config"] = self._forecast_config
 
 
         return {
