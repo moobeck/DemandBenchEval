@@ -29,6 +29,7 @@ except (ImportError, ModuleNotFoundError):
         pass
 
 from src.forecasting.tabpfn_wrapper import TabPFNWrapper
+from src.forecasting.quantile_ar_wrapper import AutoQuantileAR
 from .mixture import MixtureLossFactory
 from neuralforecast.losses.pytorch import MAE
 import os
@@ -145,6 +146,11 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
         factory=lambda **p: AutoBiTCN(**p),
         framework=Framework.NEURAL,
         default_params=DefaultParams.NEURAL,
+    ),
+    ModelName.QUANTILE_AR: ModelSpec(
+        factory=lambda **p: AutoQuantileAR(quantile=0.5, **{k:v for k,v in p.items() if k in ['alpha', 'solver', 'random_state']}),
+        framework=Framework.ML,
+        default_params=DefaultParams.ML,
     ),
 }
 

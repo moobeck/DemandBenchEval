@@ -27,6 +27,7 @@ class ModelName(Enum):
     BITCN = "bitcn"
     TABPFN = "tabpfn"
     TOTO = "toto"
+    QUANTILE_AR = "quantile_ar"
 
 
 class MetricName(Enum):
