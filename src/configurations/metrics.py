@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, TypeAlias, Optional
 from functools import partial
 from utilsforecast.losses import mase, msse, mae, mse, rmse, scaled_mqloss
+
 ForecastMetric: TypeAlias = Any
 
 
@@ -28,11 +29,11 @@ METRIC_REGISTRY: dict[MetricName, MetricSpec] = {
     ),
     MetricName.MSE: MetricSpec(factory=lambda **p: partial(mse, **p)),
     MetricName.RMSE: MetricSpec(factory=lambda **p: partial(rmse, **p)),
-    MetricName.SCALED_MQLOSS: MetricSpec(factory=lambda **p: partial(scaled_mqloss, **p),
-     default_params={"seasonality": 7, "quantiles": [0.1, 0.25, 0.5, 0.75, 0.9]}),
+    MetricName.SCALED_MQLOSS: MetricSpec(
+        factory=lambda **p: partial(scaled_mqloss, **p),
+        default_params={"seasonality": 7, "quantiles": [0.1, 0.25, 0.5, 0.75, 0.9]},
+    ),
 }
-
-
 
 
 @dataclass
@@ -45,11 +46,9 @@ class MetricConfig:
     seasonality: int = field(default=None, repr=False)
     quantiles: Optional[list[float]] = field(default=None, repr=False)
     metrics: Dict[MetricName, MetricSpec] = field(init=False)
-    
 
     def __post_init__(self):
         self.seasonality_provided = self.seasonality is not None
-        
 
     def set_seasonality(self, freq: Optional[Frequency] = None):
         """
@@ -70,21 +69,18 @@ class MetricConfig:
         metrics: Dict[MetricName, MetricSpec] = {}
         for name in self.names:
             spec = METRIC_REGISTRY[name]
-            
+
             # Make a shallow copy of default_params so we don't mutate the registry
             params = spec.default_params.copy()
-            
+
             # If seasonality is a supported param, override it
             if "seasonality" in params:
                 params["seasonality"] = self.seasonality
             # If quantiles are provided, add them to the params
             if "quantiles" in params:
                 params["quantiles"] = self.quantiles
-            
+
             # Instantiate the metric with the (possibly overridden) params
             metrics[name] = spec.factory(**params)
 
             self.metrics = metrics
-
-        
-

@@ -9,19 +9,10 @@ from typing import Optional, List, Dict, Any
 from matplotlib import pyplot as plt
 
 
-
-
-
-
-        
-
-
 class Evaluator:
     """
     A class to evaluate the performance of a forecasting model using various metrics.
     """
-
-
 
     def __init__(
         self,
@@ -46,25 +37,22 @@ class Evaluator:
             self._forecast_columns.cutoff,
             "metric",
         }
-        
+
         # Find potential model columns (exclude metadata)
-        potential_model_cols = [
-            col for col in df.columns 
-            if col not in metadata_cols
-        ]
-        
+        potential_model_cols = [col for col in df.columns if col not in metadata_cols]
+
         # Extract unique model names by removing suffixes like -median, -lo-90, etc.
         model_names = set()
         for col in potential_model_cols:
             # Split by '-' and take the first part as the base model name
-            base_name = col.split('-')[0]
+            base_name = col.split("-")[0]
             model_names.add(base_name)
-        
+
         # Filter to only include the base model columns that exist in the DataFrame
         model_cols = [name for name in model_names if name in df.columns]
-        
+
         return model_cols
-    
+
     def _get_level(self):
         """
         Calculate the quantile levels based on the provided quantiles.
@@ -82,7 +70,6 @@ class Evaluator:
         """
 
         logging.info("Starting evaluation...")
-
 
         return evaluate(
             df=df,
@@ -202,8 +189,7 @@ class EvaluationPlotter:
         # Overlay mean lines
         for ax, metric in zip(g.axes.flatten(), self.metrics):
             means = (
-                long_df[long_df["metric"] == metric]
-                .groupby("model")["error"].mean()
+                long_df[long_df["metric"] == metric].groupby("model")["error"].mean()
             )
             for idx, model in enumerate(models):
                 m_val = means.get(model)
@@ -223,4 +209,3 @@ class EvaluationPlotter:
         plt.tight_layout()
 
         return g
-

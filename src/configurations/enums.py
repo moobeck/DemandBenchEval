@@ -48,7 +48,7 @@ class DatasetName(Enum):
     PHARMACY = "pharmacy"
     HOTEL = "hoteldemand"
     ONLINERETAIL = "onlineretail"
-    
+
 
 class Frequency(Enum):
     DAILY = "Daily"

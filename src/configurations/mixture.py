@@ -14,12 +14,17 @@ from torch.distributions.uniform import Uniform
 import math
 import logging
 from typing import Dict, Any
-from neuralforecast.losses.pytorch import quantiles_to_outputs, level_to_outputs, weighted_average
+from neuralforecast.losses.pytorch import (
+    quantiles_to_outputs,
+    level_to_outputs,
+    weighted_average,
+)
+
 
 def quantiles_to_level(quantiles: Optional[List[float]]) -> Optional[List[int]]:
     """
     Convert quantiles to percentage levels.
-    
+
     Args:
         quantiles (Optional[List[float]]): List of quantiles to convert.
     """
@@ -36,16 +41,14 @@ def quantiles_to_level(quantiles: Optional[List[float]]) -> Optional[List[int]]:
     return levels
 
 
- 
-
 class TruncatedNormal(Distribution):
-    arg_constraints = {'loc': constraints.real, 'scale': constraints.positive}
-    support = constraints.interval(0., 1.)
+    arg_constraints = {"loc": constraints.real, "scale": constraints.positive}
+    support = constraints.interval(0.0, 1.0)
     has_rsample = False
     MIN_CLAMP_VALUE = 1e-10
     N_SAMPLES = 1000
 
-    def __init__(self, loc, scale, low=0., high=1., validate_args=None):
+    def __init__(self, loc, scale, low=0.0, high=1.0, validate_args=None):
         self.loc = loc
         self.scale = scale
         self.low = low
@@ -63,7 +66,7 @@ class TruncatedNormal(Distribution):
         Z = torch.clamp(high_cdf - low_cdf, min=self.MIN_CLAMP_VALUE)
         log_prob = base_log_prob - torch.log(Z)
         inside = (value >= self.low) & (value <= self.high)
-        return torch.where(inside, log_prob, torch.tensor(-float('inf')).to(log_prob))
+        return torch.where(inside, log_prob, torch.tensor(-float("inf")).to(log_prob))
 
     def sample(self, sample_shape=torch.Size()):
         shape = self._extended_shape(sample_shape)
@@ -72,7 +75,7 @@ class TruncatedNormal(Distribution):
             high_cdf = self.base_dist.cdf(self.high)
             u = torch.rand(shape, dtype=self.loc.dtype, device=self.loc.device)
             u = low_cdf + u * (high_cdf - low_cdf)
-            u = torch.clamp(u, min=self.MIN_CLAMP_VALUE, max=1. - self.MIN_CLAMP_VALUE)
+            u = torch.clamp(u, min=self.MIN_CLAMP_VALUE, max=1.0 - self.MIN_CLAMP_VALUE)
             sample = self.base_dist.icdf(u)
         return sample
 
@@ -91,6 +94,7 @@ class TruncatedNormal(Distribution):
         super(TruncatedNormal, new).__init__(batch_shape, validate_args=False)
         new._validate_args = self._validate_args
         return new
+
 
 class TGMM(nn.Module):
     def __init__(
@@ -152,7 +156,9 @@ class TGMM(nn.Module):
         if self.weighted:
             means, stds, weights = output
             if self.horizon_correlation:
-                weights = weights.mean(dim=1, keepdim=True).expand(-1, means.shape[1], -1, -1)
+                weights = weights.mean(dim=1, keepdim=True).expand(
+                    -1, means.shape[1], -1, -1
+                )
             weights = F.softmax(weights, dim=-1)
         else:
             means, stds = output
@@ -175,7 +181,7 @@ class TGMM(nn.Module):
             means, stds = distr_args
             weights = torch.full_like(means, fill_value=1 / self.n_components)
         mix = Categorical(weights)
-        components = TruncatedNormal(loc=means, scale=stds, low=0., high=1.)
+        components = TruncatedNormal(loc=means, scale=stds, low=0.0, high=1.0)
         distr = MixtureSameFamily(
             mixture_distribution=mix, component_distribution=components
         )
@@ -227,7 +233,6 @@ class TGMM(nn.Module):
             log_prob_x = torch.sum(log_prob_x, dim=1, keepdim=True)
         loss_values = -torch.logsumexp(log_prob_x + log_mix_prob, dim=-1)
         return weighted_average(loss_values, weights=mask)
-    
 
 
 class MixtureLossFactory:
@@ -266,11 +271,13 @@ class MixtureLossFactory:
             tgmm_loss = TGMM(
                 n_components=n_components,
                 horizon_correlation=horizon_correlation,
-                weighted=weighted, 
-                return_params=return_params, 
+                weighted=weighted,
+                return_params=return_params,
                 level=quantiles_to_level(quantiles),
             )
-            logging.info(f"Successfully created TGMM loss with {n_components} components")
+            logging.info(
+                f"Successfully created TGMM loss with {n_components} components"
+            )
             return tgmm_loss
         else:
             raise ValueError(

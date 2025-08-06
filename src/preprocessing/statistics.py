@@ -1,5 +1,3 @@
-
-
 import pandas as pd
 import numpy as np
 from typing import Dict, Any, Optional, List
@@ -8,25 +6,28 @@ from src.configurations.forecast_column import ForecastColumnConfig
 from src.configurations.cross_validation import CrossValidationConfig
 from src.configurations.enums import Frequency
 
+
 class SKUStatistics:
     """
     Computes quantile, mean, std, min, and max statistics for each SKU in training data,
     using cross-validation logic from ForecastColumnConfig and CrossValidationConfig.
     """
+
     def __init__(
         self,
         df: pd.DataFrame,
         forecast_columns: ForecastColumnConfig,
         cross_validation: CrossValidationConfig,
         freq: Frequency,
-        quantiles: Optional[List[float]] = None
+        quantiles: Optional[List[float]] = None,
     ):
         self.df = df.copy()
         self._forecast_columns = forecast_columns
         self._cv_cfg = cross_validation
         self._freq = freq
-        self.quantiles = quantiles if quantiles is not None else [0.1, 0.25, 0.5, 0.75, 0.9]
-
+        self.quantiles = (
+            quantiles if quantiles is not None else [0.1, 0.25, 0.5, 0.75, 0.9]
+        )
 
     def compute_statistics(self) -> pd.DataFrame:
         """
@@ -37,7 +38,7 @@ class SKUStatistics:
         cutoff = self._cv_cfg.get_cutoff_date(
             max_date=self.df[self._forecast_columns.date].max(),
             freq=self._freq,
-            split='test'
+            split="test",
         )
         df_train = self.df[self.df[self._forecast_columns.date] <= cutoff]
         rows = []

@@ -155,8 +155,6 @@ class NixtlaPreprocessor:
         freq = self._forecast.freq
         cross_validation = self._cross_validation
 
-
-
         global_min_max_scaler = MinMaxScaler(
             feature_range=(0, 1),
         )
@@ -175,8 +173,6 @@ class NixtlaPreprocessor:
 
         date_encoder = DateEncoder(freq=freq)
         self._forecast_columns.add_exogenous(date_encoder.out_columns)
-
-
 
         category_encoder = CategoryEncoder(
             cv_cfg=cross_validation, freq=freq, forecast_columns=self._forecast_columns

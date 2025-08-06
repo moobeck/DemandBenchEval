@@ -20,19 +20,25 @@ from neuralforecast.auto import (
 from dataclasses import dataclass, field
 from typing import List, Dict, Any
 from demandbench.datasets import Dataset
+
 try:
     from src.forecasting.toto_wrapper import TOTOWrapper
+
     TOTO_AVAILABLE = True
 except (ImportError, ModuleNotFoundError):
     TOTO_AVAILABLE = False
+
     class TOTOWrapper:
         pass
+
 
 from src.forecasting.tabpfn_wrapper import TabPFNWrapper
 from .mixture import MixtureLossFactory
 from neuralforecast.losses.pytorch import MAE
 import os
+
 ForecastModel: TypeAlias = Any
+
 
 @dataclass(frozen=True)
 class ModelSpec:
@@ -149,12 +155,12 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
 }
 
 
-
 @dataclass(frozen=True)
 class NeuralForecastConfig:
     """
     Configuration for neural forecasting models.
     """
+
     mixture: Dict[str, Any] = field(default_factory=dict)
     gpus: int = 1
     cpus: int = 1
@@ -183,9 +189,8 @@ class ForecastConfig:
             gpus=neural_cfg.get("gpus", 1),
             cpus=neural_cfg.get("cpus", 1),
             num_samples=neural_cfg.get("num_samples", 1),
-            input_size=len(self.lags)
+            input_size=len(self.lags),
         )
-
 
     @property
     def models(self) -> Dict[Framework, Dict[ModelName, ForecastModel]]:
@@ -211,7 +216,11 @@ class ForecastConfig:
 
                 params["config"] = {
                     "stat_exog_list": self.columns_config.static,
-                    "futr_exog_list": [col for col in self.columns_config.exogenous if col not in self.columns_config.static],
+                    "futr_exog_list": [
+                        col
+                        for col in self.columns_config.exogenous
+                        if col not in self.columns_config.static
+                    ],
                     "input_size": self.neuralconfig.input_size,
                 }
 
@@ -225,9 +234,13 @@ class ForecastConfig:
 
             elif spec.framework == Framework.FM:
                 if key == ModelName.TOTO and TOTO_AVAILABLE:
-                    params.update(self.model_config.get(Framework.FM, {}).get("TOTO", {}))
+                    params.update(
+                        self.model_config.get(Framework.FM, {}).get("TOTO", {})
+                    )
                 elif key == ModelName.TABPFN:
-                    params.update(self.model_config.get(Framework.FM, {}).get("TABPFN", {}))
+                    params.update(
+                        self.model_config.get(Framework.FM, {}).get("TABPFN", {})
+                    )
 
             model_instance = spec.factory(**params)
             if model_instance is not None:  # Skip unavailable models
@@ -259,7 +272,9 @@ class ForecastConfig:
         """
         if not self.lags:
             # Determine dataset name
-            ds_name = dataset_name or (self.model_config.get("dataset_name") if self.model_config else None)
+            ds_name = dataset_name or (
+                self.model_config.get("dataset_name") if self.model_config else None
+            )
             lags_cfg = self.lags_config.get(ds_name, {}) if ds_name else {}
 
             if self.freq == Frequency.DAILY:
@@ -285,13 +300,9 @@ class ForecastConfig:
             self.horizon = 4
         else:
             raise ValueError(f"Unsupported frequency: {self.freq}")
-    
+
     def set_columns(self, columns_config: ForecastColumnConfig):
         """
         Set the input columns for the forecast configuration based on the dataset.
         """
-        self.columns_config = columns_config 
-
-
-
-        
+        self.columns_config = columns_config

@@ -9,7 +9,6 @@ from demandbench.datasets import (
     load_pharmacy,
     load_hoteldemand,
     load_onlineretail,
-    
 )
 from src.configurations.enums import DatasetName
 

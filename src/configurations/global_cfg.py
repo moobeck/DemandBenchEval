@@ -38,9 +38,7 @@ class GlobalConfig:
         self.forecast.set_columns(self.forecast_columns)
 
         if not self.metrics.seasonality_provided:
-            self.metrics.set_seasonality(
-                freq=self.forecast.freq
-            )
+            self.metrics.set_seasonality(freq=self.forecast.freq)
         self.metrics.set_metrics()
 
         self.cross_validation.set_dataset_config(dataset_name)
