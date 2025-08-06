@@ -5,7 +5,6 @@ from src.configurations.enums import Frequency, TargetScalerType
 from src.configurations.preprocessing import PreprocessingConfig
 
 
-
 class TargetScaler(BaseTargetTransform):
     """Base class for target scaling transforms that use a cutoff based on cross-validation configuration."""
 
@@ -23,9 +22,7 @@ class TargetScaler(BaseTargetTransform):
     def _calculate_cutoff(self, df: pd.DataFrame) -> pd.Timestamp:
         """Calculate the cutoff timestamp based on frequency and CV configuration."""
         return self.cv_cfg.get_cutoff_date(
-            max_date=df[self.time_col].max(),
-            freq=self.freq,
-            split='test'
+            max_date=df[self.time_col].max(), freq=self.freq, split="test"
         )
 
 
@@ -33,7 +30,9 @@ class TargetScalerFactory:
     """Factory class to create target scalers based on configuration."""
 
     @staticmethod
-    def create_scaler(scaler_type: PreprocessingConfig, cv_cfg: CrossValidationConfig, freq: Frequency):
+    def create_scaler(
+        scaler_type: PreprocessingConfig, cv_cfg: CrossValidationConfig, freq: Frequency
+    ):
         """Create a target scaler based on the specified type."""
         if scaler_type.target_transform == TargetScalerType.LOCAL_STANDARD:
             return LocalStandardScaler(cv_cfg, freq)
@@ -42,14 +41,14 @@ class TargetScalerFactory:
         elif scaler_type.target_transform == TargetScalerType.LOCAL_ROBUST:
             return LocalRobustScaler(cv_cfg, freq)
         else:
-            raise ValueError(f"Unsupported target scaler type: {scaler_type.target_transform}")
-      
+            raise ValueError(
+                f"Unsupported target scaler type: {scaler_type.target_transform}"
+            )
 
 
 class LocalStandardScaler(TargetScaler):
     """Standardizes each series to have mean 0 and standard deviation 1,
     based on a training cutoff defined by the CV config."""
-
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         cutoff = self._calculate_cutoff(df)
@@ -80,19 +79,14 @@ class LocalMaxScaler(TargetScaler):
     """Scales each series by dividing by the maximum value in the training set,
     based on a training cutoff defined by the CV config."""
 
-
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
-
 
         cutoff = self._calculate_cutoff(df)
 
         df_train = df[df[self.time_col] <= cutoff]
 
-
         self.stats_ = (
-            df_train.groupby(self.id_col)[self.target_col]
-            .agg(max_="max")
-            .reset_index()
+            df_train.groupby(self.id_col)[self.target_col].agg(max_="max").reset_index()
         )
         # Avoid division by zero
         self.stats_["max_"].replace(0, 1.0, inplace=True)
@@ -105,17 +99,17 @@ class LocalMaxScaler(TargetScaler):
         # Merge stats back on
         df = df.merge(self.stats_, on=self.id_col, how="left")
         # Only invert the target column
-        df[self.target_col] = (
-            df[self.target_col] * df["max_"]
-        )
+        df[self.target_col] = df[self.target_col] * df["max_"]
         return df.drop(columns=["max_"])
-    
+
 
 class LocalRobustScaler(TargetScaler):
     """Scales each series by dividing by a certain quantile (default 90th percentile)
     based on a training cutoff defined by the CV config."""
 
-    def __init__(self, cv_cfg: CrossValidationConfig, freq: Frequency, quantile: float = 0.9):
+    def __init__(
+        self, cv_cfg: CrossValidationConfig, freq: Frequency, quantile: float = 0.9
+    ):
         super().__init__(cv_cfg, freq)
         self.quantile = quantile
         if not (0 < quantile < 1):
@@ -128,16 +122,17 @@ class LocalRobustScaler(TargetScaler):
         min_nz = nz.min() if not nz.empty else 0
         return max(perc, min_nz)
 
-
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         # determine cutoff based on frequency and CV windows
         cutoff = self._calculate_cutoff(df)
         df_train: pd.DataFrame = df[df[self.time_col] <= cutoff]
 
         # compute quantile per series
-        self.stats_ = df_train.groupby(self.id_col)[self.target_col].agg(
-            quantile=self._nonzero_quantile
-        ).reset_index()
+        self.stats_ = (
+            df_train.groupby(self.id_col)[self.target_col]
+            .agg(quantile=self._nonzero_quantile)
+            .reset_index()
+        )
 
         # merge and scale
         df = df.merge(self.stats_, on=self.id_col, how="left")
@@ -150,4 +145,3 @@ class LocalRobustScaler(TargetScaler):
         # invert scaling
         df[self.target_col] = df[self.target_col] * df["quantile"]
         return df.drop(columns=["quantile"])
-    

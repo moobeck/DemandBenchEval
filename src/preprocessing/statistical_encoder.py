@@ -30,32 +30,26 @@ class StatisticalFeaturesEncoder:
         ]
         self.out_columns = [self.skewness_col, self.kurtosis_col] + self.quantile_cols
 
-
-
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         # 1) compute cutoff exactly as before
         cutoff = self.cv_cfg.get_cutoff_date(
-            max_date=df[self.forecast_columns.date].max(),
-            freq=self.freq,
-            split='test'
+            max_date=df[self.forecast_columns.date].max(), freq=self.freq, split="test"
         )
 
         df_train = df[df[self.forecast_columns.date] <= cutoff]
 
         # 2) vectorized groupby + agg
-        stats = (
-            df_train
-            .groupby(self.forecast_columns.sku_index)[self.forecast_columns.target]
-            .agg(
-                mean="mean",
-                std="std",
-                skewness=lambda x: scipy.stats.skew(x) if len(x) >= 4 else 0,
-                kurtosis=lambda x: scipy.stats.kurtosis(x) if len(x) >= 4 else 0,
-                **{
-                    f"quantile_{q:.2f}": lambda x, q=q: x.quantile(q) if len(x) >= 4 else 0
-                    for q in self.quantiles
-                }
-            )        
+        stats = df_train.groupby(self.forecast_columns.sku_index)[
+            self.forecast_columns.target
+        ].agg(
+            mean="mean",
+            std="std",
+            skewness=lambda x: scipy.stats.skew(x) if len(x) >= 4 else 0,
+            kurtosis=lambda x: scipy.stats.kurtosis(x) if len(x) >= 4 else 0,
+            **{
+                f"quantile_{q:.2f}": lambda x, q=q: x.quantile(q) if len(x) >= 4 else 0
+                for q in self.quantiles
+            },
         )
 
         # 3) merge back to full df
@@ -67,15 +61,18 @@ class StatisticalFeaturesEncoder:
             right_on=self.forecast_columns.sku_index,
         )
 
-
         # 4) rename or assign to your desired column names
-        df = df.rename(columns={
-            "mean": self.mean_col,
-            "std": self.std_col,
-            "skewness": self.skewness_col,
-            "kurtosis": self.kurtosis_col, 
-            **{f"quantile_{q:.2f}": col for q, col in zip(self.quantiles, self.quantile_cols)}
-        })
+        df = df.rename(
+            columns={
+                "mean": self.mean_col,
+                "std": self.std_col,
+                "skewness": self.skewness_col,
+                "kurtosis": self.kurtosis_col,
+                **{
+                    f"quantile_{q:.2f}": col
+                    for q, col in zip(self.quantiles, self.quantile_cols)
+                },
+            }
+        )
 
         return df
-

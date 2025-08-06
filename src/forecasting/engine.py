@@ -289,7 +289,6 @@ class AutoMLForecastEngine(ForecastEngine):
         self._engine: AutoMLForecast = AutoMLForecast(*args, **kw)
         self.num_samples = num_samples
 
-
     def cross_validation(
         self,
         df: pd.DataFrame,
@@ -302,7 +301,6 @@ class AutoMLForecastEngine(ForecastEngine):
         time_col: str = None,
     ):
 
-        
         # Extract cross-validation configuration
         n_windows_val, step_size_val, refit_val = self.extract_cv_config(cv_config, 'val')
         n_windows_test, step_size_test, refit_test = self.extract_cv_config(cv_config, 'test')
@@ -349,7 +347,7 @@ class AutoMLForecastEngine(ForecastEngine):
                 max_horizon=forecast_config.horizon,
                 id_col=id_col,
                 target_col=target_col,
-                time_col=time_col
+                time_col=time_col,
             )
 
             dfs.append(df)

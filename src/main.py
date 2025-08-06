@@ -8,10 +8,20 @@ from src.configurations.file_path import FilePathConfig
 from src.configurations.datasets import DatasetConfig
 from src.configurations.input_column import InputColumnConfig
 from src.configurations.forecast_column import ForecastColumnConfig
-from src.configurations.cross_validation import CrossValidationConfig, CrossValWindowConfig, CrossValDatasetConfig
+from src.configurations.cross_validation import (
+    CrossValidationConfig,
+    CrossValWindowConfig,
+    CrossValDatasetConfig,
+)
 from src.configurations.forecasting import ForecastConfig
 from src.configurations.metrics import MetricConfig
-from src.configurations.enums import ModelName, MetricName, DatasetName, Framework, TargetScalerType
+from src.configurations.enums import (
+    ModelName,
+    MetricName,
+    DatasetName,
+    Framework,
+    TargetScalerType,
+)
 from src.configurations.wandb import WandbConfig
 from src.configurations.global_cfg import GlobalConfig
 from src.configurations.preprocessing import PreprocessingConfig
@@ -24,7 +34,11 @@ from src.forecasting.evaluation import Evaluator, EvaluationPlotter
 import torch
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = os.getenv("CUDA_VISIBLE_DEVICES", "1")  # Default to GPU 1 if not set
+
+os.environ["CUDA_VISIBLE_DEVICES"] = os.getenv(
+    "CUDA_VISIBLE_DEVICES", "1"
+)  # Default to GPU 1 if not set
+
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -147,7 +161,6 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
                 )
                 for name, cv in cross_validation_data.items()
             }
-
         ),
         forecast=ForecastConfig(
             names=[ModelName[name] for name in forecast["models"]],
@@ -160,6 +173,7 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
         metrics=MetricConfig(
             names=[MetricName[name] for name in public_config["metrics"]["metrics"]],
             seasonality=public_config["metrics"].get("seasonality", None),
+            quantiles=public_config["metrics"].get("quantiles", None),
         ),
         wandb=WandbConfig(
             api_key=(wandb.get("api_key") if wandb else None),
@@ -205,8 +219,12 @@ def main():
 
         # 2) Preprocessing
         prep = NixtlaPreprocessor(
-            dataset, cfg.input_columns, cfg.preprocessing,
-            cfg.forecast_columns, cfg.forecast, cfg.cross_validation
+            dataset,
+            cfg.input_columns,
+            cfg.preprocessing,
+            cfg.forecast_columns,
+            cfg.forecast,
+            cfg.cross_validation,
         )
         prep.merge()
         prep.remove_skus(skus="not_at_min_date")

@@ -4,23 +4,23 @@ from .enums import DatasetName, Frequency
 import pandas as pd
 
 
-
 @dataclass(frozen=True)
 class CrossValWindowConfig:
     n_windows: int
     step_size: int
     refit: bool
 
+
 class CrossValDatasetConfig(TypedDict):
     test: CrossValWindowConfig
     val: CrossValWindowConfig
+
 
 @dataclass()
 class CrossValidationConfig:
     data: Dict[DatasetName, CrossValDatasetConfig]
     test: CrossValWindowConfig = None
     val: CrossValWindowConfig = None
-
 
     def set_dataset_config(self, dataset_name: DatasetName) -> None:
         """
@@ -29,20 +29,23 @@ class CrossValidationConfig:
 
         dataset_config = self.data.get(dataset_name)
         if dataset_config:
-            self.test = dataset_config.get('test')
-            self.val = dataset_config.get('val')
+            self.test = dataset_config.get("test")
+            self.val = dataset_config.get("val")
 
-        else: 
-            raise ValueError(f"No cross-validation config found for dataset: {dataset_name}")
-    
+        else:
+            raise ValueError(
+                f"No cross-validation config found for dataset: {dataset_name}"
+            )
 
-    def get_cutoff_date(self, max_date: pd.Timestamp, freq: Frequency,  split: Literal['test', 'val']) -> pd.Timestamp:
+    def get_cutoff_date(
+        self, max_date: pd.Timestamp, freq: Frequency, split: Literal["test", "val"]
+    ) -> pd.Timestamp:
         """
         Calculate the cutoff date for training data based on frequency and split type.
         """
-        if split == 'test':
+        if split == "test":
             config = self.test
-        elif split == 'val':
+        elif split == "val":
             config = self.val
         else:
             raise ValueError(f"Unsupported split: {split}")
