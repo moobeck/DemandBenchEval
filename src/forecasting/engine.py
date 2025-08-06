@@ -181,7 +181,6 @@ class AutoMLForecastEngine(ForecastEngine):
         self._engine: AutoMLForecast = AutoMLForecast(*args, **kw)
         self.num_samples = num_samples
 
-
     def cross_validation(
         self,
         df: pd.DataFrame,
@@ -193,8 +192,6 @@ class AutoMLForecastEngine(ForecastEngine):
         target_col: str = None,
         time_col: str = None,
     ):
-
-        
 
         # Filter out the n_windows to get the df used to fit the model
         n_windows_val = cv_config.val.n_windows
@@ -208,7 +205,7 @@ class AutoMLForecastEngine(ForecastEngine):
         cutoff = self._engine.get_cutoff_date(
             max_date=df[forecast_columns.date].max(),
             freq=forecast_config.freq,
-            split='val'
+            split="val",
         )
         df_fit = df[df[forecast_columns.date] <= cutoff]
 
@@ -240,7 +237,7 @@ class AutoMLForecastEngine(ForecastEngine):
                 max_horizon=forecast_config.horizon,
                 id_col=id_col,
                 target_col=target_col,
-                time_col=time_col
+                time_col=time_col,
             )
 
             dfs.append(df)

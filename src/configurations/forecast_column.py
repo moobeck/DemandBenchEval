@@ -27,7 +27,6 @@ class ForecastColumnConfig:
         Returns the three core columns for time-series: SKU, date, and target.
         """
         return [self.sku_index, self.date, self.target]
-    
 
     def set_base_exogenous(self, dataset: Dataset):
         """
@@ -35,13 +34,14 @@ class ForecastColumnConfig:
         """
         self.base_exogenous = [self.store_index, self.product_index]
 
-
     def set_exogenous(self, dataset: Dataset):
         """
         Sets the exogenous features for dataset.
         """
         self.exogenous = self.base_exogenous + [
-            feature.name for feature in dataset.metadata.exo_features if feature.name not in self.base_exogenous
+            feature.name
+            for feature in dataset.metadata.exo_features
+            if feature.name not in self.base_exogenous
         ]
 
     def set_static(self, dataset: Dataset):
@@ -49,7 +49,8 @@ class ForecastColumnConfig:
         Sets the static features for dataset.
         """
         self.static = [
-            feature.name for feature in dataset.metadata.sku_features
+            feature.name
+            for feature in dataset.metadata.sku_features
             if feature.name in self.exogenous
         ]
 
@@ -58,8 +59,10 @@ class ForecastColumnConfig:
         Sets the categorical features for dataset.
         """
         self.categorical = [
-            feature.name for feature in dataset.metadata.features
-            if feature.var_type == VariableType.CATEGORICAL and feature.name in self.exogenous
+            feature.name
+            for feature in dataset.metadata.features
+            if feature.var_type == VariableType.CATEGORICAL
+            and feature.name in self.exogenous
         ]
 
     def set_columns(self, dataset: Dataset):
@@ -71,7 +74,6 @@ class ForecastColumnConfig:
         self.set_exogenous(dataset)
         self.set_static(dataset)
         self.set_categorical(dataset)
-
 
     def add_exogenous(self, columns: List[str]):
         """

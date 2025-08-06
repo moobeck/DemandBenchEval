@@ -24,14 +24,13 @@ class CategoryEncoder:
         self._cv_cfg = cv_cfg
         self._freq = freq
         self._forecast_columns = forecast_columns
-    
+
         self._encoder = CatBoostEncoder(
             cols=self._forecast_columns.categorical, return_df=False
         )
         self.out_columns = [
             f"{col}_encoded" for col in self._forecast_columns.categorical
         ]
-
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -47,7 +46,7 @@ class CategoryEncoder:
         cutoff = self._cv_cfg.get_cutoff_date(
             max_date=df[self._forecast_columns.date].max(),
             freq=self._freq,
-            split='test'
+            split="test",
         )
 
         df_train = df[df[self._forecast_columns.date] <= cutoff]

@@ -3,6 +3,7 @@ from utilsforecast.evaluation import evaluate
 import logging
 from src.configurations.metrics import MetricConfig
 from src.configurations.forecast_column import ForecastColumnConfig
+from src.configurations.mixture import quantiles_to_level
 import seaborn as sns
 from typing import Optional, List, Dict, Any
 from matplotlib import pyplot as plt
@@ -28,19 +29,40 @@ class Evaluator:
         """
         Get the model columns from the DataFrame.
         """
-        model_cols = [
-            col
-            for col in df.columns
-            if col
-            not in [
-                self._forecast_columns.sku_index,
-                self._forecast_columns.date,
-                self._forecast_columns.target,
-                self._forecast_columns.cutoff,
-                "metric",
-            ]
-        ]
+        # Get all columns that are not metadata columns
+        metadata_cols = {
+            self._forecast_columns.sku_index,
+            self._forecast_columns.date,
+            self._forecast_columns.target,
+            self._forecast_columns.cutoff,
+            "metric",
+        }
+
+        # Find potential model columns (exclude metadata)
+        potential_model_cols = [col for col in df.columns if col not in metadata_cols]
+
+        # Extract unique model names by removing suffixes like -median, -lo-90, etc.
+        model_names = set()
+        for col in potential_model_cols:
+            # Split by '-' and take the first part as the base model name
+            base_name = col.split("-")[0]
+            model_names.add(base_name)
+
+        # Filter to only include the base model columns that exist in the DataFrame
+        model_cols = [name for name in model_names if name in df.columns]
+
         return model_cols
+
+    def _get_level(self):
+        """
+        Calculate the quantile levels based on the provided quantiles.
+        """
+        quantiles = self._metric_config.quantiles
+
+        if quantiles is None:
+            return None
+
+        return quantiles_to_level(quantiles)
 
     def evaluate(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """
@@ -49,15 +71,14 @@ class Evaluator:
 
         logging.info("Starting evaluation...")
 
-        model_cols = self._get_model_cols(df)
-
         return evaluate(
             df=df,
-            models=model_cols,
+            models=self._get_model_cols(df),
             target_col=self._forecast_columns.target,
             time_col=self._forecast_columns.date,
             id_col=self._forecast_columns.sku_index,
             metrics=list(self.metrics.values()),
+            level=self._get_level(),
             **kwargs
         )
 
@@ -168,8 +189,7 @@ class EvaluationPlotter:
         # Overlay mean lines
         for ax, metric in zip(g.axes.flatten(), self.metrics):
             means = (
-                long_df[long_df["metric"] == metric]
-                .groupby("model")["error"].mean()
+                long_df[long_df["metric"] == metric].groupby("model")["error"].mean()
             )
             for idx, model in enumerate(models):
                 m_val = means.get(model)
@@ -189,4 +209,3 @@ class EvaluationPlotter:
         plt.tight_layout()
 
         return g
-

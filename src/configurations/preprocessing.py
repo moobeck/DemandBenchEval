@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from src.configurations.enums import TargetScalerType
 
+
 @dataclass
 class PreprocessingConfig:
     """

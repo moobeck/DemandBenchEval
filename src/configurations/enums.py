@@ -35,6 +35,7 @@ class MetricName(Enum):
     MAE = "mae"
     MSE = "mse"
     RMSE = "rmse"
+    SCALED_MQLOSS = "scaled_mqloss"
 
 
 class DatasetName(Enum):
@@ -47,7 +48,7 @@ class DatasetName(Enum):
     PHARMACY = "pharmacy"
     HOTEL = "hoteldemand"
     ONLINERETAIL = "onlineretail"
-    
+
 
 class Frequency(Enum):
     DAILY = "Daily"
