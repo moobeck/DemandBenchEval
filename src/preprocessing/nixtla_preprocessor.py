@@ -129,6 +129,8 @@ class NixtlaPreprocessor:
 
         # Fill missing values
         df = df.ffill()
+        # Fill remaining NaNs with 0
+        df  = df.fillna(0)
 
         # rename columns to Nixtla standard
         df = df.rename(
