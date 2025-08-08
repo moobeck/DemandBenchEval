@@ -154,7 +154,22 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
         default_params=DefaultParams.NEURAL,
     ),
     ModelName.QUANTILE_AR: ModelSpec(
-        factory=lambda **p: AutoQuantileAR(quantile=0.5, **{k:v for k,v in p.items() if k in ['alpha', 'solver', 'random_state']}),
+        factory=lambda **p: AutoQuantileAR(quantile=0.5, model_type='linear', **p),
+        framework=Framework.ML,
+        default_params=DefaultParams.ML,
+    ),
+    ModelName.QUANTILE_LGBM: ModelSpec(
+        factory=lambda **p: AutoQuantileAR(quantile=0.5, model_type='lightgbm', **p),
+        framework=Framework.ML,
+        default_params=DefaultParams.ML,
+    ),
+    ModelName.QUANTILE_CATBOOST: ModelSpec(
+        factory=lambda **p: AutoQuantileAR(quantile=0.5, model_type='catboost', **p),
+        framework=Framework.ML,
+        default_params=DefaultParams.ML,
+    ),
+    ModelName.QUANTILE_RF: ModelSpec(
+        factory=lambda **p: AutoQuantileAR(quantile=0.5, model_type='random_forest', **p),
         framework=Framework.ML,
         default_params=DefaultParams.ML,
     ),

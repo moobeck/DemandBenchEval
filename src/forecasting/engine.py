@@ -11,7 +11,7 @@ from src.configurations.forecast_column import ForecastColumnConfig
 from src.configurations.forecasting import ForecastConfig
 from src.configurations.enums import Frequency
 from src.forecasting.foundation_model_base import FoundationModelWrapper
-from src.configurations.cross_validation import CrossValDatasetConfig
+from src.configurations.cross_validation import CrossValDatasetConfig, CrossValidationConfig
 
 import logging
 
@@ -30,46 +30,6 @@ class ForecastEngine(ABC):
         """
         pass
     
-    def get_cutoff_date(
-        self,
-        max_date: pd.Timestamp,
-        freq: Frequency,
-        n_windows: int,
-        step_size: int,
-        split: str = 'val'
-    ) -> pd.Timestamp:
-        """
-        Calculate cutoff date for cross-validation splits.
-        
-        This method is available to all forecast engines and provides
-        consistent cutoff date calculation across different frameworks.
-        
-        Parameters:
-        -----------
-        max_date : pd.Timestamp
-            Maximum date in the dataset
-        freq : Frequency
-            Data frequency (DAILY or WEEKLY)
-        n_windows : int
-            Number of validation windows
-        step_size : int
-            Step size between windows
-        split : str
-            Split type ('val' or 'test')
-            
-        Returns:
-        --------
-        pd.Timestamp
-            Calculated cutoff date
-        """
-        if freq == Frequency.DAILY:
-            offset = pd.Timedelta(days=n_windows * step_size)
-        elif freq == Frequency.WEEKLY:
-            offset = pd.Timedelta(weeks=n_windows * step_size)
-        else:
-            raise ValueError(f"Unsupported frequency: {freq}")
-        
-        return max_date - offset
     
     def create_time_offset(self, freq: Frequency, periods: int) -> pd.Timedelta:
         """
@@ -309,12 +269,14 @@ class AutoMLForecastEngine(ForecastEngine):
         self.validate_cv_params(n_windows_val, step_size_val, h)
         self.validate_cv_params(n_windows_test, step_size_test, h)
 
-        # Calculate cutoff date using engine's method
-        cutoff = self.get_cutoff_date(
+        # Create temporary CrossValidationConfig instance to use its get_cutoff_date method
+        temp_cv_config = CrossValidationConfig(data={})
+        temp_cv_config.val = cv_config['val'] 
+        
+        # Calculate cutoff date using CrossValidationConfig method
+        cutoff = temp_cv_config.get_cutoff_date(
             max_date=df[forecast_columns.date].max(),
             freq=forecast_config.freq,
-            n_windows=n_windows_val,
-            step_size=step_size_val,
             split='val'
         )
         df_fit = df[df[forecast_columns.date] <= cutoff]

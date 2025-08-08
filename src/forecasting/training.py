@@ -155,6 +155,15 @@ class ForecastTrainer:
 
         else:
             # ML framework also needs forecast_columns and forecast_config for some operations
+            # Also include static features and exogenous features for ML models
+            cols += self._forecast_columns.static
+            if self._forecast_columns.exogenous:
+                cols += [
+                    col
+                    for col in self._forecast_columns.exogenous
+                    if col in df.columns
+                    if col not in cols
+                ]
             kwargs["h"] = self._forecast_config.horizon
             kwargs["forecast_columns"] = self._forecast_columns
             kwargs["forecast_config"] = self._forecast_config

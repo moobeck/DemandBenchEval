@@ -181,15 +181,16 @@ class NixtlaPreprocessor:
         df = category_encoder.fit_transform(df)
 
         self._forecast_columns.add_exogenous(category_encoder.out_columns)
-        # If categorical columns were static, rename them to encoded versions
-        self._forecast_columns.rename_static(
-            dict(
-                zip(
-                    self._forecast_columns.categorical,
-                    category_encoder.out_columns,
-                )
-            )
-        )
+        
+        # If categorical columns were static, we need to replace them with encoded versions
+        # First find which categorical columns are also static
+        categorical_static = [col for col in self._forecast_columns.categorical if col in self._forecast_columns.static]
+        if categorical_static:
+            # Remove original categorical columns from static list
+            self._forecast_columns.static = [col for col in self._forecast_columns.static if col not in categorical_static]
+            # Add the encoded versions to static list
+            encoded_static = [f"{col}_encoded" for col in categorical_static]
+            self._forecast_columns.static.extend(encoded_static)
 
         ml_forecast = MLForecast(
             models=[],
