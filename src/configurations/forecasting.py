@@ -16,6 +16,10 @@ from neuralforecast.auto import (
     AutoTiDE,
     AutoDeepAR,
     AutoBiTCN,
+    AutoGRU, 
+    AutoTFT,
+    AutoTCN
+    
 )
 from dataclasses import dataclass, field
 from typing import List, Dict, Any
@@ -152,6 +156,22 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
         framework=Framework.NEURAL,
         default_params=DefaultParams.NEURAL,
     ),
+    ModelName.GRU: ModelSpec(
+        factory=lambda **p: AutoGRU(**p),
+        framework=Framework.NEURAL,
+        default_params=DefaultParams.NEURAL,
+    ),
+    ModelName.TCN: ModelSpec(
+        factory=lambda **p: AutoTCN(**p),
+        framework=Framework.NEURAL,
+        default_params=DefaultParams.NEURAL,
+    ),
+    ModelName.TFT: ModelSpec(
+        factory=lambda **p: AutoTFT(**p),
+        framework=Framework.NEURAL,
+        default_params=DefaultParams.NEURAL,
+    ),
+    
 }
 
 

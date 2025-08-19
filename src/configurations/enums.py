@@ -27,6 +27,9 @@ class ModelName(Enum):
     BITCN = "bitcn"
     TABPFN = "tabpfn"
     TOTO = "toto"
+    GRU="gru"
+    TCN = "tcn"
+    TFT = "tft"
 
 
 class MetricName(Enum):

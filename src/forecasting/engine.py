@@ -202,7 +202,7 @@ class AutoMLForecastEngine(ForecastEngine):
         step_size_test = cv_config.test.step_size
         refit_test = cv_config.test.refit
 
-        cutoff = self._engine.get_cutoff_date(
+        cutoff = cv_config.get_cutoff_date(
             max_date=df[forecast_columns.date].max(),
             freq=forecast_config.freq,
             split="val",
@@ -216,12 +216,12 @@ class AutoMLForecastEngine(ForecastEngine):
             n_windows=n_windows_val,
             step_size=step_size_val,
             num_samples=self.num_samples,
-            refit=refit_val,
+            refit=False,
             id_col=id_col,
             target_col=target_col,
             time_col=time_col,
         )
-
+        
         # Now get the models to do the cross-validation
         dfs = []
         models: Iterable[MLForecast] = self._engine.models_.values()
