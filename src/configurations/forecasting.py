@@ -38,6 +38,7 @@ except (ImportError, ModuleNotFoundError):
 
 from src.forecasting.tabpfn_wrapper import TabPFNWrapper
 from .mixture import MixtureLossFactory, quantiles_to_level
+from .quantile import create_quantile_levels, QuantileLossFactory
 from neuralforecast.losses.pytorch import MAE, MQLoss
 import os
 
@@ -182,6 +183,7 @@ class NeuralForecastConfig:
     """
 
     mixture: Dict[str, Any] = field(default_factory=dict)
+    quantile: Dict[str, Any] = field(default_factory=dict)
     gpus: int = 1
     cpus: int = 1
     num_samples: int = 1
@@ -206,6 +208,7 @@ class ForecastConfig:
         neural_cfg = self.model_config.get(Framework.NEURAL, {})
         return NeuralForecastConfig(
             mixture=neural_cfg.get("mixture", {}),
+            quantile=neural_cfg.get("quantile", {}),
             gpus=neural_cfg.get("gpus", 1),
             cpus=neural_cfg.get("cpus", 1),
             num_samples=neural_cfg.get("num_samples", 1),
@@ -245,14 +248,18 @@ class ForecastConfig:
                 }
 
                 mixture_config = self.neuralconfig.mixture
+                quantile_config = self.neuralconfig.quantile
                 params["gpus"] = self.neuralconfig.gpus
                 params["cpus"] = self.neuralconfig.cpus
                 params["num_samples"] = self.neuralconfig.num_samples
+                
                 if mixture_config:
                     loss_function = MixtureLossFactory.create_loss(mixture_config)
-                    # define quantiles as range from 0.01, to 0.99 step 0.01
-                    quantiles = [round(x * 0.01, 2) for x in range(1, 100)]
+                    quantiles = create_quantile_levels(quantile_config)
                     loss_function = MQLoss(level=quantiles_to_level(quantiles))
+                    params["loss"] = loss_function
+                elif quantile_config:
+                    loss_function = QuantileLossFactory.create_loss(quantile_config)
                     params["loss"] = loss_function
 
             elif spec.framework == Framework.FM:
