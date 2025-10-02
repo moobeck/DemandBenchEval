@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, TypeAlias
-import logging
 from statsforecast.models import AutoARIMA, AutoTheta, AutoETS, AutoCES
 from mlforecast.auto import AutoCatboost, AutoLightGBM, AutoRandomForest
 from .enums import ModelName, Framework, Frequency
@@ -24,23 +23,10 @@ from neuralforecast.auto import (
 from dataclasses import dataclass, field
 from typing import List, Dict, Any
 from demandbench.datasets import Dataset
-
-try:
-    from src.forecasting.toto_wrapper import TOTOWrapper
-
-    TOTO_AVAILABLE = True
-except (ImportError, ModuleNotFoundError):
-    TOTO_AVAILABLE = False
-
-    class TOTOWrapper:
-        pass
-
-
-from src.forecasting.tabpfn_wrapper import TabPFNWrapper
 from .mixture import MixtureLossFactory, quantiles_to_level
 from .quantile import create_quantile_levels, QuantileLossFactory
 from neuralforecast.losses.pytorch import MAE, MQLoss
-import os
+
 
 ForecastModel: TypeAlias = Any
 
@@ -101,16 +87,6 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
         factory=lambda **p: AutoRandomForest(**p),
         framework=Framework.ML,
         default_params=DefaultParams.ML,
-    ),
-    ModelName.TOTO: ModelSpec(
-        factory=lambda **p: TOTOWrapper(alias="Toto", **p) if TOTO_AVAILABLE else None,
-        framework=Framework.FM,
-        default_params=DefaultParams.FM,
-    ),
-    ModelName.TABPFN: ModelSpec(
-        factory=lambda **p: TabPFNWrapper(alias="TabPFN", **p),
-        framework=Framework.FM,
-        default_params=DefaultParams.FM,
     ),
     ModelName.TRANSFORMER: ModelSpec(
         factory=lambda **p: AutoVanillaTransformer(**p),
@@ -261,6 +237,8 @@ class ForecastConfig:
                 elif quantile_config:
                     loss_function = QuantileLossFactory.create_loss(quantile_config)
                     params["loss"] = loss_function
+                else:
+                    params["loss"] = MAE()
 
             elif spec.framework == Framework.FM:
                 if key == ModelName.TOTO and TOTO_AVAILABLE:
