@@ -37,8 +37,8 @@ except (ImportError, ModuleNotFoundError):
 
 
 from src.forecasting.tabpfn_wrapper import TabPFNWrapper
-from .mixture import MixtureLossFactory
-from neuralforecast.losses.pytorch import MAE
+from .mixture import MixtureLossFactory, quantiles_to_level
+from neuralforecast.losses.pytorch import MAE, MQLoss
 import os
 
 ForecastModel: TypeAlias = Any
@@ -250,6 +250,9 @@ class ForecastConfig:
                 params["num_samples"] = self.neuralconfig.num_samples
                 if mixture_config:
                     loss_function = MixtureLossFactory.create_loss(mixture_config)
+                    # define quantiles as range from 0.01, to 0.99 step 0.01
+                    quantiles = [round(x * 0.01, 2) for x in range(1, 100)]
+                    loss_function = MQLoss(level=quantiles_to_level(quantiles))
                     params["loss"] = loss_function
 
             elif spec.framework == Framework.FM:
