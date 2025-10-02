@@ -1,63 +1,46 @@
 log_wandb: false
 seed: 42
-
 filepaths:
-  processed_data_dir: "test_runs/processed/"
-  sku_stats_dir: "test_runs/sku_stats/"
-  cv_results_dir: "test_runs/cv_results/"
-  eval_results_dir: "test_runs/eval_results/"
-  eval_plots_dir: "test_runs/eval_plots/"
-
+  processed_data_dir: test_runs/processed/
+  sku_stats_dir: test_runs/sku_stats/
+  cv_results_dir: test_runs/cv_results/
+  eval_results_dir: test_runs/eval_results/
+  eval_plots_dir: test_runs/eval_plots/
 input_columns:
-  date:    "dateID"
-  dp_index:    "bdID"
-  sku_index:   "skuID"
-  target:  "target"
-  frequency: "frequency"
-
+  date: dateID
+  dp_index: bdID
+  sku_index: skuID
+  target: target
+  frequency: frequency
 datasets:
-  - PHARMACY
-
+- PHARMACY
 forecast_columns:
-  date:    "date"
-  sku_index:   "skuID"
-  product_index: "productID"
-  store_index: "storeID"
-  target:  "demand"
-  cutoff: "cutoff"
-
+  date: date
+  sku_index: skuID
+  product_index: productID
+  store_index: storeID
+  target: demand
+  cutoff: cutoff
 preprocessing:
-  target_transform: "LOCAL_MAX" # Options: "LOCAL_MAX", "LOCAL_STANDARD", "LOCAL_ROBUST"
-
+  target_transform: LOCAL_MAX
 forecast:
   models:
-    - LSTM
-    - TIDE
-    - GRU
-    - TFT
-    - TCN
+  - TFT
   model_config:
     ML:
       num_samples: 1
     FM:
       TOTO:
         num_samples: 50
-        samples_per_batch: 25  # Must divide num_samples evenly
+        samples_per_batch: 25
       TABPFN:
-        n_estimators: 4        # TabPFN ensemble size (internal sampling)
-        max_samples: 500       # Max training samples (due to TabPFN limitations)  
-        scaling: true          # Apply feature scaling
+        n_estimators: 4
+        max_samples: 500
+        scaling: true
     NEURAL:
       gpus: 1
       cpus: 1
-      num_samples: 50
-      mixture:
-        TGMM:
-          num_components: 10
-          horizon_correlation: true
-          quantiles: [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95]
-
-
+      num_samples: 100
 cross_validation:
   M5:
     test:
@@ -79,74 +62,72 @@ cross_validation:
       refit: false
   ROHLIK:
     test:
-      n_windows: 280   # 20% of 1402 days
+      n_windows: 280
       step_size: 1
       refit: false
     val:
-      n_windows: 140   # 10% of 1402 days
+      n_windows: 140
       step_size: 1
       refit: false
   ROSSMANN:
     test:
-      n_windows: 188   # 20% of 942 days
+      n_windows: 188
       step_size: 1
       refit: false
     val:
-      n_windows: 94    # 10% of 942 days
+      n_windows: 94
       step_size: 1
       refit: false
   BAKERY:
     test:
-      n_windows: 243   # 20% of 1215 days
+      n_windows: 243
       step_size: 1
       refit: false
     val:
-      n_windows: 121   # 10% of 1215 days
+      n_windows: 121
       step_size: 1
       refit: false
   YAZ:
     test:
-      n_windows: 153   # 20% of 765 days
+      n_windows: 153
       step_size: 1
       refit: false
     val:
-      n_windows: 76    # 10% of 765 days
+      n_windows: 76
       step_size: 1
       refit: false
   PHARMACY:
     test:
-      n_windows: 24   # 20% of 827 days
+      n_windows: 24
       step_size: 1
       refit: false
     val:
-      n_windows: 12    # 10% of 827 days
+      n_windows: 12
       step_size: 1
       refit: false
   HOTEL:
     test:
-      n_windows: 645   # 20% of 3227 days
+      n_windows: 645
       step_size: 1
       refit: false
     val:
-      n_windows: 322   # 10% of 3227 days
+      n_windows: 322
       step_size: 1
       refit: false
   ONLINERETAIL:
     test:
-      n_windows: 147   # 20% of 739 days
+      n_windows: 147
       step_size: 1
       refit: false
     val:
-      n_windows: 73    # 10% of 739 days
+      n_windows: 73
       step_size: 1
       refit: false
-
 metrics:
   metrics:
-    - MASE
-    - MSSE
-  seasonality: null # Set to None for allowing seasonality to be detected automatically based on frequency of the dataset
-
+  - MASE
+  - MSSE
+  seasonality: null
 lags:
   PHARMACY:
     daily: 50
