@@ -56,6 +56,7 @@ class DatasetName(Enum):
 class Frequency(Enum):
     DAILY = "Daily"
     WEEKLY = "Weekly"
+    MONTHLY = "Monthly"
 
     @staticmethod
     def get_alias(freq: "Frequency", context: str):
@@ -64,14 +65,17 @@ class Frequency(Enum):
             "pandas": {
                 Frequency.DAILY: "D",
                 Frequency.WEEKLY: "W-MON",
+                Frequency.MONTHLY: "MS",
             },
             "nixtla": {
                 Frequency.DAILY: "D",
                 Frequency.WEEKLY: "W-MON",
+                Frequency.MONTHLY: "MS",
             },
             "demandbench": {
                 Frequency.DAILY: "daily",
                 Frequency.WEEKLY: "weekly",
+                Frequency.MONTHLY: "monthly",
             },
         }
 
@@ -92,6 +96,7 @@ class Frequency(Enum):
         SEASON_LENGTHS = {
             Frequency.DAILY: 7,
             Frequency.WEEKLY: 52,
+            Frequency.MONTHLY: 12,
         }
         if freq not in SEASON_LENGTHS:
             raise ValueError(f"Unsupported frequency: {freq}")
@@ -101,6 +106,7 @@ class Frequency(Enum):
 class TimeInSeconds(Enum):
     DAILY = 86400
     WEEKLY = 604800
+    
 
 
 class TargetScalerType(Enum):
