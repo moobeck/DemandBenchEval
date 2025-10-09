@@ -19,26 +19,9 @@ from neuralforecast.losses.pytorch import (
     level_to_outputs,
     weighted_average,
 )
+from src.configurations.quantile import QuantileUtils
 
 
-def quantiles_to_level(quantiles: Optional[List[float]]) -> Optional[List[int]]:
-    """
-    Convert quantiles to percentage levels.
-
-    Args:
-        quantiles (Optional[List[float]]): List of quantiles to convert.
-    """
-    if quantiles is None or len(quantiles) < 2:
-        return None
-
-    levels = []
-    for i in range(1, len(quantiles) - 1):
-        lb = quantiles[i]
-        ub = quantiles[-1]
-        level = (ub - lb) * 100
-        levels.append(int(round(level)))
-
-    return levels
 
 
 class TruncatedNormal(Distribution):
@@ -273,7 +256,7 @@ class MixtureLossFactory:
                 horizon_correlation=horizon_correlation,
                 weighted=weighted,
                 return_params=return_params,
-                level=quantiles_to_level(quantiles),
+                level=QuantileUtils.quantiles_to_level(quantiles),
             )
             logging.info(
                 f"Successfully created TGMM loss with {n_components} components"

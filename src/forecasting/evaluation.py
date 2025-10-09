@@ -3,7 +3,7 @@ from utilsforecast.evaluation import evaluate
 import logging
 from src.configurations.metrics import MetricConfig
 from src.configurations.forecast_column import ForecastColumnConfig
-from src.configurations.mixture import quantiles_to_level
+from src.configurations.quantile import QuantileUtils 
 import seaborn as sns
 from typing import Optional, List, Dict, Any
 from matplotlib import pyplot as plt
@@ -57,12 +57,15 @@ class Evaluator:
         """
         Calculate the quantile levels based on the provided quantiles.
         """
-        quantiles = self._metric_config.quantiles
+        quantiles_cfg = self._metric_config.quantiles
 
-        if quantiles is None:
+        if quantiles_cfg is None:
             return None
 
-        return quantiles_to_level(quantiles)
+        quantiles = QuantileUtils.create_quantiles(quantiles_cfg)
+        levels = QuantileUtils.quantiles_to_level(quantiles)
+
+        return levels
 
     def evaluate(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """
