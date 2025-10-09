@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, TypeAlias, Optional
 from functools import partial
 from utilsforecast.losses import mase, msse, mae, mse, rmse, scaled_mqloss
+from .quantile import create_quantile_levels
 
 ForecastMetric: TypeAlias = Any
 
@@ -78,8 +79,7 @@ class MetricConfig:
                 params["seasonality"] = self.seasonality
             # If quantiles are provided, add them to the params
             if "quantiles" in params:
-                params["quantiles"] = self.quantiles
-
+                params["quantiles"] = create_quantile_levels(self.quantiles)
             # Instantiate the metric with the (possibly overridden) params
             metrics[name] = spec.factory(**params)
 

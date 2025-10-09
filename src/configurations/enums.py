@@ -113,3 +113,9 @@ class TargetScalerType(Enum):
     LOCAL_STANDARD = "local_standard"
     LOCAL_MAX = "local_max"
     LOCAL_ROBUST = "local_robust"
+
+
+class FileFormat(Enum):
+    PARQUET = "parquet"
+    FEATHER = "feather"
+    CSV = "csv"
