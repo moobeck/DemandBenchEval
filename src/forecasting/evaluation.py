@@ -38,20 +38,48 @@ class Evaluator:
             "metric",
         }
 
-        # Find potential model columns (exclude metadata)
         potential_model_cols = [col for col in df.columns if col not in metadata_cols]
 
-        # Extract unique model names by removing suffixes like -median, -lo-90, etc.
         model_names = set()
         for col in potential_model_cols:
             # Split by '-' and take the first part as the base model name
             base_name = col.split("-")[0]
             model_names.add(base_name)
 
-        # Filter to only include the base model columns that exist in the DataFrame
-        model_cols = [name for name in model_names if name in df.columns]
+        model_cols = [name for name in model_names]
 
         return model_cols
+    
+    def _fill_model_columns(self, df: pd.DataFrame, model_names) -> pd.DataFrame:
+        """
+        Ensure that for each model, there is a corresponding column in the DataFrame.
+        If a model column is missing fill it using the '{model}-median' column.
+        """
+
+        # Models that already have direct columns
+        present_models = {m for m in model_names if m in df.columns}
+
+        # Models that can be created from '{model}-median'
+        median_available = [m for m in model_names if m not in present_models and f"{m}-median" in df.columns]
+
+        # Models missing both direct and median columns
+        missing_models = [m for m in model_names if m not in present_models and m not in median_available]
+
+        if missing_models:
+            raise ValueError(
+                f"Missing columns for models {missing_models}. "
+                "Each model must have either a column named '{model}' or '{model}-median'."
+            )
+
+        # Create missing model columns from their '-median' counterparts in a single assignment
+        if median_available:
+            median_cols = [f"{m}-median" for m in median_available]
+            # Assign values; ensure correct column ordering by using .values to avoid align-by-label
+            df[median_available] = df[median_cols].values
+
+        return df
+    
+
 
     def _get_level(self):
         """
@@ -73,10 +101,12 @@ class Evaluator:
         """
 
         logging.info("Starting evaluation...")
+        model_names = self._get_model_cols(df)
+        df = self._fill_model_columns(df, model_names)  
 
         return evaluate(
             df=df,
-            models=self._get_model_cols(df),
+            models=model_names,
             target_col=self._forecast_columns.target,
             time_col=self._forecast_columns.date,
             id_col=self._forecast_columns.sku_index,

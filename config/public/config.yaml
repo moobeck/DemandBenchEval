@@ -131,6 +131,7 @@ cross_validation:
 metrics:
   metrics:
   - MASE
+  - SCALED_MQLOSS
   seasonality: null
   quantiles:
     min: 1
