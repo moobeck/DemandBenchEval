@@ -203,6 +203,9 @@ def main():
 
     cfg = build_config(public_cfg_dict, private_cfg_dict)
 
+    # Ensure directories exist
+    cfg.filepaths.ensure_directories_exist()
+
     # W&B orchestration
     wandb_orchestrator = WandbOrchestrator(cfg.wandb, public_cfg_dict)
     wandb_orchestrator.login()
