@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, TypeAlias, Optional
 from functools import partial
 from utilsforecast.losses import mase, msse, mae, mse, rmse, scaled_mqloss
+from src.configurations.quantile import QuantileUtils
 
 ForecastMetric: TypeAlias = Any
 
@@ -59,6 +60,8 @@ class MetricConfig:
             self.seasonality = 7
         elif freq == Frequency.WEEKLY:
             self.seasonality = 52
+        elif freq == Frequency.MONTHLY:
+            self.seasonality = 12
         else:
             raise ValueError(f"Unsupported frequency: {freq}")
 
@@ -78,8 +81,7 @@ class MetricConfig:
                 params["seasonality"] = self.seasonality
             # If quantiles are provided, add them to the params
             if "quantiles" in params:
-                params["quantiles"] = self.quantiles
-
+                params["quantiles"] = QuantileUtils.create_quantiles(self.quantiles)
             # Instantiate the metric with the (possibly overridden) params
             metrics[name] = spec.factory(**params)
 

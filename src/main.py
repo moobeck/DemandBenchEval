@@ -21,11 +21,13 @@ from src.configurations.enums import (
     DatasetName,
     Framework,
     TargetScalerType,
+    FileFormat
 )
 from src.configurations.wandb import WandbConfig
 from src.configurations.global_cfg import GlobalConfig
 from src.configurations.preprocessing import PreprocessingConfig
 from src.utils.wandb_orchestrator import WandbOrchestrator
+from src.utils.dataframe import DataFrameHandler
 from src.dataset.dataset_factory import DatasetFactory
 from src.preprocessing.nixtla_preprocessor import NixtlaPreprocessor
 from src.preprocessing.statistics import SKUStatistics
@@ -126,6 +128,7 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
             cv_results_dir=filepaths.get("cv_results_dir", "data/cv_results"),
             eval_results_dir=filepaths.get("eval_results_dir", "data/eval_results"),
             eval_plots_dir=filepaths.get("eval_plots_dir", "data/eval_plots"),
+            file_format=FileFormat[filepaths.get("file_format", "FEATHER")]
         ),
         datasets=DatasetConfig(names=[DatasetName[name] for name in dataset_names]),
         input_columns=InputColumnConfig(
@@ -203,6 +206,9 @@ def main():
 
     cfg = build_config(public_cfg_dict, private_cfg_dict)
 
+    # Ensure directories exist
+    cfg.filepaths.ensure_directories_exist()
+
     # W&B orchestration
     wandb_orchestrator = WandbOrchestrator(cfg.wandb, public_cfg_dict)
     wandb_orchestrator.login()
@@ -238,12 +244,12 @@ def main():
             freq=cfg.forecast.freq,
         )
         sku_stats_df = sku_stats.compute_statistics()
-        sku_stats_df.to_feather(cfg.filepaths.sku_stats)
+        DataFrameHandler.write_dataframe(sku_stats_df, cfg.filepaths.sku_stats, cfg.filepaths.file_format)
 
         df = prep.preprocess_data(df)
 
-        # save df as feather file
-        df.to_feather(cfg.filepaths.processed_data)
+        # save df
+        DataFrameHandler.write_dataframe(df, cfg.filepaths.processed_data, cfg.filepaths.file_format)
 
         # 3) Cross-validation
         trainer = ForecastTrainer(cfg.forecast, cfg.forecast_columns)
@@ -252,8 +258,8 @@ def main():
             cv_config=cfg.cross_validation,
         )
 
-        # save cv_df as feather file
-        cv_df.to_feather(cfg.filepaths.cv_results)
+        # save cv_df 
+        DataFrameHandler.write_dataframe(cv_df, cfg.filepaths.cv_results, cfg.filepaths.file_format)
 
         # 4) Evaluation
         evaluator = Evaluator(cfg.metrics, cfg.forecast_columns)
@@ -262,7 +268,8 @@ def main():
         wandb_orchestrator.log_metrics(metrics_summary, dataset_name)
 
         # 4) Save & log results
-        eval_df.to_feather(cfg.filepaths.eval_results)
+        DataFrameHandler.write_dataframe(eval_df, cfg.filepaths.eval_results, cfg.filepaths.file_format)
+
         wandb_orchestrator.log_artifact(
             name="evaluation-results",
             filepath=cfg.filepaths.eval_results,

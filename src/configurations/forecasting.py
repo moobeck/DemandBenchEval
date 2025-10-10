@@ -23,8 +23,8 @@ from neuralforecast.auto import (
 from dataclasses import dataclass, field
 from typing import List, Dict, Any
 from demandbench.datasets import Dataset
-from .mixture import MixtureLossFactory, quantiles_to_level
-from .quantile import create_quantile_levels, QuantileLossFactory
+from .mixture import MixtureLossFactory
+from .quantile import QuantileLossFactory, QuantileUtils
 from neuralforecast.losses.pytorch import MAE, MQLoss
 
 
@@ -231,8 +231,8 @@ class ForecastConfig:
                 
                 if mixture_config:
                     loss_function = MixtureLossFactory.create_loss(mixture_config)
-                    quantiles = create_quantile_levels(quantile_config)
-                    loss_function = MQLoss(level=quantiles_to_level(quantiles))
+                    quantiles = QuantileUtils.create_quantiles(quantile_config)
+                    loss_function = MQLoss(level=QuantileUtils.quantiles_to_level(quantiles))
                     params["loss"] = loss_function
                 elif quantile_config:
                     loss_function = QuantileLossFactory.create_loss(quantile_config)
