@@ -17,8 +17,8 @@ from neuralforecast.auto import (
     AutoBiTCN,
     AutoGRU, 
     AutoTFT,
-    AutoTCN
-    
+    AutoTCN,
+    AutoPatchTST
 )
 from dataclasses import dataclass, field
 from typing import List, Dict, Any
@@ -145,6 +145,11 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
     ),
     ModelName.TFT: ModelSpec(
         factory=lambda **p: AutoTFT(**p),
+        framework=Framework.NEURAL,
+        default_params=DefaultParams.NEURAL,
+    ),
+    ModelName.PATCHTST: ModelSpec(
+        factory=lambda **p: AutoPatchTST(**p),
         framework=Framework.NEURAL,
         default_params=DefaultParams.NEURAL,
     ),

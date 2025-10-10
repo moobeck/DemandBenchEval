@@ -30,6 +30,7 @@ class ModelName(Enum):
     GRU="gru"
     TCN = "tcn"
     TFT = "tft"
+    PATCHTST = "patchtst"
 
 
 class MetricName(Enum):
