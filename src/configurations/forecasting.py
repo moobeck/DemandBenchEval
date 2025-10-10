@@ -20,6 +20,7 @@ from neuralforecast.auto import (
     AutoTCN,
     AutoPatchTST
 )
+from src.configurations.auto.xlstm import AutoxLSTM
 from dataclasses import dataclass, field
 from typing import List, Dict, Any
 from demandbench.datasets import Dataset
@@ -153,6 +154,12 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
         framework=Framework.NEURAL,
         default_params=DefaultParams.NEURAL,
     ),
+    ModelName.XLSTM: ModelSpec(
+        factory=lambda **p: AutoxLSTM(**p),
+        framework=Framework.NEURAL,
+        default_params=DefaultParams.NEURAL,
+    ),
+
     
 }
 
