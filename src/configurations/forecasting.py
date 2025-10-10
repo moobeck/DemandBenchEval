@@ -14,13 +14,14 @@ from neuralforecast.auto import (
     AutoNHITS,
     AutoTiDE,
     AutoDeepAR,
+    AutoNBEATSx,
     AutoBiTCN,
     AutoGRU, 
     AutoTFT,
     AutoTCN,
-    AutoPatchTST
+    AutoPatchTST, 
+    AutoxLSTM
 )
-from src.configurations.auto.xlstm import AutoxLSTM
 from dataclasses import dataclass, field
 from typing import List, Dict, Any
 from demandbench.datasets import Dataset
@@ -121,6 +122,11 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
     ),
     ModelName.NHITS: ModelSpec(
         factory=lambda **p: AutoNHITS(**p),
+        framework=Framework.NEURAL,
+        default_params=DefaultParams.NEURAL,
+    ),
+    ModelName.NBEATS: ModelSpec(
+        factory=lambda **p: AutoNBEATSx(**p),
         framework=Framework.NEURAL,
         default_params=DefaultParams.NEURAL,
     ),

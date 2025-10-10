@@ -24,6 +24,7 @@ class ModelName(Enum):
     TIDE = "tide"
     NHITS = "nhits"
     DEEPAR = "depar"
+    NBEATS = "nbeats"
     BITCN = "bitcn"
     TABPFN = "tabpfn"
     TOTO = "toto"
