@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from src.configurations.system import SystemConfig
 from src.configurations.file_path import FilePathConfig
 from src.configurations.datasets import DatasetConfig
 from src.configurations.input_column import InputColumnConfig
@@ -15,6 +16,7 @@ from demandbench.datasets import Dataset
 
 @dataclass(frozen=True)
 class GlobalConfig:
+    system: SystemConfig
     filepaths: FilePathConfig
     datasets: DatasetConfig
     input_columns: InputColumnConfig
@@ -24,7 +26,6 @@ class GlobalConfig:
     forecast: ForecastConfig
     metrics: MetricConfig
     wandb: WandbConfig
-    seed: int
 
     def set_dataset(self, dataset_name: DatasetName, dataset: Dataset):
         """

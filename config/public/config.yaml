@@ -1,5 +1,7 @@
 log_wandb: false
-seed: 42
+system:
+  GPU: 0
+  RANDOM_SEED: 42
 filepaths:
   processed_data_dir: data/processed/
   sku_stats_dir: data/sku_stats/
@@ -26,10 +28,10 @@ preprocessing:
   target_transform: LOCAL_MAX
 forecast:
   models:
-  - TIDE
+  - TCN  
   model_config:
     ML:
-      num_samples: 1
+      num_samples: 5
     FM:
       TOTO:
         num_samples: 50
@@ -41,7 +43,7 @@ forecast:
     NEURAL:
       gpus: 1
       cpus: 1
-      num_samples: 1
+      num_samples: 50
       quantile:
         min: 1
         max: 99
