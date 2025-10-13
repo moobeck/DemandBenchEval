@@ -11,11 +11,7 @@ class SystemSettings:
         self.gpu = config.GPU
         self.seed = config.RANDOM_SEED
 
-
-
     def set_seed(self):
-
-
         random.seed(self.seed)
         np.random.seed(self.seed)
         torch.manual_seed(self.seed)
