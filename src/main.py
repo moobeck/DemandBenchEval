@@ -193,8 +193,6 @@ def main():
     system_settings = SystemSettings(cfg.system)
     system_settings.configure_environment()
     system_settings.set_seed()
-
-
     # Ensure directories exist
     cfg.filepaths.ensure_directories_exist()
 
