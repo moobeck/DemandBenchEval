@@ -46,7 +46,7 @@ class ForecastEngine(ABC):
 
 class FoundationModelEngine(ForecastEngine):
     """
-    Engine for Foundation Models (FM) like TabPFN and TOTO.
+    Engine for Foundation Models (FM)
     These models have special requirements and interfaces.
     """
 
@@ -57,7 +57,7 @@ class FoundationModelEngine(ForecastEngine):
         Parameters:
         -----------
         models : List[FoundationModelWrapper]
-            List of foundation model instances (TabPFN, TOTO, etc.)
+            List of foundation model instances
         freq : str
             Frequency string for time series
         """

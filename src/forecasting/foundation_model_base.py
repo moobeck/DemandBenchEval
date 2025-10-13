@@ -2,7 +2,7 @@
 Abstract base class for foundation model wrappers.
 
 This module defines the common interface that all foundation model wrappers
-(TabPFN, TOTO, etc.) must implement to work with the forecasting framework.
+must implement to work with the forecasting framework.
 """
 
 from abc import ABC, abstractmethod

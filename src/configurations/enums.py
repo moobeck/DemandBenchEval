@@ -26,8 +26,6 @@ class ModelName(Enum):
     DEEPAR = "depar"
     NBEATS = "nbeats"
     BITCN = "bitcn"
-    TABPFN = "tabpfn"
-    TOTO = "toto"
     GRU="gru"
     TCN = "tcn"
     TFT = "tft"

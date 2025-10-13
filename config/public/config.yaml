@@ -32,14 +32,6 @@ forecast:
   model_config:
     ML:
       num_samples: 5
-    FM:
-      TOTO:
-        num_samples: 50
-        samples_per_batch: 25
-      TABPFN:
-        n_estimators: 4
-        max_samples: 500
-        scaling: true
     NEURAL:
       gpus: 1
       cpus: 1
