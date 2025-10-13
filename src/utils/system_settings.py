@@ -7,7 +7,6 @@ from src.configurations.system import SystemConfig
 
 class SystemSettings:
 
-
     def __init__(self, config: SystemConfig):
         self.gpu = config.GPU
         self.seed = config.RANDOM_SEED
