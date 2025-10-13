@@ -176,9 +176,6 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
 
 
 
-
-
-
 def main():
 
     logging.basicConfig(level=logging.INFO)
