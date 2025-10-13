@@ -109,8 +109,8 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
     wandb.update({"log_wandb": log_wandb})
 
     return GlobalConfig(
+        system=SystemConfig(GPU=system.get("GPU", 0), RANDOM_SEED=system.get("RANDOM_SEED", 42)),
         filepaths=FilePathConfig(
-            system=SystemConfig(GPU=system.get("GPU", 0), RANDOM_SEED=system.get("RANDOM_SEED", 42)),
             processed_data_dir=filepaths.get("processed_data_dir", "data/processed"),
             sku_stats_dir=filepaths.get("sku_stats_dir", "data/sku_stats"),
             cv_results_dir=filepaths.get("cv_results_dir", "data/cv_results"),
