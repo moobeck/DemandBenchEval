@@ -191,8 +191,6 @@ class NixtlaPreprocessor:
             static_features=self._forecast_columns.static,
         )
 
-
-
         category_encoder = CategoryEncoder(
             cv_cfg=cross_validation, freq=freq, forecast_columns=self._forecast_columns
         )
