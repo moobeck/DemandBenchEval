@@ -26,7 +26,7 @@ class ModelName(Enum):
     DEEPAR = "depar"
     NBEATS = "nbeats"
     BITCN = "bitcn"
-    GRU="gru"
+    GRU = "gru"
     TCN = "tcn"
     TFT = "tft"
     PATCHTST = "patchtst"
@@ -107,7 +107,6 @@ class Frequency(Enum):
 class TimeInSeconds(Enum):
     DAILY = 86400
     WEEKLY = 604800
-    
 
 
 class TargetScalerType(Enum):

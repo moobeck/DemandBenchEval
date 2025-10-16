@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from src.configurations.enums import TargetScalerType
+from src.configurations.utils.enums import TargetScalerType
 
 
 @dataclass

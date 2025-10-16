@@ -1,9 +1,9 @@
 import pandas as pd
 from utilsforecast.evaluation import evaluate
 import logging
-from src.configurations.metrics import MetricConfig
-from src.configurations.forecast_column import ForecastColumnConfig
-from src.configurations.quantile import QuantileUtils 
+from src.configurations.evaluation.metrics import MetricConfig
+from src.configurations.data.forecast_column import ForecastColumnConfig
+from src.configurations.model.quantile import QuantileUtils
 import seaborn as sns
 from typing import Optional, List, Dict, Any
 from matplotlib import pyplot as plt
@@ -49,7 +49,7 @@ class Evaluator:
         model_cols = [name for name in model_names]
 
         return model_cols
-    
+
     def _fill_model_columns(self, df: pd.DataFrame, model_names) -> pd.DataFrame:
         """
         Ensure that for each model, there is a corresponding column in the DataFrame.
@@ -60,10 +60,18 @@ class Evaluator:
         present_models = {m for m in model_names if m in df.columns}
 
         # Models that can be created from '{model}-median'
-        median_available = [m for m in model_names if m not in present_models and f"{m}-median" in df.columns]
+        median_available = [
+            m
+            for m in model_names
+            if m not in present_models and f"{m}-median" in df.columns
+        ]
 
         # Models missing both direct and median columns
-        missing_models = [m for m in model_names if m not in present_models and m not in median_available]
+        missing_models = [
+            m
+            for m in model_names
+            if m not in present_models and m not in median_available
+        ]
 
         if missing_models:
             raise ValueError(
@@ -78,8 +86,6 @@ class Evaluator:
             df[median_available] = df[median_cols].values
 
         return df
-    
-
 
     def _get_level(self):
         """
@@ -102,7 +108,7 @@ class Evaluator:
 
         logging.info("Starting evaluation...")
         model_names = self._get_model_cols(df)
-        df = self._fill_model_columns(df, model_names)  
+        df = self._fill_model_columns(df, model_names)
 
         return evaluate(
             df=df,
@@ -112,7 +118,7 @@ class Evaluator:
             id_col=self._forecast_columns.sku_index,
             metrics=list(self.metrics.values()),
             level=self._get_level(),
-            **kwargs
+            **kwargs,
         )
 
     def summarize_metrics(self, metrics_df: pd.DataFrame) -> Dict[str, Any]:

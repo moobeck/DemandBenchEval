@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from src.configurations.enums import Frequency
+from src.configurations.utils.enums import Frequency
 from typing import Callable
 
 

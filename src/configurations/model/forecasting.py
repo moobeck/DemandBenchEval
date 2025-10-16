@@ -2,9 +2,9 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, TypeAlias
 from statsforecast.models import AutoARIMA, AutoTheta, AutoETS, AutoCES
 from mlforecast.auto import AutoCatboost, AutoLightGBM, AutoRandomForest
-from .enums import ModelName, Framework, Frequency
-from .forecast_column import ForecastColumnConfig
-from .input_column import InputColumnConfig
+from ..utils.enums import ModelName, Framework, Frequency
+from ..data.forecast_column import ForecastColumnConfig
+from ..data.input_column import InputColumnConfig
 from neuralforecast.auto import (
     AutoVanillaTransformer,
     AutoMLP,
@@ -16,11 +16,11 @@ from neuralforecast.auto import (
     AutoDeepAR,
     AutoNBEATSx,
     AutoBiTCN,
-    AutoGRU, 
+    AutoGRU,
     AutoTFT,
     AutoTCN,
-    AutoPatchTST, 
-    AutoxLSTM
+    AutoPatchTST,
+    AutoxLSTM,
 )
 from dataclasses import dataclass, field
 from typing import List, Dict, Any
@@ -165,9 +165,16 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
         framework=Framework.NEURAL,
         default_params=DefaultParams.NEURAL,
     ),
-
-    
 }
+
+
+@dataclass(frozen=True)
+class QuantileConfig:
+    min: int = 1
+    max: int = 99
+    step: int = 1
+
+
 
 
 @dataclass(frozen=True)
@@ -175,13 +182,18 @@ class NeuralForecastConfig:
     """
     Configuration for neural forecasting models.
     """
-
     mixture: Dict[str, Any] = field(default_factory=dict)
-    quantile: Dict[str, Any] = field(default_factory=dict)
+    quantile: QuantileConfig = field(default_factory=QuantileConfig)
     gpus: int = 1
     cpus: int = 1
     num_samples: int = 1
     input_size: int = 1
+
+
+@dataclass
+class FoundationModelConfig:
+    num_samples: int = 1
+    quantile: QuantileConfig = field(default_factory=QuantileConfig)
 
 
 @dataclass
@@ -202,11 +214,22 @@ class ForecastConfig:
         neural_cfg = self.model_config.get(Framework.NEURAL, {})
         return NeuralForecastConfig(
             mixture=neural_cfg.get("mixture", {}),
-            quantile=neural_cfg.get("quantile", {}),
+            quantile=QuantileConfig(**neural_cfg.get("quantile", {})),
             gpus=neural_cfg.get("gpus", 1),
             cpus=neural_cfg.get("cpus", 1),
             num_samples=neural_cfg.get("num_samples", 1),
             input_size=len(self.lags),
+        )
+
+    @property
+    def foundationconfig(self) -> FoundationModelConfig:
+        """
+        Get the foundation model configuration from the model_config.
+        """
+        fm_cfg = self.model_config.get(Framework.FM, {})
+        return FoundationModelConfig(
+            num_samples=fm_cfg.get("num_samples", 1),
+            quantile=QuantileConfig(**fm_cfg.get("quantile", {})),
         )
 
     @property
@@ -246,19 +269,19 @@ class ForecastConfig:
                 params["gpus"] = self.neuralconfig.gpus
                 params["cpus"] = self.neuralconfig.cpus
                 params["num_samples"] = self.neuralconfig.num_samples
-                
+
                 if mixture_config:
                     loss_function = MixtureLossFactory.create_loss(mixture_config)
                     quantiles = QuantileUtils.create_quantiles(quantile_config)
-                    loss_function = MQLoss(level=QuantileUtils.quantiles_to_level(quantiles))
+                    loss_function = MQLoss(
+                        level=QuantileUtils.quantiles_to_level(quantiles)
+                    )
                     params["loss"] = loss_function
                 elif quantile_config:
                     loss_function = QuantileLossFactory.create_loss(quantile_config)
                     params["loss"] = loss_function
                 else:
                     params["loss"] = MAE()
-
-
 
             model_instance = spec.factory(**params)
             if model_instance is not None:  # Skip unavailable models

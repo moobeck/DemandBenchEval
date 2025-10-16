@@ -6,13 +6,14 @@ from statsforecast import StatsForecast
 from mlforecast.auto import AutoMLForecast, AutoLightGBM
 from mlforecast import MLForecast
 from neuralforecast import NeuralForecast
-from src.configurations.enums import Framework
-from src.configurations.forecast_column import ForecastColumnConfig
-from src.configurations.forecasting import ForecastConfig
-from src.configurations.enums import Frequency
+from src.configurations.utils.enums import Framework
+from src.configurations.data.forecast_column import ForecastColumnConfig
+from src.configurations.model.forecasting import ForecastConfig
+from src.configurations.utils.enums import Frequency
 from src.forecasting.foundation_model_base import FoundationModelWrapper
-from src.configurations.cross_validation import CrossValDatasetConfig
-
+from src.configurations.evaluation.cross_validation import CrossValDatasetConfig
+from src.forecasting.foundation.utils import GluonTSForecaster
+from src.utils.quantile import QuantileUtils
 import logging
 
 
@@ -72,6 +73,7 @@ class FoundationModelEngine(ForecastEngine):
         cv_config: CrossValDatasetConfig,
         forecast_columns: ForecastColumnConfig = None,
         forecast_config: ForecastConfig = None,
+        static_df: pd.DataFrame | None = None,
     ) -> pd.DataFrame:
         """
         Perform cross-validation for foundation models.
@@ -80,66 +82,30 @@ class FoundationModelEngine(ForecastEngine):
 
         results = []
 
-        n_windows = cv_config.test.n_windows
         step_size = cv_config.test.step_size
+        n_windows = cv_config.test.n_windows
+        quantiles = QuantileUtils.create_quantiles(forecast_config.foundationconfig.quantile)
 
-        # Calculate time splits
-        if forecast_config.freq == Frequency.DAILY:
-            offset = pd.Timedelta(days=n_windows * step_size)
-        elif forecast_config.freq == Frequency.WEEKLY:
-            offset = pd.Timedelta(weeks=n_windows * step_size)
-        else:
-            raise ValueError(f"Unsupported frequency: {forecast_config.freq}")
 
         for model_name, model in self.models.items():
             logging.info(f"Cross-validating foundation model: {model_name}")
-            window_results = []
+           
+           # Give type hint that model is GluonTSForecaster
+            model: GluonTSForecaster
 
-            # For each cross-validation window
-            for window in range(n_windows):
-                # Calculate cutoff point for this window
-                cutoff_offset = (
-                    pd.Timedelta(days=window * step_size)
-                    if forecast_config.freq == Frequency.DAILY
-                    else pd.Timedelta(weeks=window * step_size)
-                )
-                cutoff = df[forecast_columns.date].max() - offset + cutoff_offset
+            fcst = model.cross_validation(
+                df=df,
+                static_df=static_df,
+                horizon=h,
+                step_size=step_size,
+                quantiles=quantiles,
+                n_windows=n_windows,
+                id_col=forecast_columns.sku_index,
+                target_col=forecast_columns.target,
+                time_col=forecast_columns.date,
+            )
+            results.append(fcst)
 
-                # Split data into train and test
-                train_data = df[df[forecast_columns.date] <= cutoff]
-
-                # Generate predictions
-                model_df = model.predict(
-                    X=train_data,
-                    forecast_columns=forecast_columns,
-                    horizon=h,  # Use h instead of forecast_config.horizon
-                    freq=forecast_config.freq,
-                )
-
-                # Add cutoff column
-                model_df["cutoff"] = cutoff
-
-                # Merge with actual values from test data
-                # First get the unique SKU IDs and dates from predictions
-                merged_df = pd.merge(
-                    model_df,
-                    df[
-                        [
-                            forecast_columns.sku_index,
-                            forecast_columns.date,
-                            forecast_columns.target,
-                        ]
-                    ],
-                    on=[forecast_columns.sku_index, forecast_columns.date],
-                    how="left",
-                )
-
-                window_results.append(merged_df)
-
-            # Combine all windows
-            if window_results:
-                model_results = pd.concat(window_results, ignore_index=True)
-                results.append(model_results)
 
         # Combine results from all models
         combined_results = self._combine_results(results)
@@ -159,6 +125,7 @@ class StatsForecastEngine(ForecastEngine):
         id_col: str = None,
         target_col: str = None,
         time_col: str = None,
+    
     ):
         n_windows = cv_config.test.n_windows
         step_size = cv_config.test.step_size

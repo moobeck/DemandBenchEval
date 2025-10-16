@@ -13,6 +13,7 @@ class CategoryEncoder:
         cv_cfg: CrossValidationConfig,
         freq: Frequency,
         forecast_columns: ForecastColumnConfig,
+        horizon: int,
     ):
         """
         Initializes the CategoryEncoder with the specified columns.
@@ -24,6 +25,7 @@ class CategoryEncoder:
         self._cv_cfg = cv_cfg
         self._freq = freq
         self._forecast_columns = forecast_columns
+        self._horizon = horizon
 
         self._encoder = CatBoostEncoder(
             cols=self._forecast_columns.categorical, return_df=False
@@ -47,6 +49,7 @@ class CategoryEncoder:
             max_date=df[self._forecast_columns.date].max(),
             freq=self._freq,
             split="test",
+            horizon=self._horizon,
         )
 
         df_train = df[df[self._forecast_columns.date] <= cutoff]

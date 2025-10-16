@@ -1,16 +1,16 @@
 from dataclasses import dataclass
 
-from src.configurations.system import SystemConfig
-from src.configurations.file_path import FilePathConfig
-from src.configurations.datasets import DatasetConfig
-from src.configurations.input_column import InputColumnConfig
-from src.configurations.preprocessing import PreprocessingConfig
-from src.configurations.forecast_column import ForecastColumnConfig
-from src.configurations.cross_validation import CrossValidationConfig
-from src.configurations.forecasting import ForecastConfig
-from src.configurations.metrics import MetricConfig
-from src.configurations.wandb import WandbConfig
-from src.configurations.enums import DatasetName
+from src.configurations.core.system import SystemConfig
+from src.configurations.core.file_path import FilePathConfig
+from src.configurations.data.datasets import DatasetConfig
+from src.configurations.data.input_column import InputColumnConfig
+from src.configurations.data.preprocessing import PreprocessingConfig
+from src.configurations.data.forecast_column import ForecastColumnConfig
+from src.configurations.evaluation.cross_validation import CrossValidationConfig
+from src.configurations.model.forecasting import ForecastConfig
+from src.configurations.evaluation.metrics import MetricConfig
+from src.configurations.utils.wandb import WandbConfig
+from src.configurations.utils.enums import DatasetName
 from demandbench.datasets import Dataset
 
 

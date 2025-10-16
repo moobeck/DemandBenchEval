@@ -1,21 +1,20 @@
 import logging
 import pandas as pd
 from typing import Any, Dict, List
-from src.forecasting.engine import (
+from src.forecasting.engine.engine import (
     ForecastEngine,
     StatsForecastEngine,
     AutoMLForecastEngine,
     NeuralForecastEngine,
     FoundationModelEngine,
 )
-from src.configurations.forecast_column import ForecastColumnConfig
-from src.configurations.forecasting import ForecastConfig
-from src.configurations.enums import Framework, Frequency
-from src.configurations.cross_validation import CrossValDatasetConfig
-from mlforecast.target_transforms import LocalMinMaxScaler
+from src.configurations.data.forecast_column import ForecastColumnConfig
+from src.configurations.model.forecasting import ForecastConfig
+from src.configurations.utils.enums import Framework, Frequency
+from src.configurations.evaluation.cross_validation import CrossValDatasetConfig
 
 
-class ForecastTrainer:
+class ForecastManager:
     """
     Orchestrates model fitting
     for multiple models from multiple frameworks

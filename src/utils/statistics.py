@@ -2,9 +2,9 @@ import pandas as pd
 import numpy as np
 from typing import Dict, Any, Optional, List
 
-from src.configurations.forecast_column import ForecastColumnConfig
-from src.configurations.cross_validation import CrossValidationConfig
-from src.configurations.enums import Frequency
+from src.configurations.data.forecast_column import ForecastColumnConfig
+from src.configurations.evaluation.cross_validation import CrossValidationConfig
+from src.configurations.utils.enums import Frequency
 
 
 class SKUStatistics:

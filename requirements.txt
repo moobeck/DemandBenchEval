@@ -17,9 +17,8 @@ neuralforecast== 3.0.1
 wandb==0.19.11
 category_encoders==2.8.1
 
-# HTTP clients (if you call APIs)
-requests==2.32.3
-httpx==0.28.1
+# Timecopilot for time series foundation models
+timecopilot==0.0.20
 
 # Date/time helpers
 python-dateutil==2.8.2

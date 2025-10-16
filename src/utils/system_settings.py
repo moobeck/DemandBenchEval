@@ -1,9 +1,9 @@
-
 import random
 import numpy as np
 import torch
 
-from src.configurations.system import SystemConfig
+from src.configurations.core.system import SystemConfig
+
 
 class SystemSettings:
 

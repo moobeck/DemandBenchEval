@@ -1,9 +1,9 @@
-from src.configurations.enums import MetricName, Frequency
+from src.configurations.utils.enums import MetricName, Frequency
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, TypeAlias, Optional
 from functools import partial
 from utilsforecast.losses import mase, msse, mae, mse, rmse, scaled_mqloss
-from src.configurations.quantile import QuantileUtils
+from src.configurations.model.quantile import QuantileUtils
 
 ForecastMetric: TypeAlias = Any
 

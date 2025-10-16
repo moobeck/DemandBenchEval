@@ -1,6 +1,7 @@
 from dataclasses import dataclass
-from typing import Dict, TypedDict, List, Literal
-from .enums import DatasetName, Frequency
+from typing import Dict, TypedDict, Literal
+from ..utils.enums import DatasetName, Frequency
+from src.utils.cross_validation import get_offset
 import pandas as pd
 
 
@@ -38,7 +39,11 @@ class CrossValidationConfig:
             )
 
     def get_cutoff_date(
-        self, max_date: pd.Timestamp, freq: Frequency, split: Literal["test", "val"]
+        self,
+        max_date: pd.Timestamp,
+        freq: Frequency,
+        split: Literal["test", "val"],
+        horizon: int,
     ) -> pd.Timestamp:
         """
         Calculate the cutoff date for training data based on frequency and split type.
@@ -54,9 +59,9 @@ class CrossValidationConfig:
         step_size = config.step_size
 
         if freq == Frequency.DAILY:
-            offset = pd.Timedelta(days=n_windows * step_size)
+            offset = pd.Timedelta(days=get_offset(n_windows, step_size, horizon))
         elif freq == Frequency.WEEKLY:
-            offset = pd.Timedelta(weeks=n_windows * step_size)
+            offset = pd.Timedelta(weeks=get_offset(n_windows, step_size, horizon))
         else:
             raise ValueError(f"Unsupported frequency: {freq}")
         return max_date - offset

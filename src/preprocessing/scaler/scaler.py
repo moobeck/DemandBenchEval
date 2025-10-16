@@ -1,8 +1,8 @@
 from mlforecast.target_transforms import BaseTargetTransform
 import pandas as pd
-from src.configurations.cross_validation import CrossValidationConfig
-from src.configurations.enums import Frequency, TargetScalerType
-from src.configurations.preprocessing import PreprocessingConfig
+from src.configurations.evaluation.cross_validation import CrossValidationConfig
+from src.configurations.utils.enums import Frequency, TargetScalerType
+from src.configurations.data.preprocessing import PreprocessingConfig
 
 
 class TargetScaler(BaseTargetTransform):

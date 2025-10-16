@@ -4,24 +4,24 @@ from datetime import datetime
 from sklearn.preprocessing import MinMaxScaler
 from utilsforecast.preprocessing import fill_gaps
 from demandbench.datasets import Dataset
-from src.preprocessing.scaler import TargetScalerFactory
-from src.preprocessing.date_encoder import DateEncoder
-from src.preprocessing.category_encoder import CategoryEncoder
-from src.preprocessing.statistical_encoder import StatisticalFeaturesEncoder
-from src.configurations.enums import Frequency
-from src.configurations.input_column import InputColumnConfig
-from src.configurations.preprocessing import PreprocessingConfig
-from src.configurations.forecasting import ForecastConfig
-from src.configurations.forecast_column import ForecastColumnConfig
-from src.configurations.cross_validation import CrossValidationConfig
+from src.preprocessing.scaler.scaler import TargetScalerFactory
+from src.preprocessing.encoder.date_encoder import DateEncoder
+from src.preprocessing.encoder.category_encoder import CategoryEncoder
+from src.preprocessing.encoder.statistical_encoder import StatisticalFeaturesEncoder
+from src.configurations.utils.enums import Frequency
+from src.configurations.data.input_column import InputColumnConfig
+from src.configurations.data.preprocessing import PreprocessingConfig
+from src.configurations.model.forecasting import ForecastConfig
+from src.configurations.data.forecast_column import ForecastColumnConfig
+from src.configurations.evaluation.cross_validation import CrossValidationConfig
 import logging
 
 from mlforecast import MLForecast
 
 
-class NixtlaPreprocessor:
+class Preprocessor:
     """
-    A class to load, merge, and convert feather datasets into the Nixtla NeuralForecast-ready format.
+    A class to load, merge, and convert feather datasets into the format required
     """
 
     def __init__(
@@ -130,7 +130,7 @@ class NixtlaPreprocessor:
         # Fill missing values
         df = df.ffill()
         # Fill remaining NaNs with 0
-        df  = df.fillna(0)
+        df = df.fillna(0)
 
         # rename columns to Nixtla standard
         df = df.rename(
@@ -177,10 +177,10 @@ class NixtlaPreprocessor:
         self._forecast_columns.add_exogenous(date_encoder.out_columns)
 
         ml_forecast = MLForecast(
-        models=[],
-        freq=self._forecast.freq,
-        target_transforms=[local_scaler],
-        date_features=date_encoder.get_encoders(),
+            models=[],
+            freq=self._forecast.freq,
+            target_transforms=[local_scaler],
+            date_features=date_encoder.get_encoders(),
         )
 
         df = ml_forecast.preprocess(
@@ -192,7 +192,10 @@ class NixtlaPreprocessor:
         )
 
         category_encoder = CategoryEncoder(
-            cv_cfg=cross_validation, freq=freq, forecast_columns=self._forecast_columns
+            cv_cfg=cross_validation,
+            freq=freq,
+            forecast_columns=self._forecast_columns,
+            horizon=self._forecast.horizon,
         )
 
         df = category_encoder.fit_transform(df)
@@ -207,8 +210,6 @@ class NixtlaPreprocessor:
                 )
             )
         )
-
-
 
         stats_encoder = StatisticalFeaturesEncoder(
             cv_cfg=cross_validation,

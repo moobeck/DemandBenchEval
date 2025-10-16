@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from src.configurations.enums import DatasetName, FileFormat
+from src.configurations.utils.enums import DatasetName, FileFormat
 import os
 
 
@@ -25,12 +25,20 @@ class FilePathConfig:
         """
         Sets the file paths based on the dataset name.
         """
-        self.processed_data = f"{self.processed_data_dir}/{dataset_name.value}.{self.file_format.value}"
-        self.sku_stats = f"{self.sku_stats_dir}/{dataset_name.value}.{self.file_format.value}"
-        self.cv_results = f"{self.cv_results_dir}/{dataset_name.value}.{self.file_format.value}"
-        self.eval_results = f"{self.eval_results_dir}/{dataset_name.value}.{self.file_format.value}"
+        self.processed_data = (
+            f"{self.processed_data_dir}/{dataset_name.value}.{self.file_format.value}"
+        )
+        self.sku_stats = (
+            f"{self.sku_stats_dir}/{dataset_name.value}.{self.file_format.value}"
+        )
+        self.cv_results = (
+            f"{self.cv_results_dir}/{dataset_name.value}.{self.file_format.value}"
+        )
+        self.eval_results = (
+            f"{self.eval_results_dir}/{dataset_name.value}.{self.file_format.value}"
+        )
         self.eval_plots = f"{self.eval_plots_dir}/{dataset_name.value}.png"
-        
+
     def iter_directories(self):
         """
         Yield directory path attributes declared on this dataclass (attributes ending with '_dir').

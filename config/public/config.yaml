@@ -40,6 +40,12 @@ forecast:
         min: 1
         max: 99
         step: 1
+    FM:
+      num_samples: 100
+      quantile:
+        min: 1
+        max: 99
+        step: 1
 cross_validation:
   M5:
     test:

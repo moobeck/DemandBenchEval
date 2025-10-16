@@ -4,38 +4,37 @@ import yaml
 import random
 import numpy as np
 from typing import Any
-from src.configurations.file_path import FilePathConfig
-from src.configurations.datasets import DatasetConfig
-from src.configurations.system import SystemConfig
-from src.configurations.input_column import InputColumnConfig
-from src.configurations.forecast_column import ForecastColumnConfig
-from src.configurations.cross_validation import (
+from src.configurations.core.file_path import FilePathConfig
+from src.configurations.data.datasets import DatasetConfig
+from src.configurations.core.system import SystemConfig
+from src.configurations.data.input_column import InputColumnConfig
+from src.configurations.data.forecast_column import ForecastColumnConfig
+from src.configurations.evaluation.cross_validation import (
     CrossValidationConfig,
     CrossValWindowConfig,
     CrossValDatasetConfig,
 )
-from src.configurations.forecasting import ForecastConfig
-from src.configurations.metrics import MetricConfig
-from src.configurations.enums import (
+from src.configurations.model.forecasting import ForecastConfig
+from src.configurations.evaluation.metrics import MetricConfig
+from src.configurations.utils.enums import (
     ModelName,
     MetricName,
     DatasetName,
     Framework,
     TargetScalerType,
-    FileFormat
+    FileFormat,
 )
-from src.configurations.wandb import WandbConfig
-from src.configurations.global_cfg import GlobalConfig
-from src.configurations.preprocessing import PreprocessingConfig
+from src.configurations.utils.wandb import WandbConfig
+from src.configurations.core.global_cfg import GlobalConfig
+from src.configurations.data.preprocessing import PreprocessingConfig
 from src.utils.wandb_orchestrator import WandbOrchestrator
 from src.utils.dataframe import DataFrameHandler
 from src.utils.system_settings import SystemSettings
 from src.dataset.dataset_factory import DatasetFactory
-from src.preprocessing.nixtla_preprocessor import NixtlaPreprocessor
-from src.preprocessing.statistics import SKUStatistics
-from src.forecasting.training import ForecastTrainer
-from src.forecasting.evaluation import Evaluator, EvaluationPlotter
-
+from src.preprocessing.preprocessor import Preprocessor
+from src.utils.statistics import SKUStatistics
+from src.forecasting.manager.forecast_manager import ForecastManager
+from src.forecasting.evaluation.evaluation import Evaluator, EvaluationPlotter
 
 
 def parse_args():
@@ -66,8 +65,6 @@ def load_config_dict(path) -> dict[str, Any]:
     except FileNotFoundError:
         logging.warning(f"Config file not found: {path}. Returning empty config.")
         return {}
-
-
 
 
 def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
@@ -109,14 +106,16 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
     wandb.update({"log_wandb": log_wandb})
 
     return GlobalConfig(
-        system=SystemConfig(GPU=system.get("GPU", 0), RANDOM_SEED=system.get("RANDOM_SEED", 42)),
+        system=SystemConfig(
+            GPU=system.get("GPU", 0), RANDOM_SEED=system.get("RANDOM_SEED", 42)
+        ),
         filepaths=FilePathConfig(
             processed_data_dir=filepaths.get("processed_data_dir", "data/processed"),
             sku_stats_dir=filepaths.get("sku_stats_dir", "data/sku_stats"),
             cv_results_dir=filepaths.get("cv_results_dir", "data/cv_results"),
             eval_results_dir=filepaths.get("eval_results_dir", "data/eval_results"),
             eval_plots_dir=filepaths.get("eval_plots_dir", "data/eval_plots"),
-            file_format=FileFormat[filepaths.get("file_format", "FEATHER")]
+            file_format=FileFormat[filepaths.get("file_format", "FEATHER")],
         ),
         datasets=DatasetConfig(names=[DatasetName[name] for name in dataset_names]),
         input_columns=InputColumnConfig(
@@ -175,7 +174,6 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
     )
 
 
-
 def main():
 
     logging.basicConfig(level=logging.INFO)
@@ -198,7 +196,6 @@ def main():
     wandb_orchestrator.login()
     wandb_orchestrator.start_run()
 
-
     for dataset_name in cfg.datasets.names:
 
         # 1) Load dataset
@@ -206,7 +203,7 @@ def main():
         cfg.set_dataset(dataset_name, dataset)
 
         # 2) Preprocessing
-        prep = NixtlaPreprocessor(
+        prep = Preprocessor(
             dataset,
             cfg.input_columns,
             cfg.preprocessing,
@@ -226,22 +223,28 @@ def main():
             freq=cfg.forecast.freq,
         )
         sku_stats_df = sku_stats.compute_statistics()
-        DataFrameHandler.write_dataframe(sku_stats_df, cfg.filepaths.sku_stats, cfg.filepaths.file_format)
+        DataFrameHandler.write_dataframe(
+            sku_stats_df, cfg.filepaths.sku_stats, cfg.filepaths.file_format
+        )
 
         df = prep.preprocess_data(df)
 
         # save df
-        DataFrameHandler.write_dataframe(df, cfg.filepaths.processed_data, cfg.filepaths.file_format)
+        DataFrameHandler.write_dataframe(
+            df, cfg.filepaths.processed_data, cfg.filepaths.file_format
+        )
 
         # 3) Cross-validation
-        trainer = ForecastTrainer(cfg.forecast, cfg.forecast_columns)
+        trainer = ForecastManager(cfg.forecast, cfg.forecast_columns)
         cv_df = trainer.cross_validate(
             df=df,
             cv_config=cfg.cross_validation,
         )
 
-        # save cv_df 
-        DataFrameHandler.write_dataframe(cv_df, cfg.filepaths.cv_results, cfg.filepaths.file_format)
+        # save cv_df
+        DataFrameHandler.write_dataframe(
+            cv_df, cfg.filepaths.cv_results, cfg.filepaths.file_format
+        )
 
         # 4) Evaluation
         evaluator = Evaluator(cfg.metrics, cfg.forecast_columns)
@@ -250,7 +253,9 @@ def main():
         wandb_orchestrator.log_metrics(metrics_summary, dataset_name)
 
         # 4) Save & log results
-        DataFrameHandler.write_dataframe(eval_df, cfg.filepaths.eval_results, cfg.filepaths.file_format)
+        DataFrameHandler.write_dataframe(
+            eval_df, cfg.filepaths.eval_results, cfg.filepaths.file_format
+        )
 
         wandb_orchestrator.log_artifact(
             name="evaluation-results",

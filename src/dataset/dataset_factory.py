@@ -10,7 +10,7 @@ from demandbench.datasets import (
     load_hoteldemand,
     load_onlineretail,
 )
-from src.configurations.enums import DatasetName
+from src.configurations.utils.enums import DatasetName
 
 import logging
 
