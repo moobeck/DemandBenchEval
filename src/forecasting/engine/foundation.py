@@ -1,51 +1,23 @@
-from abc import ABC, abstractmethod
 from typing import Any, List
-from typing import Iterable
 import pandas as pd
 from statsforecast import StatsForecast
 from neuralforecast import NeuralForecast
 from src.configurations.data.forecast_column import ForecastColumnConfig
 from src.configurations.forecasting.forecasting import ForecastConfig
 from src.configurations.evaluation.cross_validation import CrossValDatasetConfig
-from src.forecasting.engine.foundation.utils import GluonTSForecaster
+from src.forecasting.models.foundation.utils import GluonTSForecaster
 from src.utils.quantile import QuantileUtils
+from src.forecasting.engine.abstract import ForecastEngine
 import logging
 
 FoundationModelWrapper = Any  # abstract type placeholder for foundation model wrappers
 
 
-class ForecastEngine(ABC):
-    @abstractmethod
-    def cross_validation(self, **kwargs: Any) -> pd.DataFrame:
-        """
-        Perform cross-validation for the forecasting engine.
-
-        Args:
-            **kwargs: Additional arguments for cross-validation.
-
-        Returns:
-            pd.DataFrame: Cross-validation results.
-        """
-        pass
-
-    @staticmethod
-    def _combine_results(
-        dfs: List[pd.DataFrame],
-    ) -> pd.DataFrame:
-        """
-        Concatenate and dedupe columns.
-        """
-        df_reset = [df.reset_index(drop=True) for df in dfs]
-
-        combined = pd.concat(df_reset, axis=1).reset_index()
-        # Drop any duplicated forecast columns, keep first
-        return combined.loc[:, ~combined.columns.duplicated()].copy()
 
 
 class FoundationModelEngine(ForecastEngine):
     """
     Engine for Foundation Models (FM)
-    These models have special requirements and interfaces.
     """
 
     def __init__(self, models: List[FoundationModelWrapper], freq: str, **kwargs):

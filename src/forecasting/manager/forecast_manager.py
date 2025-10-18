@@ -1,13 +1,10 @@
 import logging
 import pandas as pd
 from typing import Any, Dict, List
-from src.forecasting.engine.engine import (
-    ForecastEngine,
-    StatsForecastEngine,
-    AutoMLForecastEngine,
-    NeuralForecastEngine,
-    FoundationModelEngine,
-)
+from src.forecasting.engine.abstract import ForecastEngine
+from src.forecasting.engine.statistical import StatsForecastEngine
+from src.forecasting.engine.neural import NeuralForecastEngine
+from src.forecasting.engine.foundation import FoundationModelEngine
 from src.configurations.data.forecast_column import ForecastColumnConfig
 from src.configurations.forecasting.forecasting import ForecastConfig
 from src.configurations.utils.enums import Framework, Frequency
