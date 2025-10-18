@@ -24,12 +24,15 @@ class ModelName(Enum):
     TIDE = "tide"
     NHITS = "nhits"
     DEEPAR = "depar"
+    NBEATS = "nbeats"
     BITCN = "bitcn"
     TABPFN = "tabpfn"
     TOTO = "toto"
     GRU="gru"
     TCN = "tcn"
     TFT = "tft"
+    PATCHTST = "patchtst"
+    XLSTM = "xlstm"
 
 
 class MetricName(Enum):

@@ -6,6 +6,7 @@ import numpy as np
 from typing import Any
 from src.configurations.file_path import FilePathConfig
 from src.configurations.datasets import DatasetConfig
+from src.configurations.system import SystemConfig
 from src.configurations.input_column import InputColumnConfig
 from src.configurations.forecast_column import ForecastColumnConfig
 from src.configurations.cross_validation import (
@@ -28,18 +29,13 @@ from src.configurations.global_cfg import GlobalConfig
 from src.configurations.preprocessing import PreprocessingConfig
 from src.utils.wandb_orchestrator import WandbOrchestrator
 from src.utils.dataframe import DataFrameHandler
+from src.utils.system_settings import SystemSettings
 from src.dataset.dataset_factory import DatasetFactory
 from src.preprocessing.nixtla_preprocessor import NixtlaPreprocessor
 from src.preprocessing.statistics import SKUStatistics
 from src.forecasting.training import ForecastTrainer
 from src.forecasting.evaluation import Evaluator, EvaluationPlotter
-import torch
 
-import os
-
-os.environ["CUDA_VISIBLE_DEVICES"] = os.getenv(
-    "CUDA_VISIBLE_DEVICES", "1"
-)  # Default to GPU 1 if not set
 
 
 def parse_args():
@@ -72,17 +68,13 @@ def load_config_dict(path) -> dict[str, Any]:
         return {}
 
 
-def set_seed(seed: int):
-    """
-    Set seeds for all relevant random number generators.
-    """
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
 
 
 def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
+
+    system = public_config.get("system", {})
+    if not system:
+        logging.warning("No system settings provided in the public config.")
 
     filepaths = public_config.get("filepaths", {})
     if not filepaths:
@@ -116,12 +108,8 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
         logging.warning("No W&B settings provided in the private config.")
     wandb.update({"log_wandb": log_wandb})
 
-    seed = public_config.get("seed", None)
-    if not seed:
-        logging.warning("No seed provided in the public config. Using default seed 42.")
-        seed = 42
-
     return GlobalConfig(
+        system=SystemConfig(GPU=system.get("GPU", 0), RANDOM_SEED=system.get("RANDOM_SEED", 42)),
         filepaths=FilePathConfig(
             processed_data_dir=filepaths.get("processed_data_dir", "data/processed"),
             sku_stats_dir=filepaths.get("sku_stats_dir", "data/sku_stats"),
@@ -184,16 +172,8 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
             project=(wandb.get("project", "bench-forecast") if wandb else None),
             log_wandb=wandb.get("log_wandb", False) if wandb else False,
         ),
-        seed=seed,
     )
 
-
-def set_seed(seed: int):
-    """
-    Set seeds for all relevant random number generators.
-    """
-    random.seed(seed)
-    np.random.seed(seed)
 
 
 def main():
@@ -206,6 +186,10 @@ def main():
 
     cfg = build_config(public_cfg_dict, private_cfg_dict)
 
+    # System settings
+    system_settings = SystemSettings(cfg.system)
+    system_settings.configure_environment()
+    system_settings.set_seed()
     # Ensure directories exist
     cfg.filepaths.ensure_directories_exist()
 
@@ -214,8 +198,6 @@ def main():
     wandb_orchestrator.login()
     wandb_orchestrator.start_run()
 
-    # initialize
-    set_seed(cfg.seed)
 
     for dataset_name in cfg.datasets.names:
 

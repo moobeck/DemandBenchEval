@@ -14,11 +14,13 @@ from neuralforecast.auto import (
     AutoNHITS,
     AutoTiDE,
     AutoDeepAR,
+    AutoNBEATSx,
     AutoBiTCN,
     AutoGRU, 
     AutoTFT,
-    AutoTCN
-    
+    AutoTCN,
+    AutoPatchTST, 
+    AutoxLSTM
 )
 from dataclasses import dataclass, field
 from typing import List, Dict, Any
@@ -123,6 +125,11 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
         framework=Framework.NEURAL,
         default_params=DefaultParams.NEURAL,
     ),
+    ModelName.NBEATS: ModelSpec(
+        factory=lambda **p: AutoNBEATSx(**p),
+        framework=Framework.NEURAL,
+        default_params=DefaultParams.NEURAL,
+    ),
     ModelName.DEEPAR: ModelSpec(
         factory=lambda **p: AutoDeepAR(**p),
         framework=Framework.NEURAL,
@@ -148,6 +155,17 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
         framework=Framework.NEURAL,
         default_params=DefaultParams.NEURAL,
     ),
+    ModelName.PATCHTST: ModelSpec(
+        factory=lambda **p: AutoPatchTST(**p),
+        framework=Framework.NEURAL,
+        default_params=DefaultParams.NEURAL,
+    ),
+    ModelName.XLSTM: ModelSpec(
+        factory=lambda **p: AutoxLSTM(**p),
+        framework=Framework.NEURAL,
+        default_params=DefaultParams.NEURAL,
+    ),
+
     
 }
 

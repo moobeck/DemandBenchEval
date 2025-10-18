@@ -176,6 +176,21 @@ class NixtlaPreprocessor:
         date_encoder = DateEncoder(freq=freq)
         self._forecast_columns.add_exogenous(date_encoder.out_columns)
 
+        ml_forecast = MLForecast(
+        models=[],
+        freq=self._forecast.freq,
+        target_transforms=[local_scaler],
+        date_features=date_encoder.get_encoders(),
+        )
+
+        df = ml_forecast.preprocess(
+            df,
+            id_col=self._forecast_columns.sku_index,
+            time_col=self._forecast_columns.date,
+            target_col=self._forecast_columns.target,
+            static_features=self._forecast_columns.static,
+        )
+
         category_encoder = CategoryEncoder(
             cv_cfg=cross_validation, freq=freq, forecast_columns=self._forecast_columns
         )
@@ -193,20 +208,7 @@ class NixtlaPreprocessor:
             )
         )
 
-        ml_forecast = MLForecast(
-            models=[],
-            freq=self._forecast.freq,
-            target_transforms=[local_scaler],
-            date_features=date_encoder.get_encoders(),
-        )
 
-        df = ml_forecast.preprocess(
-            df,
-            id_col=self._forecast_columns.sku_index,
-            time_col=self._forecast_columns.date,
-            target_col=self._forecast_columns.target,
-            static_features=self._forecast_columns.static,
-        )
 
         stats_encoder = StatisticalFeaturesEncoder(
             cv_cfg=cross_validation,
