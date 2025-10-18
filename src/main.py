@@ -14,8 +14,9 @@ from src.configurations.evaluation.cross_validation import (
     CrossValWindowConfig,
     CrossValDatasetConfig,
 )
-from src.configurations.model.forecasting import ForecastConfig
+from src.configurations.forecasting.forecasting import ForecastConfig
 from src.configurations.evaluation.metrics import MetricConfig
+from src.configurations.forecasting.quantile import QuantileConfig
 from src.configurations.utils.enums import (
     ModelName,
     MetricName,
@@ -33,7 +34,7 @@ from src.utils.system_settings import SystemSettings
 from src.dataset.dataset_factory import DatasetFactory
 from src.preprocessing.preprocessor import Preprocessor
 from src.utils.statistics import SKUStatistics
-from src.forecasting.manager.forecast_manager import ForecastManager
+from src.forecasting.manager.forecast_manager import CrossValidator
 from src.forecasting.evaluation.evaluation import Evaluator, EvaluationPlotter
 
 
@@ -119,7 +120,7 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
         ),
         datasets=DatasetConfig(names=[DatasetName[name] for name in dataset_names]),
         input_columns=InputColumnConfig(
-            sku_index=input_colums["sku_index"],
+            time_series_index=input_colums["time_series_index"],
             date=input_colums["date"],
             target=input_colums["target"],
             frequency=input_colums["frequency"],
@@ -128,7 +129,7 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
             target_transform=TargetScalerType[preprocessing["target_transform"]],
         ),
         forecast_columns=ForecastColumnConfig(
-            sku_index=forecast_columns["sku_index"],
+            time_series_index=forecast_columns["time_series_index"],
             date=forecast_columns["date"],
             product_index=forecast_columns.get("product_index", "productID"),
             store_index=forecast_columns.get("store_index", "storeID"),
@@ -163,7 +164,7 @@ def build_config(public_config: dict, private_config: dict) -> GlobalConfig:
         metrics=MetricConfig(
             names=[MetricName[name] for name in public_config["metrics"]["metrics"]],
             seasonality=public_config["metrics"].get("seasonality", None),
-            quantiles=public_config["metrics"].get("quantiles", None),
+            quantiles=QuantileConfig(**public_config["metrics"].get("quantiles", None)),
         ),
         wandb=WandbConfig(
             api_key=(wandb.get("api_key") if wandb else None),
@@ -198,11 +199,11 @@ def main():
 
     for dataset_name in cfg.datasets.names:
 
-        # 1) Load dataset
+        # Load dataset
         dataset = DatasetFactory.create_dataset(dataset_name)
         cfg.set_dataset(dataset_name, dataset)
 
-        # 2) Preprocessing
+        # Preprocessing
         prep = Preprocessor(
             dataset,
             cfg.input_columns,
@@ -221,6 +222,7 @@ def main():
             forecast_columns=cfg.forecast_columns,
             cross_validation=cfg.cross_validation,
             freq=cfg.forecast.freq,
+            forecast=cfg.forecast,
         )
         sku_stats_df = sku_stats.compute_statistics()
         DataFrameHandler.write_dataframe(
@@ -229,30 +231,27 @@ def main():
 
         df = prep.preprocess_data(df)
 
-        # save df
         DataFrameHandler.write_dataframe(
             df, cfg.filepaths.processed_data, cfg.filepaths.file_format
         )
 
-        # 3) Cross-validation
-        trainer = ForecastManager(cfg.forecast, cfg.forecast_columns)
-        cv_df = trainer.cross_validate(
+        # Cross-validation
+        cross_validator = CrossValidator(cfg.forecast, cfg.forecast_columns)
+        cv_df = cross_validator.cross_validate(
             df=df,
             cv_config=cfg.cross_validation,
         )
 
-        # save cv_df
         DataFrameHandler.write_dataframe(
             cv_df, cfg.filepaths.cv_results, cfg.filepaths.file_format
         )
 
-        # 4) Evaluation
+        # Evaluation
         evaluator = Evaluator(cfg.metrics, cfg.forecast_columns)
         eval_df = evaluator.evaluate(cv_df, train_df=df)
         metrics_summary = evaluator.summarize_metrics(eval_df)
         wandb_orchestrator.log_metrics(metrics_summary, dataset_name)
 
-        # 4) Save & log results
         DataFrameHandler.write_dataframe(
             eval_df, cfg.filepaths.eval_results, cfg.filepaths.file_format
         )
@@ -263,7 +262,6 @@ def main():
             type_="results",
         )
 
-        # 5) Plot & log
         fig = EvaluationPlotter(
             eval_df,
             forecast_columns=cfg.forecast_columns,

@@ -1,5 +1,6 @@
 from typing import Any, Dict, List, Optional
-from src.configurations.model.forecasting import QuantileConfig
+from src.configurations.forecasting.quantile import QuantileConfig
+
 
 class QuantileUtils:
 

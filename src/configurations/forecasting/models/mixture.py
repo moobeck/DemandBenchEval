@@ -19,7 +19,7 @@ from neuralforecast.losses.pytorch import (
     level_to_outputs,
     weighted_average,
 )
-from src.configurations.model.quantile import QuantileUtils
+from src.configurations.forecasting.utils.quantile import QuantileUtils
 
 
 class TruncatedNormal(Distribution):

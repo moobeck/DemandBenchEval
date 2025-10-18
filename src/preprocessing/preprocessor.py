@@ -11,7 +11,7 @@ from src.preprocessing.encoder.statistical_encoder import StatisticalFeaturesEnc
 from src.configurations.utils.enums import Frequency
 from src.configurations.data.input_column import InputColumnConfig
 from src.configurations.data.preprocessing import PreprocessingConfig
-from src.configurations.model.forecasting import ForecastConfig
+from src.configurations.forecasting.forecasting import ForecastConfig
 from src.configurations.data.forecast_column import ForecastColumnConfig
 from src.configurations.evaluation.cross_validation import CrossValidationConfig
 import logging
@@ -66,7 +66,7 @@ class Preprocessor:
         if self.df_merged is None:
             raise ValueError("Data not merged. Call merge() first.")
 
-        sku_col = self._input_columns.sku_index
+        time_series_col = self._input_columns.time_series_index
         date_col = self._input_columns.date
 
         if skus == "not_at_min_date":
@@ -74,13 +74,15 @@ class Preprocessor:
 
             # Find SKUs that have entries on the minimum date
             skus_to_keep = self.df_merged[self.df_merged[date_col] == min_date][
-                sku_col
+                time_series_col
             ].unique()
 
             # Keep only rows with those SKUs
-            self.df_merged = self.df_merged[self.df_merged[sku_col].isin(skus_to_keep)]
+            self.df_merged = self.df_merged[
+                self.df_merged[time_series_col].isin(skus_to_keep)
+            ]
         else:
-            self.df_merged = self.df_merged[~self.df_merged[sku_col].isin(skus)]
+            self.df_merged = self.df_merged[~self.df_merged[time_series_col].isin(skus)]
 
         return self.df_merged
 
@@ -110,7 +112,7 @@ class Preprocessor:
 
         df = df[
             [
-                self._input_columns.sku_index,
+                self._input_columns.time_series_index,
                 self._forecast_columns.date,
                 self._input_columns.target,
                 *(self._forecast_columns.exogenous),
@@ -123,7 +125,7 @@ class Preprocessor:
         df = fill_gaps(
             df,
             freq=frequency_alias,
-            id_col=self._input_columns.sku_index,
+            id_col=self._input_columns.time_series_index,
             time_col=self._forecast_columns.date,
         )
 
@@ -135,7 +137,7 @@ class Preprocessor:
         # rename columns to Nixtla standard
         df = df.rename(
             columns={
-                self._input_columns.sku_index: self._forecast_columns.sku_index,
+                self._input_columns.time_series_index: self._forecast_columns.time_series_index,
                 self._input_columns.target: self._forecast_columns.target,
             }
         )
@@ -170,7 +172,7 @@ class Preprocessor:
             df[non_cat_exog] = global_min_max_scaler.fit_transform(df[non_cat_exog])
 
         local_scaler = TargetScalerFactory.create_scaler(
-            self._preprocessing, cross_validation, freq
+            self._preprocessing, cross_validation, freq, self._forecast
         )
 
         date_encoder = DateEncoder(freq=freq)
@@ -185,7 +187,7 @@ class Preprocessor:
 
         df = ml_forecast.preprocess(
             df,
-            id_col=self._forecast_columns.sku_index,
+            id_col=self._forecast_columns.time_series_index,
             time_col=self._forecast_columns.date,
             target_col=self._forecast_columns.target,
             static_features=self._forecast_columns.static,
@@ -215,6 +217,7 @@ class Preprocessor:
             cv_cfg=cross_validation,
             freq=freq,
             forecast_columns=self._forecast_columns,
+            forecast=self._forecast,
         )
         df = stats_encoder.fit_transform(df)
 

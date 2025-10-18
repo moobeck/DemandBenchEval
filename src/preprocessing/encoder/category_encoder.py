@@ -1,9 +1,9 @@
 from category_encoders import CatBoostEncoder
 import pandas as pd
 
-from src.configurations.cross_validation import CrossValidationConfig
-from src.configurations.enums import Frequency
-from src.configurations.forecast_column import ForecastColumnConfig
+from src.configurations.evaluation.cross_validation import CrossValidationConfig
+from src.configurations.utils.enums import Frequency
+from src.configurations.data.forecast_column import ForecastColumnConfig
 
 
 class CategoryEncoder:

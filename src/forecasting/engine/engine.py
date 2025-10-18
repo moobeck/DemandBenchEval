@@ -3,18 +3,17 @@ from typing import Any, List
 from typing import Iterable
 import pandas as pd
 from statsforecast import StatsForecast
-from mlforecast.auto import AutoMLForecast, AutoLightGBM
+from mlforecast.auto import AutoMLForecast
 from mlforecast import MLForecast
 from neuralforecast import NeuralForecast
-from src.configurations.utils.enums import Framework
 from src.configurations.data.forecast_column import ForecastColumnConfig
-from src.configurations.model.forecasting import ForecastConfig
-from src.configurations.utils.enums import Frequency
-from src.forecasting.foundation_model_base import FoundationModelWrapper
+from src.configurations.forecasting.forecasting import ForecastConfig
 from src.configurations.evaluation.cross_validation import CrossValDatasetConfig
-from src.forecasting.foundation.utils import GluonTSForecaster
+from src.forecasting.engine.foundation.utils import GluonTSForecaster
 from src.utils.quantile import QuantileUtils
 import logging
+
+FoundationModelWrapper = Any  # abstract type placeholder for foundation model wrappers
 
 
 class ForecastEngine(ABC):
@@ -84,13 +83,14 @@ class FoundationModelEngine(ForecastEngine):
 
         step_size = cv_config.test.step_size
         n_windows = cv_config.test.n_windows
-        quantiles = QuantileUtils.create_quantiles(forecast_config.foundationconfig.quantile)
-
+        quantiles = QuantileUtils.create_quantiles(
+            forecast_config.foundationconfig.quantile
+        )
 
         for model_name, model in self.models.items():
             logging.info(f"Cross-validating foundation model: {model_name}")
-           
-           # Give type hint that model is GluonTSForecaster
+
+            # Give type hint that model is GluonTSForecaster
             model: GluonTSForecaster
 
             fcst = model.cross_validation(
@@ -100,12 +100,11 @@ class FoundationModelEngine(ForecastEngine):
                 step_size=step_size,
                 quantiles=quantiles,
                 n_windows=n_windows,
-                id_col=forecast_columns.sku_index,
+                id_col=forecast_columns.time_series_index,
                 target_col=forecast_columns.target,
                 time_col=forecast_columns.date,
             )
             results.append(fcst)
-
 
         # Combine results from all models
         combined_results = self._combine_results(results)
@@ -125,7 +124,6 @@ class StatsForecastEngine(ForecastEngine):
         id_col: str = None,
         target_col: str = None,
         time_col: str = None,
-    
     ):
         n_windows = cv_config.test.n_windows
         step_size = cv_config.test.step_size
@@ -173,6 +171,7 @@ class AutoMLForecastEngine(ForecastEngine):
             max_date=df[forecast_columns.date].max(),
             freq=forecast_config.freq,
             split="val",
+            horizon=forecast_config.horizon,
         )
         df_fit = df[df[forecast_columns.date] <= cutoff]
 
@@ -188,7 +187,7 @@ class AutoMLForecastEngine(ForecastEngine):
             target_col=target_col,
             time_col=time_col,
         )
-        
+
         # Now get the models to do the cross-validation
         dfs = []
         models: Iterable[MLForecast] = self._engine.models_.values()

@@ -3,7 +3,7 @@ from utilsforecast.evaluation import evaluate
 import logging
 from src.configurations.evaluation.metrics import MetricConfig
 from src.configurations.data.forecast_column import ForecastColumnConfig
-from src.configurations.model.quantile import QuantileUtils
+from src.configurations.forecasting.utils.quantile import QuantileUtils
 import seaborn as sns
 from typing import Optional, List, Dict, Any
 from matplotlib import pyplot as plt
@@ -31,7 +31,7 @@ class Evaluator:
         """
         # Get all columns that are not metadata columns
         metadata_cols = {
-            self._forecast_columns.sku_index,
+            self._forecast_columns.time_series_index,
             self._forecast_columns.date,
             self._forecast_columns.target,
             self._forecast_columns.cutoff,
@@ -115,7 +115,7 @@ class Evaluator:
             models=model_names,
             target_col=self._forecast_columns.target,
             time_col=self._forecast_columns.date,
-            id_col=self._forecast_columns.sku_index,
+            id_col=self._forecast_columns.time_series_index,
             metrics=list(self.metrics.values()),
             level=self._get_level(),
             **kwargs,
@@ -186,7 +186,7 @@ class EvaluationPlotter:
         Transforms the wide evaluations DataFrame into a long format.
         """
         # Identify model columns
-        id_cols = [self.forecast_columns.sku_index, "metric"]
+        id_cols = [self.forecast_columns.time_series_index, "metric"]
         model_cols = [c for c in self.evaluations.columns if c not in id_cols]
 
         # Melt into long form

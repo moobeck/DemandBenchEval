@@ -1,7 +1,6 @@
 from dataclasses import dataclass, field
 from typing import List
 from demandbench.datasets import Dataset
-from demandbench.datasets.metadata import VariableType
 
 
 @dataclass
@@ -11,7 +10,7 @@ class ForecastColumnConfig:
     """
 
     date: str = "date"
-    sku_index: str = "skuID"
+    time_series_index: str = "skuID"
     target: str = "demand"
     store_index: str = "storeID"
     product_index: str = "productID"
@@ -26,7 +25,7 @@ class ForecastColumnConfig:
         """
         Returns the three core columns for time-series: SKU, date, and target.
         """
-        return [self.sku_index, self.date, self.target]
+        return [self.time_series_index, self.date, self.target]
 
     def set_base_exogenous(self, dataset: Dataset):
         """
@@ -39,30 +38,25 @@ class ForecastColumnConfig:
         Sets the exogenous features for dataset.
         """
         self.exogenous = self.base_exogenous + [
-            feature.name
+            feature
             for feature in dataset.metadata.exo_features
-            if feature.name not in self.base_exogenous
+            if feature not in self.base_exogenous
         ]
 
     def set_static(self, dataset: Dataset):
         """
         Sets the static features for dataset.
         """
-        self.static = [
-            feature.name
-            for feature in dataset.metadata.sku_features
-            if feature.name in self.exogenous
-        ]
+        self.static = dataset.metadata.static_features
 
     def set_categorical(self, dataset: Dataset):
         """
         Sets the categorical features for dataset.
         """
         self.categorical = [
-            feature.name
-            for feature in dataset.metadata.features
-            if feature.var_type == VariableType.CATEGORICAL
-            and feature.name in self.exogenous
+            feature
+            for feature in dataset.metadata.categorical_features
+            if feature in self.exogenous
         ]
 
     def set_columns(self, dataset: Dataset):

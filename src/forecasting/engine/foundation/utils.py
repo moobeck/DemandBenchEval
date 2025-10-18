@@ -176,7 +176,6 @@ class GluonTSForecaster(Forecaster):
                 num_samples=self.num_samples,
             )
 
-
         fcst_df = self.gluonts_fcsts_to_df(
             fcsts,
             freq=freq,
@@ -234,8 +233,6 @@ class GluonTSForecaster(Forecaster):
             pd.DataFrame:
                 DataFrame containing the forecasts in long format
         """
-            
-
 
         return self.cross_validation(
             df=df,
@@ -250,4 +247,3 @@ class GluonTSForecaster(Forecaster):
             time_col=time_col,
             target_col=target_col,
         )
-

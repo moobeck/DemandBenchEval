@@ -3,6 +3,7 @@ import scipy.stats
 from src.configurations.evaluation.cross_validation import CrossValidationConfig
 from src.configurations.utils.enums import Frequency
 from src.configurations.data.forecast_column import ForecastColumnConfig
+from src.configurations.forecasting.forecasting import ForecastConfig
 
 
 class StatisticalFeaturesEncoder:
@@ -12,6 +13,7 @@ class StatisticalFeaturesEncoder:
         cv_cfg: CrossValidationConfig,
         freq: Frequency,
         forecast_columns: ForecastColumnConfig,
+        forecast: ForecastConfig,
     ):
         """
         Initializes the MomentsEncoder with the specified configuration.
@@ -20,6 +22,7 @@ class StatisticalFeaturesEncoder:
         self.cv_cfg = cv_cfg
         self.freq = freq
         self.forecast_columns = forecast_columns
+        self.forecast = forecast
         self.mean_col = f"{self.forecast_columns.target}_mean"
         self.std_col = f"{self.forecast_columns.target}_std"
         self.skewness_col = f"{self.forecast_columns.target}_skewness"
@@ -33,13 +36,16 @@ class StatisticalFeaturesEncoder:
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         # 1) compute cutoff exactly as before
         cutoff = self.cv_cfg.get_cutoff_date(
-            max_date=df[self.forecast_columns.date].max(), freq=self.freq, split="test"
+            max_date=df[self.forecast_columns.date].max(),
+            freq=self.freq,
+            split="test",
+            horizon=self.forecast.horizon,
         )
 
         df_train = df[df[self.forecast_columns.date] <= cutoff]
 
         # 2) vectorized groupby + agg
-        stats = df_train.groupby(self.forecast_columns.sku_index)[
+        stats = df_train.groupby(self.forecast_columns.time_series_index)[
             self.forecast_columns.target
         ].agg(
             mean="mean",
@@ -57,8 +63,8 @@ class StatisticalFeaturesEncoder:
         df = df.merge(
             stats.reset_index(),
             how="left",
-            left_on=self.forecast_columns.sku_index,
-            right_on=self.forecast_columns.sku_index,
+            left_on=self.forecast_columns.time_series_index,
+            right_on=self.forecast_columns.time_series_index,
         )
 
         # 4) rename or assign to your desired column names

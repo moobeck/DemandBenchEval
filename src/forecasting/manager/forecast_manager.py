@@ -9,15 +9,14 @@ from src.forecasting.engine.engine import (
     FoundationModelEngine,
 )
 from src.configurations.data.forecast_column import ForecastColumnConfig
-from src.configurations.model.forecasting import ForecastConfig
+from src.configurations.forecasting.forecasting import ForecastConfig
 from src.configurations.utils.enums import Framework, Frequency
 from src.configurations.evaluation.cross_validation import CrossValDatasetConfig
 
 
-class ForecastManager:
+class CrossValidator:
     """
-    Orchestrates model fitting
-    for multiple models from multiple frameworks
+    Class to manage cross-validation across multiple forecasting frameworks.
     """
 
     def __init__(
@@ -170,7 +169,7 @@ class ForecastManager:
 
         return {
             "df": df[cols],
-            "id_col": self._forecast_columns.sku_index,
+            "id_col": self._forecast_columns.time_series_index,
             "target_col": self._forecast_columns.target,
             "time_col": self._forecast_columns.date,
             **kwargs,
@@ -184,7 +183,10 @@ class ForecastManager:
         Build the static_df for the NeuralForecast framework.
         """
         return (
-            df[[self._forecast_columns.sku_index] + self._forecast_columns.static]
+            df[
+                [self._forecast_columns.time_series_index]
+                + self._forecast_columns.static
+            ]
             .drop_duplicates()
             .reset_index(drop=True)
         )
@@ -200,7 +202,7 @@ class ForecastManager:
         df_out = engine.cross_validation(**cv_kwargs)
 
         return df_out.set_index(
-            [self._forecast_columns.sku_index, self._forecast_columns.date],
+            [self._forecast_columns.time_series_index, self._forecast_columns.date],
             drop=True,
         )
 
@@ -241,7 +243,7 @@ class ForecastManager:
                 # Get the index column names (should be the first columns after reset_index)
                 index_cols = df.columns[
                     :2
-                ].tolist()  # Assuming 2-level index (sku_index, date)
+                ].tolist()  # Assuming 2-level index (time_series_index, date)
                 base_df = pd.merge(base_df, df, on=index_cols, how="outer")
 
             combined = base_df

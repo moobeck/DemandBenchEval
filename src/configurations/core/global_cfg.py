@@ -7,7 +7,7 @@ from src.configurations.data.input_column import InputColumnConfig
 from src.configurations.data.preprocessing import PreprocessingConfig
 from src.configurations.data.forecast_column import ForecastColumnConfig
 from src.configurations.evaluation.cross_validation import CrossValidationConfig
-from src.configurations.model.forecasting import ForecastConfig
+from src.configurations.forecasting.forecasting import ForecastConfig
 from src.configurations.evaluation.metrics import MetricConfig
 from src.configurations.utils.wandb import WandbConfig
 from src.configurations.utils.enums import DatasetName

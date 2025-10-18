@@ -8,8 +8,7 @@ class InputColumnConfig:
     A dataclass to store the names of the columns used in the input DataFrame.
     """
 
-    date: str = "dateID"
-    dp_index: str = "bdID"
-    sku_index: str = "skuID"
+    date: str = "date"
+    time_series_index: str = "skuID"
     target: str = "target"
     frequency: str = "frequency"

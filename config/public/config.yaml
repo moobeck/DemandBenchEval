@@ -10,16 +10,15 @@ filepaths:
   eval_plots_dir: data/eval_plots/
   file_format: CSV
 input_columns:
-  date: dateID
-  dp_index: bdID
-  sku_index: skuID
+  date: date
+  time_series_index: timeSeriesID
   target: target
   frequency: frequency
 datasets:
 - BAKERY
 forecast_columns:
   date: date
-  sku_index: skuID
+  time_series_index: timeSeriesID
   product_index: productID
   store_index: storeID
   target: demand
@@ -28,7 +27,7 @@ preprocessing:
   target_transform: LOCAL_MAX
 forecast:
   models:
-  - TCN  
+  - TCN
   model_config:
     ML:
       num_samples: 5

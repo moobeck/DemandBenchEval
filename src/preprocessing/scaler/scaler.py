@@ -2,16 +2,19 @@ from mlforecast.target_transforms import BaseTargetTransform
 import pandas as pd
 from src.configurations.evaluation.cross_validation import CrossValidationConfig
 from src.configurations.utils.enums import Frequency, TargetScalerType
+from src.configurations.forecasting.forecasting import ForecastConfig
 from src.configurations.data.preprocessing import PreprocessingConfig
 
 
 class TargetScaler(BaseTargetTransform):
     """Base class for target scaling transforms that use a cutoff based on cross-validation configuration."""
 
-    def __init__(self, cv_cfg: CrossValidationConfig, freq: Frequency):
+    def __init__(
+        self, cv_cfg: CrossValidationConfig, freq: Frequency, forecast: ForecastConfig
+    ):
         self.cv_cfg = cv_cfg
         self.freq = freq
-        self.stats_: pd.DataFrame = None
+        self.forecast = forecast
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         raise NotImplementedError("Subclasses should implement this method.")
@@ -22,7 +25,10 @@ class TargetScaler(BaseTargetTransform):
     def _calculate_cutoff(self, df: pd.DataFrame) -> pd.Timestamp:
         """Calculate the cutoff timestamp based on frequency and CV configuration."""
         return self.cv_cfg.get_cutoff_date(
-            max_date=df[self.time_col].max(), freq=self.freq, split="test"
+            max_date=df[self.time_col].max(),
+            freq=self.freq,
+            split="test",
+            horizon=self.forecast.horizon,
         )
 
 
@@ -31,15 +37,18 @@ class TargetScalerFactory:
 
     @staticmethod
     def create_scaler(
-        scaler_type: PreprocessingConfig, cv_cfg: CrossValidationConfig, freq: Frequency
+        scaler_type: PreprocessingConfig,
+        cv_cfg: CrossValidationConfig,
+        freq: Frequency,
+        forecast: ForecastConfig,
     ):
         """Create a target scaler based on the specified type."""
         if scaler_type.target_transform == TargetScalerType.LOCAL_STANDARD:
-            return LocalStandardScaler(cv_cfg, freq)
+            return LocalStandardScaler(cv_cfg, freq, forecast)
         elif scaler_type.target_transform == TargetScalerType.LOCAL_MAX:
-            return LocalMaxScaler(cv_cfg, freq)
+            return LocalMaxScaler(cv_cfg, freq, forecast)
         elif scaler_type.target_transform == TargetScalerType.LOCAL_ROBUST:
-            return LocalRobustScaler(cv_cfg, freq)
+            return LocalRobustScaler(cv_cfg, freq, forecast)
         else:
             raise ValueError(
                 f"Unsupported target scaler type: {scaler_type.target_transform}"

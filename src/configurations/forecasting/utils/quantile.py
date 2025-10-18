@@ -4,9 +4,6 @@ from typing import Optional, List
 from src.utils.quantile import QuantileUtils
 
 
-
-
-
 class QuantileLossFactory:
     """
     Factory class to create quantile-specific loss functions based on configuration.

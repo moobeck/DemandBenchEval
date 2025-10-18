@@ -58,7 +58,6 @@ python -m src.main -c config/public/config.yaml -s config/private/config.yaml
 Build the container (only needs to be done once):
 ```bash
 docker build --build-arg GITHUB_TOKEN=your_github_token_here -t demandbench .
-
 ```
 Run with a bind mount to persist Feather outputs into your local data/ folder:
 ```bash
