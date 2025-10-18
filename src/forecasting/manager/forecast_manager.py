@@ -30,25 +30,6 @@ class CrossValidator:
 
         self._factory = {
             Framework.STATS: (StatsForecastEngine, {}),
-            Framework.ML: (
-                AutoMLForecastEngine,
-                {
-                    "init_config": lambda trial: (
-                        {
-                            "lags": self._forecast_config.lags,
-                        }
-                    ),
-                    "fit_config": lambda trial: {
-                        "static_features": self._forecast_columns.static,
-                        "max_horizon": self._forecast_config.horizon,
-                    },
-                    "num_samples": (
-                        forecast_config.model_config[Framework.ML]["num_samples"]
-                        if Framework.ML in forecast_config.model_config
-                        else None
-                    ),
-                },
-            ),
             Framework.NEURAL: (
                 NeuralForecastEngine,
                 {},
@@ -136,16 +117,6 @@ class CrossValidator:
                     if col in df.columns
                     if col not in cols
                 ]
-        elif framework == Framework.ML:
-            cols += self._forecast_columns.static
-            if self._forecast_columns.exogenous:
-                cols += [
-                    col
-                    for col in self._forecast_columns.exogenous
-                    if col in df.columns
-                    if col not in cols
-                ]
-
             kwargs["forecast_columns"] = self._forecast_columns
             kwargs["forecast_config"] = self._forecast_config
             kwargs["h"] = self._forecast_config.horizon

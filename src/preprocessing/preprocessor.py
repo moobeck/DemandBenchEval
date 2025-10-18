@@ -176,7 +176,7 @@ class Preprocessor:
         )
 
         date_encoder = DateEncoder(freq=freq)
-        self._forecast_columns.add_exogenous(date_encoder.out_columns)
+        self._forecast_columns.add_exogenous(date_encoder.out_columns, future=True)
 
         ml_forecast = MLForecast(
             models=[],
@@ -202,7 +202,7 @@ class Preprocessor:
 
         df = category_encoder.fit_transform(df)
 
-        self._forecast_columns.add_exogenous(category_encoder.out_columns)
+        self._forecast_columns.add_exogenous(category_encoder.out_columns, future=True)
         # If categorical columns were static, rename them to encoded versions
         self._forecast_columns.rename_static(
             dict(
@@ -221,6 +221,6 @@ class Preprocessor:
         )
         df = stats_encoder.fit_transform(df)
 
-        self._forecast_columns.add_exogenous(stats_encoder.out_columns)
+        self._forecast_columns.add_exogenous(stats_encoder.out_columns, future=True)
 
         return df

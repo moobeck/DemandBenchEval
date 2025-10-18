@@ -1,7 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, TypeAlias
 from statsforecast.models import AutoARIMA, AutoTheta, AutoETS, AutoCES
-from mlforecast.auto import AutoCatboost, AutoLightGBM, AutoRandomForest
 from ...utils.enums import ModelName, Framework, Frequency
 from ...data.forecast_column import ForecastColumnConfig
 from ...data.input_column import InputColumnConfig
@@ -49,7 +48,6 @@ class ModelSpec:
 class DefaultParams:
 
     STATS = {}
-    ML = {}
     NEURAL = {}
     FM = {}
 
@@ -74,21 +72,6 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
         factory=lambda **p: AutoCES(alias="ces", **p),
         framework=Framework.STATS,
         default_params=DefaultParams.STATS,
-    ),
-    ModelName.LGBM: ModelSpec(
-        factory=lambda **p: AutoLightGBM(**p),
-        framework=Framework.ML,
-        default_params=DefaultParams.ML,
-    ),
-    ModelName.CATBOOST: ModelSpec(
-        factory=lambda **p: AutoCatboost(**p),
-        framework=Framework.ML,
-        default_params=DefaultParams.ML,
-    ),
-    ModelName.RF: ModelSpec(
-        factory=lambda **p: AutoRandomForest(**p),
-        framework=Framework.ML,
-        default_params=DefaultParams.ML,
     ),
     ModelName.TRANSFORMER: ModelSpec(
         factory=lambda **p: AutoVanillaTransformer(**p),

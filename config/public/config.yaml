@@ -29,8 +29,6 @@ forecast:
   models:
   - TCN
   model_config:
-    ML:
-      num_samples: 5
     NEURAL:
       gpus: 1
       cpus: 1

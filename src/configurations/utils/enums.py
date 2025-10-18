@@ -3,7 +3,6 @@ from enum import Enum, auto
 
 class Framework(Enum):
     STATS = "STATS"
-    ML = "ML"
     NEURAL = "NEURAL"
     FM = "FM"
 

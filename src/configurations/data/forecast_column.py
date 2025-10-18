@@ -16,6 +16,8 @@ class ForecastColumnConfig:
     product_index: str = "productID"
     base_exogenous: List[str] = field(default_factory=list)
     categorical: List[str] = field(default_factory=list)
+    past_exogenous: List[str] = field(default_factory=list)
+    future_exogenous: List[str] = field(default_factory=list)
     exogenous: List[str] = field(default_factory=list)
     static: List[str] = field(default_factory=list)
     cutoff: str = "cutoff"
@@ -27,11 +29,33 @@ class ForecastColumnConfig:
         """
         return [self.time_series_index, self.date, self.target]
 
-    def set_base_exogenous(self, dataset: Dataset):
+    def set_base_exogenous(self):
         """
         Sets the base exogenous features for dataset.
         """
         self.base_exogenous = [self.store_index, self.product_index]
+
+
+    def set_past_exogenous(self, dataset: Dataset):
+        """
+        Sets the past exogenous features for dataset.
+        """
+        self.past_exogenous = [
+            feature
+            for feature in dataset.metadata.past_exo_features
+            if feature not in self.base_exogenous
+        ]
+
+    def set_future_exogenous(self, dataset: Dataset):
+        """
+        Sets the future exogenous features for dataset.
+        """
+        self.future_exogenous = [
+            feature
+            for feature in dataset.metadata.future_exo_features
+            if feature not in self.base_exogenous
+        ]
+
 
     def set_exogenous(self, dataset: Dataset):
         """
@@ -64,15 +88,22 @@ class ForecastColumnConfig:
         Sets the forecast columns based on the dataset metadata.
         This includes setting exogenous, static, and categorical features.
         """
-        self.set_base_exogenous(dataset)
+        self.set_base_exogenous()
+        self.set_past_exogenous(dataset)
+        self.set_future_exogenous(dataset)
         self.set_exogenous(dataset)
         self.set_static(dataset)
         self.set_categorical(dataset)
 
-    def add_exogenous(self, columns: List[str]):
+    def add_exogenous(self, columns: List[str], future: bool):
         """
         Adds additional exogenous features to the existing list.
         """
+        if future:
+            self.future_exogenous += columns
+        else:
+            self.past_exogenous += columns
+
         self.exogenous += columns
 
     def add_static(self, columns: List[str]):

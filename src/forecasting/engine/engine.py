@@ -3,8 +3,6 @@ from typing import Any, List
 from typing import Iterable
 import pandas as pd
 from statsforecast import StatsForecast
-from mlforecast.auto import AutoMLForecast
-from mlforecast import MLForecast
 from neuralforecast import NeuralForecast
 from src.configurations.data.forecast_column import ForecastColumnConfig
 from src.configurations.forecasting.forecasting import ForecastConfig
@@ -76,7 +74,6 @@ class FoundationModelEngine(ForecastEngine):
     ) -> pd.DataFrame:
         """
         Perform cross-validation for foundation models.
-        Foundation models use a different approach than traditional ML models.
         """
 
         results = []
@@ -139,78 +136,6 @@ class StatsForecastEngine(ForecastEngine):
             target_col=target_col,
             time_col=time_col,
         )
-
-
-class AutoMLForecastEngine(ForecastEngine):
-    def __init__(self, num_samples: int, *args, **kw):
-        self._engine: AutoMLForecast = AutoMLForecast(*args, **kw)
-        self.num_samples = num_samples
-
-    def cross_validation(
-        self,
-        df: pd.DataFrame,
-        h: int,
-        cv_config: CrossValDatasetConfig,
-        forecast_columns: ForecastColumnConfig = None,
-        forecast_config: ForecastConfig = None,
-        id_col: str = None,
-        target_col: str = None,
-        time_col: str = None,
-    ):
-
-        # Filter out the n_windows to get the df used to fit the model
-        n_windows_val = cv_config.val.n_windows
-        step_size_val = cv_config.val.step_size
-        refit_val = cv_config.val.refit
-
-        n_windows_test = cv_config.test.n_windows
-        step_size_test = cv_config.test.step_size
-        refit_test = cv_config.test.refit
-
-        cutoff = cv_config.get_cutoff_date(
-            max_date=df[forecast_columns.date].max(),
-            freq=forecast_config.freq,
-            split="val",
-            horizon=forecast_config.horizon,
-        )
-        df_fit = df[df[forecast_columns.date] <= cutoff]
-
-        # Fit the model with the filtered df
-        self._engine = self._engine.fit(
-            df=df_fit,
-            h=h,
-            n_windows=n_windows_val,
-            step_size=step_size_val,
-            num_samples=self.num_samples,
-            refit=False,
-            id_col=id_col,
-            target_col=target_col,
-            time_col=time_col,
-        )
-
-        # Now get the models to do the cross-validation
-        dfs = []
-        models: Iterable[MLForecast] = self._engine.models_.values()
-        for model in models:
-
-            # Get the cross-validation results for each model
-            df = model.cross_validation(
-                df=df,
-                n_windows=n_windows_test,
-                step_size=step_size_test,
-                refit=refit_test,
-                h=h,
-                max_horizon=forecast_config.horizon,
-                id_col=id_col,
-                target_col=target_col,
-                time_col=time_col,
-            )
-
-            dfs.append(df)
-        # Combine the results from all models
-        combined = self._combine_results(dfs)
-
-        return combined
 
 
 class NeuralForecastEngine(ForecastEngine):

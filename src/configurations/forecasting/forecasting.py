@@ -74,7 +74,6 @@ class ForecastConfig:
 
         frameworks = {
             Framework.STATS: {},
-            Framework.ML: {},
             Framework.NEURAL: {},
             Framework.FM: {},
         }
@@ -95,7 +94,12 @@ class ForecastConfig:
                     "stat_exog_list": self.columns_config.static,
                     "futr_exog_list": [
                         col
-                        for col in self.columns_config.exogenous
+                        for col in self.columns_config.future_exogenous
+                        if col not in self.columns_config.static
+                    ],
+                    "past_exog_list": [
+                        col
+                        for col in self.columns_config.past_exogenous
                         if col not in self.columns_config.static
                     ],
                     "input_size": self.neuralconfig.input_size,
