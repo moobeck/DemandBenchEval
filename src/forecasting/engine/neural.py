@@ -3,6 +3,7 @@ from neuralforecast import NeuralForecast
 from src.configurations.evaluation.cross_validation import CrossValDatasetConfig
 from src.forecasting.engine.abstract import ForecastEngine
 
+
 class NeuralForecastEngine(ForecastEngine):
     def __init__(self, *args, **kw):
         self._engine = NeuralForecast(*args, **kw)

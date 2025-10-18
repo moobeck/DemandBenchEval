@@ -35,7 +35,6 @@ class ForecastColumnConfig:
         """
         self.base_exogenous = [self.store_index, self.product_index]
 
-
     def set_past_exogenous(self, dataset: Dataset):
         """
         Sets the past exogenous features for dataset.
@@ -55,7 +54,6 @@ class ForecastColumnConfig:
             for feature in dataset.metadata.future_exo_features
             if feature not in self.base_exogenous
         ]
-
 
     def set_exogenous(self, dataset: Dataset):
         """

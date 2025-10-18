@@ -4,8 +4,6 @@ from src.configurations.evaluation.cross_validation import CrossValDatasetConfig
 from src.forecasting.engine.abstract import ForecastEngine
 
 
-
-
 class StatsForecastEngine(ForecastEngine):
     def __init__(self, *args, **kw):
         self._engine = StatsForecast(*args, **kw, verbose=True)

@@ -13,8 +13,6 @@ import logging
 FoundationModelWrapper = Any  # abstract type placeholder for foundation model wrappers
 
 
-
-
 class FoundationModelEngine(ForecastEngine):
     """
     Engine for Foundation Models (FM)
