@@ -101,10 +101,10 @@ class CrossValidator:
         Build the arguments needed for a framework's cross_validation call.
         """
         cols = list(self._forecast_columns.ts_base_cols)
-        kwargs: Dict[str, Any] = {"cv_config": cv_config}
+        kwargs: Dict[str, Any] = {}
 
-        if framework == Framework.NEURAL:
-            # Neural wants static_df separate
+        if framework in [Framework.NEURAL, Framework.FM]:
+
             kwargs["static_df"] = self._build_static_df(df)
             cols += self._forecast_columns.static
             if self._forecast_columns.exogenous:
@@ -114,32 +114,13 @@ class CrossValidator:
                     if col in df.columns
                     if col not in cols
                 ]
-            kwargs["forecast_columns"] = self._forecast_columns
-            kwargs["forecast_config"] = self._forecast_config
-            kwargs["h"] = self._forecast_config.horizon
-
-        elif framework == Framework.FM:
-            # Foundation Models need all columns including static and exogenous
-            cols += self._forecast_columns.static
-            if self._forecast_columns.exogenous:
-                cols += [
-                    col
-                    for col in self._forecast_columns.exogenous
-                    if col in df.columns
-                    if col not in cols
-                ]
-            kwargs["forecast_columns"] = self._forecast_columns
-            kwargs["forecast_config"] = self._forecast_config
-            kwargs["h"] = self._forecast_config.horizon
-
-        else:
-            kwargs["h"] = self._forecast_config.horizon
 
         return {
             "df": df[cols],
-            "id_col": self._forecast_columns.time_series_index,
-            "target_col": self._forecast_columns.target,
-            "time_col": self._forecast_columns.date,
+            "cv_config": cv_config,
+            "forecast_columns": self._forecast_columns,
+            "forecast_config": self._forecast_config,
+            "h": self._forecast_config.horizon,
             **kwargs,
         }
 

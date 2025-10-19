@@ -16,11 +16,15 @@ class QuantileUtils:
             return None
 
         levels = []
-        for i in range(1, len(quantiles) - 1):
+        for i in range(len(quantiles)):
             lb = quantiles[i]
-            ub = quantiles[-1]
+            ub = quantiles[-(i + 1)]
             level = (ub - lb) * 100
-            levels.append(int(round(level)))
+
+            if level > 0:
+                levels.append(int(round(level)))
+            else: 
+                break
 
         return levels
 

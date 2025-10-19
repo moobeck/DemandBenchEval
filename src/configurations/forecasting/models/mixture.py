@@ -1,4 +1,4 @@
-from typing import Optional, Union, Tuple, List
+from typing import Optional, Union, List
 import numpy as np
 import torch
 import torch.nn as nn
@@ -9,8 +9,6 @@ from torch.distributions import (
     MixtureSameFamily,
     Categorical,
 )
-from torch.distributions.exp_family import ExponentialFamily
-from torch.distributions.uniform import Uniform
 import math
 import logging
 from typing import Dict, Any

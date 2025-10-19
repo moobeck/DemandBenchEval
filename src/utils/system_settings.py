@@ -22,4 +22,3 @@ class SystemSettings:
         import os
 
         os.environ["CUDA_VISIBLE_DEVICES"] = str(self.gpu)
-        print(f"Using GPU: {self.gpu}")

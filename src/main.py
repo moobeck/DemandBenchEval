@@ -34,7 +34,7 @@ from src.utils.system_settings import SystemSettings
 from src.dataset.dataset_factory import DatasetFactory
 from src.preprocessing.preprocessor import Preprocessor
 from src.utils.statistics import SKUStatistics
-from src.forecasting.manager.forecast_manager import CrossValidator
+from src.forecasting.cross_validation.cross_validation import CrossValidator
 from src.forecasting.evaluation.evaluation import Evaluator, EvaluationPlotter
 
 
@@ -268,7 +268,11 @@ def main():
             metric_config=cfg.metrics,
             ylim=(-0.5, 4),
         ).plot_error_distributions()
+
+
         fig.savefig(cfg.filepaths.eval_plots, dpi=300, bbox_inches="tight")
+
+
         wandb_orchestrator.log_image(
             alias="error_distribution_plot", filepath=cfg.filepaths.eval_plots
         )

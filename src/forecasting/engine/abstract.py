@@ -2,8 +2,6 @@ from abc import ABC, abstractmethod
 from typing import Any, List
 import pandas as pd
 
-FoundationModelWrapper = Any  # abstract type placeholder for foundation model wrappers
-
 
 class ForecastEngine(ABC):
     @abstractmethod

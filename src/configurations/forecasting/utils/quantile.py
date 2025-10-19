@@ -22,5 +22,5 @@ class QuantileLossFactory:
         """
         quantiles = QuantileUtils.create_quantiles(quantile_config)
         levels = QuantileUtils.quantiles_to_level(quantiles)
-
+        
         return MQLoss(level=levels)

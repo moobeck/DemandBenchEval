@@ -10,7 +10,7 @@ from src.utils.quantile import QuantileUtils
 from src.forecasting.engine.abstract import ForecastEngine
 import logging
 
-FoundationModelWrapper = Any  # abstract type placeholder for foundation model wrappers
+FoundationModelWrapper = Any
 
 
 class FoundationModelEngine(ForecastEngine):
@@ -50,9 +50,7 @@ class FoundationModelEngine(ForecastEngine):
 
         step_size = cv_config.test.step_size
         n_windows = cv_config.test.n_windows
-        quantiles = QuantileUtils.create_quantiles(
-            forecast_config.foundationconfig.quantile
-        )
+        quantiles = QuantileUtils.create_quantiles(forecast_config.foundation.quantile)
 
         for model_name, model in self.models.items():
             logging.info(f"Cross-validating foundation model: {model_name}")
@@ -77,58 +75,3 @@ class FoundationModelEngine(ForecastEngine):
         combined_results = self._combine_results(results)
 
         return combined_results
-
-
-class StatsForecastEngine(ForecastEngine):
-    def __init__(self, *args, **kw):
-        self._engine = StatsForecast(*args, **kw, verbose=True)
-
-    def cross_validation(
-        self,
-        df: pd.DataFrame,
-        h: int,
-        cv_config: CrossValDatasetConfig,
-        id_col: str = None,
-        target_col: str = None,
-        time_col: str = None,
-    ):
-        n_windows = cv_config.test.n_windows
-        step_size = cv_config.test.step_size
-        refit = cv_config.test.refit
-
-        return self._engine.cross_validation(
-            df=df,
-            h=h,
-            n_windows=n_windows,
-            step_size=step_size,
-            refit=refit,
-            id_col=id_col,
-            target_col=target_col,
-            time_col=time_col,
-        )
-
-
-class NeuralForecastEngine(ForecastEngine):
-    def __init__(self, *args, **kw):
-        self._engine = NeuralForecast(*args, **kw)
-
-    def cross_validation(
-        self,
-        df: pd.DataFrame,
-        cv_config: CrossValDatasetConfig,
-        id_col: str = None,
-        target_col: str = None,
-        time_col: str = None,
-        static_df: pd.DataFrame = None,
-    ):
-        return self._engine.cross_validation(
-            df=df,
-            static_df=static_df,
-            n_windows=cv_config.test.n_windows,
-            step_size=cv_config.test.step_size,
-            refit=cv_config.test.refit,
-            verbose=True,
-            id_col=id_col,
-            target_col=target_col,
-            time_col=time_col,
-        )
