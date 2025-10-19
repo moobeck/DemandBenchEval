@@ -1,8 +1,6 @@
 import argparse
 import logging
 import yaml
-import random
-import numpy as np
 from typing import Any
 from src.configurations.core.file_path import FilePathConfig
 from src.configurations.data.datasets import DatasetConfig

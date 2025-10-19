@@ -44,7 +44,7 @@ class ForecastConfig:
     columns_config: ForecastColumnConfig = field(default_factory=ForecastColumnConfig)
 
     @property
-    def neuralconfig(self) -> NeuralForecastConfig:
+    def neural_config(self) -> NeuralForecastConfig:
         """
         Get the neural network configuration from the model_config.
         """
@@ -59,7 +59,7 @@ class ForecastConfig:
         )
 
     @property
-    def foundationconfig(self) -> FoundationModelConfig:
+    def foundation_config(self) -> FoundationModelConfig:
         """
         Get the foundation model configuration from the model_config.
         """
@@ -102,14 +102,14 @@ class ForecastConfig:
                         for col in self.columns_config.past_exogenous
                         if col not in self.columns_config.static
                     ],
-                    "input_size": self.neuralconfig.input_size,
+                    "input_size": self.neural_config.input_size,
                 }
 
-                mixture_config = self.neuralconfig.mixture
-                quantile_config = self.neuralconfig.quantile
-                params["gpus"] = self.neuralconfig.gpus
-                params["cpus"] = self.neuralconfig.cpus
-                params["num_samples"] = self.neuralconfig.num_samples
+                mixture_config = self.neural_config.mixture
+                quantile_config = self.neural_config.quantile
+                params["gpus"] = self.neural_config.gpus
+                params["cpus"] = self.neural_config.cpus
+                params["num_samples"] = self.neural_config.num_samples
 
                 if mixture_config:
                     loss_function = MixtureLossFactory.create_loss(mixture_config)
