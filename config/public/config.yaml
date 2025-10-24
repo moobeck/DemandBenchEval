@@ -29,11 +29,6 @@ forecast:
   models:
   - ETS
   model_config:
-    STATS:
-      quantile:
-        min: 1
-        max: 99
-        step: 1
     NEURAL:
       gpus: 1
       cpus: 1
@@ -133,7 +128,6 @@ cross_validation:
 metrics:
   metrics:
   - MASE
-  - SCALED_MQLOSS
   seasonality: null
   quantiles:
     min: 1

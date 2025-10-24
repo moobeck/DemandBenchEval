@@ -5,7 +5,7 @@ from neuralforecast import NeuralForecast
 from src.configurations.data.forecast_column import ForecastColumnConfig
 from src.configurations.forecasting.forecasting import ForecastConfig
 from src.configurations.evaluation.cross_validation import CrossValDatasetConfig
-from src.forecasting.models.foundation.utils import GluonTSForecaster
+from src.forecasting.models.foundation.utils.gluon_ts_forecaster import GluonTSForecaster
 from src.utils.quantile import QuantileUtils
 from src.forecasting.engine.abstract import ForecastEngine
 import logging
@@ -40,8 +40,7 @@ class FoundationModelEngine(ForecastEngine):
         cv_config: CrossValDatasetConfig,
         forecast_columns: ForecastColumnConfig = None,
         forecast_config: ForecastConfig = None,
-        static_df: pd.DataFrame | None = None,
-    ) -> pd.DataFrame:
+        ) -> pd.DataFrame:
         """
         Perform cross-validation for foundation models.
         """
@@ -55,12 +54,9 @@ class FoundationModelEngine(ForecastEngine):
         for model_name, model in self.models.items():
             logging.info(f"Cross-validating foundation model: {model_name}")
 
-            # Give type hint that model is GluonTSForecaster
-            model: GluonTSForecaster
 
             fcst = model.cross_validation(
                 df=df,
-                static_df=static_df,
                 horizon=h,
                 step_size=step_size,
                 quantiles=quantiles,
