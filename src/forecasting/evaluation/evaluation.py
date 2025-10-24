@@ -91,15 +91,21 @@ class Evaluator:
         """
         Calculate the quantile levels based on the provided quantiles.
         """
-        quantiles_cfg = self._metric_config.quantiles
 
-        if quantiles_cfg is None:
+        if  self._metric_config.contains_probabilistic:
+
+            quantiles_cfg = self._metric_config.quantiles
+
+            if quantiles_cfg is None:
+                return None
+
+            quantiles = QuantileUtils.create_quantiles(quantiles_cfg)
+            levels = QuantileUtils.quantiles_to_level(quantiles)
+
+            return levels
+        
+        else :
             return None
-
-        quantiles = QuantileUtils.create_quantiles(quantiles_cfg)
-        levels = QuantileUtils.quantiles_to_level(quantiles)
-
-        return levels
 
     def evaluate(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """

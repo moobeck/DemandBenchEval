@@ -1,4 +1,5 @@
-from enum import Enum, auto
+from enum import Enum
+from typing import Literal
 
 
 class Framework(Enum):
@@ -59,7 +60,7 @@ class Frequency(Enum):
     MONTHLY = "Monthly"
 
     @staticmethod
-    def get_alias(freq: "Frequency", context: str):
+    def get_alias(freq: "Frequency", context: Literal["pandas", "nixtla", "demandbench"]) -> str:
 
         CONTEXT_ALIASES = {
             "pandas": {

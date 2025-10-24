@@ -33,6 +33,10 @@ class FoundationModelConfig:
     quantile: QuantileConfig = field(default_factory=QuantileConfig)
 
 
+@dataclass(frozen=True)
+class StatisticalForecastConfig:
+    quantile: QuantileConfig = field(default_factory=QuantileConfig)
+
 @dataclass
 class ForecastConfig:
     names: List[ModelName]
@@ -44,7 +48,7 @@ class ForecastConfig:
     columns_config: ForecastColumnConfig = field(default_factory=ForecastColumnConfig)
 
     @property
-    def neural_config(self) -> NeuralForecastConfig:
+    def neural(self) -> NeuralForecastConfig:
         """
         Get the neural network configuration from the model_config.
         """
@@ -59,7 +63,7 @@ class ForecastConfig:
         )
 
     @property
-    def foundation_config(self) -> FoundationModelConfig:
+    def foundation(self) -> FoundationModelConfig:
         """
         Get the foundation model configuration from the model_config.
         """

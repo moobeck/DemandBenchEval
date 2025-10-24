@@ -106,6 +106,7 @@ class CrossValidator:
         if framework in [Framework.NEURAL, Framework.FM]:
 
             kwargs["static_df"] = self._build_static_df(df)
+            kwargs["forecast_config"] = self._forecast_config
             cols += self._forecast_columns.static
             if self._forecast_columns.exogenous:
                 cols += [
@@ -119,7 +120,6 @@ class CrossValidator:
             "df": df[cols],
             "cv_config": cv_config,
             "forecast_columns": self._forecast_columns,
-            "forecast_config": self._forecast_config,
             "h": self._forecast_config.horizon,
             **kwargs,
         }

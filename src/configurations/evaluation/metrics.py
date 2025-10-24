@@ -36,6 +36,10 @@ METRIC_REGISTRY: dict[MetricName, MetricSpec] = {
     ),
 }
 
+PROBABILISTIC_METRICS = {
+    MetricName.SCALED_MQLOSS,
+}
+
 
 @dataclass
 class MetricConfig:
@@ -50,6 +54,10 @@ class MetricConfig:
 
     def __post_init__(self):
         self.seasonality_provided = self.seasonality is not None
+        self.contains_probabilistic = any(
+            name in PROBABILISTIC_METRICS for name in self.names
+        )
+
 
     def set_seasonality(self, freq: Optional[Frequency] = None):
         """

@@ -15,7 +15,7 @@ input_columns:
   target: target
   frequency: frequency
 datasets:
-- BAKERY
+- YAZ
 forecast_columns:
   date: date
   time_series_index: timeSeriesID
@@ -27,8 +27,13 @@ preprocessing:
   target_transform: LOCAL_MAX
 forecast:
   models:
-  - TCN
+  - ETS
   model_config:
+    STATS:
+      quantile:
+        min: 1
+        max: 99
+        step: 1
     NEURAL:
       gpus: 1
       cpus: 1
