@@ -31,6 +31,8 @@ class ModelName(Enum):
     TFT = "tft"
     PATCHTST = "patchtst"
     XLSTM = "xlstm"
+    MOIRAI = "moirai"
+    CHRONOS = "chronos"
 
 
 class MetricName(Enum):

@@ -144,4 +144,15 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
         framework=Framework.NEURAL,
         default_params=DefaultParams.NEURAL,
     ),
+    ModelName.MOIRAI: ModelSpec(
+        factory=lambda **p: None,
+        framework=Framework.FM,
+        default_params=DefaultParams.FM,
+    ),
+    ModelName.CHRONOS: ModelSpec(
+        factory=lambda **p: None,
+        framework=Framework.FM,
+        default_params=DefaultParams.FM,
+    ),
+
 }
