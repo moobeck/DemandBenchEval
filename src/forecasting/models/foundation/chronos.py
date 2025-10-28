@@ -12,6 +12,8 @@ from utilsforecast.processing import (
 from tqdm import tqdm
 from src.utils.quantile import QuantileUtils
 from neuralforecast.losses.pytorch import quantiles_to_outputs
+
+
 class Chronos(Forecaster):
     """
     Chronos models are large pre-trained models for time series forecasting.
@@ -90,18 +92,14 @@ class Chronos(Forecaster):
 
         quantile_cols = [col for col in df.columns if col not in base_columns + features + [pred_col]]
 
-        print(f"Quantile columns identified for renaming: {quantile_cols}")
 
         quantile_cols, level_cols = quantiles_to_outputs([float(q) for q in quantile_cols])
         level_cols = [f"{self.alias}{level}" for level in level_cols]
 
-        print(f"Level columns identified for renaming: {level_cols}")
 
         rename_mapping.update(
             dict(zip([str(q) for q in quantile_cols], level_cols))
         )
-
-        print(f"Renaming mapping: {rename_mapping}")
         
         df = df.rename(
                 mapper= rename_mapping,
@@ -120,7 +118,6 @@ class Chronos(Forecaster):
         horizon: int = 7,
         step_size: int = 1,
         quantiles: list[float] | None = None,
-        level: list[int | float] | None = None,
         freq: str | None = None,
         id_col: str = "unique_id",
         time_col: str = "ds",
@@ -146,10 +143,16 @@ class Chronos(Forecaster):
             freq=freq,
         )
 
+        base_cols = [id_col, time_col]
+
+
         for _, (cutoffs, train, valid) in tqdm(enumerate(splits)):
+
+            future_df = valid[base_cols + self.futr_exog_list + self.stat_exog_list]
+            
             pred_df = self.pipeline.predict_df(
                 df=train,
-                future_df=valid.drop(columns=[target_col]),
+                future_df=future_df,
                 prediction_length=horizon,
                 quantile_levels=quantiles,
                 id_column=id_col,
@@ -178,8 +181,17 @@ class Chronos(Forecaster):
             results.append(result)
 
         out_df = vertical_concat(results)
+        out_df = self._transform_forecast_results(quantiles, id_col, time_col, target_col, out_df)
+        
+        return out_df
+
+    def _transform_forecast_results(self, quantiles, id_col, time_col, target_col, out_df):
         out_df = drop_index_if_pandas(out_df)
-        out_df.drop(columns=["target_name"], inplace=True)
+
+        columns_to_drop = set(self.stat_exog_list + self.hist_exog_list + self.futr_exog_list) & set(out_df.columns)
+        columns_to_drop.add("target_name")
+
+        out_df.drop(columns=list(columns_to_drop), inplace=True)
 
         out_df = self._rename_forecast_columns(
             out_df,
