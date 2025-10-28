@@ -154,5 +154,10 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
         framework=Framework.FM,
         default_params=DefaultParams.FM,
     ),
+    ModelName.TABPFN: ModelSpec(
+        factory=lambda **p: None,
+        framework=Framework.FM,
+        default_params=DefaultParams.FM,
+    ),
 
 }
