@@ -15,7 +15,6 @@ from neuralforecast.losses.pytorch import MAE, MQLoss
 import logging
 
 
-
 @dataclass(frozen=True)
 class NeuralForecastConfig:
     """
@@ -39,6 +38,7 @@ class FoundationModelConfig:
 @dataclass(frozen=True)
 class StatisticalForecastConfig:
     quantile: QuantileConfig = field(default_factory=QuantileConfig)
+
 
 @dataclass
 class ForecastConfig:
@@ -143,11 +143,8 @@ class ForecastConfig:
 
             model_instance = spec.factory(**params)
 
-            
             if model_instance is not None:  # Skip unavailable models
                 frameworks[spec.framework][name] = model_instance
-
-            
 
         return frameworks
 

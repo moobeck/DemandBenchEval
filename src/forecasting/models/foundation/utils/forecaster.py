@@ -58,7 +58,9 @@ def get_seasonality(
     )
 
 
-def maybe_infer_freq(df: pd.DataFrame, freq: str | None, id_col: str = "unique_id", time_col: str = "ds") -> str:
+def maybe_infer_freq(
+    df: pd.DataFrame, freq: str | None, id_col: str = "unique_id", time_col: str = "ds"
+) -> str:
     """
     Infer the frequency of the time series data.
 

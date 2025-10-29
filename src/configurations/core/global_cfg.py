@@ -60,10 +60,9 @@ class GlobalConfig:
 
         self.cross_validation.set_dataset_config(dataset_name)
 
-
     @classmethod
     def build(cls, public_config: dict, private_config: dict) -> "GlobalConfig":
-        
+
         system = public_config.get("system", {})
         if not system:
             logging.warning("No system settings provided in the public config.")
@@ -83,7 +82,9 @@ class GlobalConfig:
             logging.warning("No forecast columns provided in the public config.")
         cross_validation_data = public_config.get("cross_validation", {})
         if not cross_validation_data:
-            logging.warning("No cross-validation settings provided in the public config.")
+            logging.warning(
+                "No cross-validation settings provided in the public config."
+            )
         forecast = public_config.get("forecast", {})
         if not forecast:
             logging.warning("No forecast settings provided in the public config.")
@@ -105,7 +106,9 @@ class GlobalConfig:
                 GPU=system.get("GPU", 0), RANDOM_SEED=system.get("RANDOM_SEED", 42)
             ),
             filepaths=FilePathConfig(
-                processed_data_dir=filepaths.get("processed_data_dir", "data/processed"),
+                processed_data_dir=filepaths.get(
+                    "processed_data_dir", "data/processed"
+                ),
                 sku_stats_dir=filepaths.get("sku_stats_dir", "data/sku_stats"),
                 cv_results_dir=filepaths.get("cv_results_dir", "data/cv_results"),
                 eval_results_dir=filepaths.get("eval_results_dir", "data/eval_results"),
@@ -156,9 +159,13 @@ class GlobalConfig:
                 lags_config=lags,
             ),
             metrics=MetricConfig(
-                names=[MetricName[name] for name in public_config["metrics"]["metrics"]],
+                names=[
+                    MetricName[name] for name in public_config["metrics"]["metrics"]
+                ],
                 seasonality=public_config["metrics"].get("seasonality", None),
-                quantiles=QuantileConfig(**public_config["metrics"].get("quantiles", None)),
+                quantiles=QuantileConfig(
+                    **public_config["metrics"].get("quantiles", None)
+                ),
             ),
             wandb=WandbConfig(
                 api_key=(wandb.get("api_key") if wandb else None),
@@ -167,7 +174,7 @@ class GlobalConfig:
                 log_wandb=wandb.get("log_wandb", False) if wandb else False,
             ),
         )
-    
+
     @staticmethod
     def load_dict(path) -> dict[str, Any]:
         try:

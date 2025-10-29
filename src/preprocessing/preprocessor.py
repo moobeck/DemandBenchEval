@@ -100,24 +100,34 @@ class Preprocessor:
 
         return df
 
-    def prepare_nixtla(self) -> pd.DataFrame:
-        """Prepare a pandas DataFrame for Nixtla with required columns."""
+    def prepare_forecasting_data(self) -> pd.DataFrame:
+        """Prepare a pandas DataFrame for forecasting."""
 
-        logging.info("Preparing data for Nixtla")
+        logging.info("Preparing data for forecasting")
 
         if self.df_merged is None:
             raise ValueError("Data not merged. Call merge() first.")
 
         df = self._filter_by_frequency(self.df_merged)
 
-        df = df[
-            [
-                self._input_columns.time_series_index,
-                self._forecast_columns.date,
-                self._input_columns.target,
-                *(self._forecast_columns.exogenous),
-            ]
-        ]
+        # Rename columns to match names expected by the forecasting config
+        df = df.rename(
+            columns={
+                self._input_columns.time_series_index: self._forecast_columns.time_series_index,
+                self._input_columns.target: self._forecast_columns.target,
+            }
+        )
+
+        selected_columns = list(
+            set(
+                (
+                    *self._forecast_columns.ts_base_cols,
+                    *self._forecast_columns.exogenous,
+                )
+            )
+        )
+
+        df = df[selected_columns].copy()
 
         # Fill gaps in the time series
         frequency_alias = Frequency.get_alias(self._forecast.freq, "pandas")
@@ -125,7 +135,7 @@ class Preprocessor:
         df = fill_gaps(
             df,
             freq=frequency_alias,
-            id_col=self._input_columns.time_series_index,
+            id_col=self._forecast_columns.time_series_index,
             time_col=self._forecast_columns.date,
         )
 
@@ -134,13 +144,6 @@ class Preprocessor:
         # Fill remaining NaNs with 0
         df = df.fillna(0)
 
-        # rename columns to Nixtla standard
-        df = df.rename(
-            columns={
-                self._input_columns.time_series_index: self._forecast_columns.time_series_index,
-                self._input_columns.target: self._forecast_columns.target,
-            }
-        )
         return df
 
     def preprocess_data(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -176,7 +179,9 @@ class Preprocessor:
         )
 
         date_encoder = DateEncoder(freq=freq)
-        self._forecast_columns.add_exogenous(date_encoder.out_columns, future=True)
+        self._forecast_columns.add_features(
+            date_encoder.out_columns, feature_type="future_exogenous"
+        )
 
         ml_forecast = MLForecast(
             models=[],
@@ -202,9 +207,7 @@ class Preprocessor:
 
         df = category_encoder.fit_transform(df)
 
-        self._forecast_columns.add_exogenous(category_encoder.out_columns, future=True)
-        # If categorical columns were static, rename them to encoded versions
-        self._forecast_columns.rename_static(
+        self._forecast_columns.replace_features(
             dict(
                 zip(
                     self._forecast_columns.categorical,
@@ -221,6 +224,11 @@ class Preprocessor:
         )
         df = stats_encoder.fit_transform(df)
 
-        self._forecast_columns.add_exogenous(stats_encoder.out_columns, future=True)
+        self._forecast_columns.remove_features(
+            [self._forecast_columns.time_series_index], feature_type="static"
+        )
+        self._forecast_columns.add_features(
+            stats_encoder.out_columns, feature_type="static"
+        )
 
         return df

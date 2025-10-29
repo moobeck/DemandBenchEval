@@ -158,5 +158,4 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
         framework=Framework.FM,
         default_params=DefaultParams.FM,
     ),
-
 }

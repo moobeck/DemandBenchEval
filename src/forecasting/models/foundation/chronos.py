@@ -1,6 +1,10 @@
-import pandas as pd 
+import pandas as pd
 from chronos.chronos2 import Chronos2Pipeline
-from src.forecasting.models.foundation.utils.forecaster import Forecaster, maybe_convert_col_to_datetime, maybe_compute_sort_indices
+from src.forecasting.models.foundation.utils.forecaster import (
+    Forecaster,
+    maybe_convert_col_to_datetime,
+    maybe_compute_sort_indices,
+)
 from utilsforecast.processing import (
     backtest_splits,
     drop_index_if_pandas,
@@ -32,10 +36,10 @@ class Chronos(Forecaster):
         """
         Args:
             repo_id (str, optional): The
-                path to load the Chronos model from. 
+                path to load the Chronos model from.
             batch_size (int, optional): Batch size to use for inference.
                 Larger models may require smaller batch sizes due to GPU
-                memory constraints. 
+                memory constraints.
             alias (str, optional): Name to use for the model in output
                 DataFrames and logs. Defaults to "Chronos".
             futr_exog_list (list[str], optional): List of future exogenous
@@ -60,15 +64,13 @@ class Chronos(Forecaster):
         self.hist_exog_list = hist_exog_list if hist_exog_list is not None else []
         self.stat_exog_list = stat_exog_list if stat_exog_list is not None else []
 
-    
     def _rename_forecast_columns(
         self,
         df: pd.DataFrame,
         quantiles: list[float] | None = None,
         id_col: str = "unique_id",
         time_col: str = "ds",
-        target_col: str = "y"
-
+        target_col: str = "y",
     ) -> pd.DataFrame:
         """
         Rename forecast columns in the output DataFrame based on quantiles.
@@ -80,35 +82,32 @@ class Chronos(Forecaster):
             pd.DataFrame: DataFrame with renamed forecast columns.
         """
 
-        pred_col = 'predictions'
+        pred_col = "predictions"
 
         rename_mapping = {
             pred_col: f"{self.alias}",
         }
 
         features = self.stat_exog_list + self.hist_exog_list + self.futr_exog_list
-        base_columns = ['cutoff', id_col, time_col, target_col]
+        base_columns = ["cutoff", id_col, time_col, target_col]
 
-        quantile_cols = [col for col in df.columns if col not in base_columns + features + [pred_col]]
+        quantile_cols = [
+            col for col in df.columns if col not in base_columns + features + [pred_col]
+        ]
 
-
-        quantile_cols, level_cols = quantiles_to_outputs([float(q) for q in quantile_cols])
+        quantile_cols, level_cols = quantiles_to_outputs(
+            [float(q) for q in quantile_cols]
+        )
         level_cols = [f"{self.alias}{level}" for level in level_cols]
 
+        rename_mapping.update(dict(zip([str(q) for q in quantile_cols], level_cols)))
 
-        rename_mapping.update(
-            dict(zip([str(q) for q in quantile_cols], level_cols))
-        )
-        
         df = df.rename(
-                mapper= rename_mapping,
-                axis=1,
+            mapper=rename_mapping,
+            axis=1,
         )
 
         return df
-
-
-
 
     def cross_validation(
         self,
@@ -122,16 +121,15 @@ class Chronos(Forecaster):
         time_col: str = "ds",
         target_col: str = "y",
     ) -> pd.DataFrame:
-        
 
-        df = maybe_convert_col_to_datetime(df, time_col)        
+        df = maybe_convert_col_to_datetime(df, time_col)
 
         results = []
         sort_idxs = maybe_compute_sort_indices(df, id_col, time_col)
 
         if sort_idxs is not None:
             df = take_rows(df, sort_idxs)
-        
+
         splits = backtest_splits(
             df,
             n_windows=n_windows,
@@ -144,18 +142,11 @@ class Chronos(Forecaster):
 
         base_cols = [id_col, time_col]
 
+        print(f" Columns in training data: {df.columns.tolist()} ")
 
         for _, (cutoffs, train, valid) in tqdm(enumerate(splits)):
 
             future_df = valid[base_cols + self.futr_exog_list + self.stat_exog_list]
-            # Drop duplicates that may arise from static exogenous features
-            future_df = future_df.loc[
-                :, ~future_df.columns.duplicated()
-            ]
-
-            train = train.loc[
-                :, ~train.columns.duplicated()
-            ]
 
             pred_df = self.pipeline.predict_df(
                 df=train,
@@ -188,35 +179,30 @@ class Chronos(Forecaster):
             results.append(result)
 
         out_df = vertical_concat(results)
-        out_df = self._transform_forecast_results(quantiles, id_col, time_col, target_col, out_df)
-        
+        out_df = self._transform_forecast_results(
+            quantiles, id_col, time_col, target_col, out_df
+        )
+
         return out_df
 
-    def _transform_forecast_results(self, quantiles, id_col, time_col, target_col, out_df):
+    def _transform_forecast_results(
+        self, quantiles, id_col, time_col, target_col, out_df
+    ):
         out_df = drop_index_if_pandas(out_df)
 
-        columns_to_drop = set(self.stat_exog_list + self.hist_exog_list + self.futr_exog_list) & set(out_df.columns)
+        columns_to_drop = set(
+            self.stat_exog_list + self.hist_exog_list + self.futr_exog_list
+        ) & set(out_df.columns)
         columns_to_drop.add("target_name")
 
         out_df.drop(columns=list(columns_to_drop), inplace=True)
 
         out_df = self._rename_forecast_columns(
             out_df,
-            quantiles=quantiles, 
+            quantiles=quantiles,
             id_col=id_col,
             time_col=time_col,
             target_col=target_col,
         )
-        
+
         return out_df
-
-        
-        
-
-
-
-
-
-    
-
-

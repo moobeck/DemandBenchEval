@@ -109,16 +109,12 @@ class CrossValidator:
 
         if framework in [Framework.NEURAL, Framework.FM]:
 
-            
             kwargs["forecast_config"] = self._forecast_config
-            cols += self._forecast_columns.static
-            if self._forecast_columns.exogenous:
-                cols += [
-                    col
-                    for col in self._forecast_columns.exogenous
-                    if col in df.columns
-                    if col not in cols
-                ]
+
+            cols += (
+                self._forecast_columns.future_exogenous
+                + self._forecast_columns.past_exogenous
+            )
 
             if framework == Framework.NEURAL:
                 kwargs["static_df"] = self._build_static_df(df)

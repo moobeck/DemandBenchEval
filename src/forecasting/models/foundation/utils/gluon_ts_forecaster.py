@@ -12,7 +12,10 @@ from gluonts.dataset.split import split
 from huggingface_hub import hf_hub_download
 from tqdm import tqdm
 
-from src.forecasting.models.foundation.utils.forecaster import Forecaster, QuantileConverter
+from src.forecasting.models.foundation.utils.forecaster import (
+    Forecaster,
+    QuantileConverter,
+)
 
 from src.utils.cross_validation import get_offset
 
@@ -143,11 +146,9 @@ class GluonTSForecaster(Forecaster):
         target_col: str = "y",
     ) -> pd.DataFrame:
 
-
         static_df = df[[id_col] + self.stat_exog_list].drop_duplicates()
         df = df.drop(columns=self.stat_exog_list)
         df = maybe_convert_col_to_float32(df, id_col)
-        
 
         freq = self._maybe_infer_freq(df, freq)
         qc = QuantileConverter(level=level, quantiles=quantiles)

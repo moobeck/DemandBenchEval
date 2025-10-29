@@ -11,7 +11,6 @@ from src.forecasting.evaluation.evaluation import Evaluator, EvaluationPlotter
 from src.utils.args_parser import ArgParser
 
 
-
 def main():
 
     logging.basicConfig(level=logging.INFO)
@@ -51,7 +50,7 @@ def main():
         )
         prep.merge()
         prep.remove_skus(skus="not_at_min_date")
-        df = prep.prepare_nixtla()
+        df = prep.prepare_forecasting_data()
 
         # Calculate SKU statistics
         sku_stats = SKUStatistics(
@@ -106,9 +105,7 @@ def main():
             ylim=(-0.5, 4),
         ).plot_error_distributions()
 
-
         fig.savefig(cfg.filepaths.eval_plots, dpi=300, bbox_inches="tight")
-
 
         wandb_orchestrator.log_image(
             alias="error_distribution_plot", filepath=cfg.filepaths.eval_plots

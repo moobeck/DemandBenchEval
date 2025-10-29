@@ -15,7 +15,11 @@ from tabpfn_time_series import (
     TimeSeriesDataFrame,
 )
 
-from src.forecasting.models.foundation.utils.forecaster import Forecaster, maybe_convert_col_to_datetime, QuantileConverter
+from src.forecasting.models.foundation.utils.forecaster import (
+    Forecaster,
+    maybe_convert_col_to_datetime,
+    QuantileConverter,
+)
 from tqdm import tqdm
 from utilsforecast.processing import (
     backtest_splits,
@@ -75,7 +79,7 @@ class TabPFN(Forecaster):
             hist_exog_list (list[str], optional): List of historical exogenous
                 variables to include in the model. Defaults to None.
             stat_exog_list (list[str], optional): List of static exogenous
-                variables to include in the model. Defaults to None.   
+                variables to include in the model. Defaults to None.
 
         Notes:
             **Academic Reference:**
@@ -104,9 +108,6 @@ class TabPFN(Forecaster):
         self.hist_exog_list = hist_exog_list if hist_exog_list is not None else []
         self.stat_exog_list = stat_exog_list if stat_exog_list is not None else []
 
-
-
-
     @contextmanager
     def _get_model(self) -> TabPFNTimeSeriesPredictor:
 
@@ -117,7 +118,6 @@ class TabPFN(Forecaster):
             del model
             torch.cuda.empty_cache()
 
-    
     def _prepare_df_for_forecast(
         self,
         df: pd.DataFrame,
@@ -129,22 +129,24 @@ class TabPFN(Forecaster):
         handling exogenous variables.
         """
 
-        static_df = df[self.stat_exog_list + [id_col]].drop_duplicates().set_index(id_col)
+        static_df = (
+            df[self.stat_exog_list + [id_col]].drop_duplicates().set_index(id_col)
+        )
         df = df.copy()
         df.drop(columns=self.stat_exog_list + self.hist_exog_list, inplace=True)
-        df = df.rename({
-            target_col: TabPFNColumns.TARGET.value, 
-            time_col: TabPFNColumns.TIMESTAMP.value,
-            id_col: TabPFNColumns.ID.value
-            }, axis=1)
+        df = df.rename(
+            {
+                target_col: TabPFNColumns.TARGET.value,
+                time_col: TabPFNColumns.TIMESTAMP.value,
+                id_col: TabPFNColumns.ID.value,
+            },
+            axis=1,
+        )
 
-        tsdf = TimeSeriesDataFrame(
-            df,
-            static_features=static_df
-            )
-    
+        tsdf = TimeSeriesDataFrame(df, static_features=static_df)
+
         return tsdf
-    
+
     def _post_process_forecast_df(
         self,
         fcst_df: pd.DataFrame,
@@ -152,18 +154,19 @@ class TabPFN(Forecaster):
         time_col: str,
         target_col: str,
     ) -> pd.DataFrame:
-        """Post-process forecast DataFrame by renaming columns back to original names.
-        """
+        """Post-process forecast DataFrame by renaming columns back to original names."""
 
         fcst_df = fcst_df.reset_index()
-        fcst_df = fcst_df.rename({
+        fcst_df = fcst_df.rename(
+            {
                 TabPFNColumns.TARGET.value: self.alias,
                 TabPFNColumns.TIMESTAMP.value: time_col,
                 TabPFNColumns.ID.value: id_col,
-            }, axis=1)
+            },
+            axis=1,
+        )
 
         return pd.DataFrame(fcst_df)
-
 
     def _forecast(
         self,
@@ -175,15 +178,12 @@ class TabPFN(Forecaster):
         freq: str | None = None,
         id_col: str = "unique_id",
         time_col: str = "ds",
-        target_col: str = "y",  
+        target_col: str = "y",
     ) -> pd.DataFrame:
         """handles distinction between quantiles and no quantiles"""
 
         tsdf = self._prepare_df_for_forecast(
-            df,
-            id_col=id_col,
-            time_col=time_col,
-            target_col=target_col
+            df, id_col=id_col, time_col=time_col, target_col=target_col
         )
 
         if self.context_length > 0:
@@ -191,10 +191,7 @@ class TabPFN(Forecaster):
         future_tsdf = generate_test_X(tsdf, h)
 
         future_tsdf_exog = self._prepare_df_for_forecast(
-            future_df,
-            id_col=id_col, 
-            time_col=time_col,
-            target_col=target_col
+            future_df, id_col=id_col, time_col=time_col, target_col=target_col
         )
 
         future_tsdf = future_tsdf.merge(
@@ -206,15 +203,10 @@ class TabPFN(Forecaster):
         fcst_df = model.predict(tsdf, future_tsdf)
 
         fcst_df = self._post_process_forecast_df(
-            fcst_df,
-            id_col=id_col,
-            time_col=time_col,
-            target_col=target_col
+            fcst_df, id_col=id_col, time_col=time_col, target_col=target_col
         )
 
         return fcst_df
-    
-
 
     def forecast(
         self,
@@ -307,14 +299,14 @@ class TabPFN(Forecaster):
                 models=[self.alias],
             )
         return fcst_df
-    
+
     def _rename_forecast_columns(
         self,
         df: pd.DataFrame,
         quantiles: list[float] | None = None,
         id_col: str = "unique_id",
         time_col: str = "ds",
-        target_col: str = "y"
+        target_col: str = "y",
     ) -> pd.DataFrame:
         """Rename forecast columns in the output DataFrame based on quantiles.
 
@@ -324,27 +316,29 @@ class TabPFN(Forecaster):
         Returns:
             pd.DataFrame: DataFrame with renamed forecast columns.
         """
-    
 
         features = self.stat_exog_list + self.hist_exog_list + self.futr_exog_list
-        base_columns = ['cutoff', id_col, time_col, target_col]
+        base_columns = ["cutoff", id_col, time_col, target_col]
 
-        quantile_cols = [col for col in df.columns if col not in base_columns + features + [self.alias]]
+        quantile_cols = [
+            col
+            for col in df.columns
+            if col not in base_columns + features + [self.alias]
+        ]
 
-
-        quantile_cols, level_cols = quantiles_to_outputs([float(q) for q in quantile_cols])
+        quantile_cols, level_cols = quantiles_to_outputs(
+            [float(q) for q in quantile_cols]
+        )
         level_cols = [f"{self.alias}{level}" for level in level_cols]
-
 
         rename_mapping = dict(zip(quantile_cols, level_cols))
 
         df = df.rename(
-                mapper= rename_mapping,
-                axis=1,
+            mapper=rename_mapping,
+            axis=1,
         )
 
         return df
-    
 
     def cross_validation(
         self,
@@ -404,7 +398,6 @@ class TabPFN(Forecaster):
         if sort_idxs is not None:
             df = take_rows(df, sort_idxs)
 
-
         splits = backtest_splits(
             df,
             n_windows=n_windows,
@@ -451,14 +444,20 @@ class TabPFN(Forecaster):
             results.append(result)
 
         out_df = vertical_concat(results)
-        out_df = self._transform_forecast_results(quantiles, id_col, time_col, target_col, out_df)
-        
+        out_df = self._transform_forecast_results(
+            quantiles, id_col, time_col, target_col, out_df
+        )
+
         return out_df
 
-    def _transform_forecast_results(self, quantiles, id_col, time_col, target_col, out_df):
+    def _transform_forecast_results(
+        self, quantiles, id_col, time_col, target_col, out_df
+    ):
         out_df = drop_index_if_pandas(out_df)
 
-        columns_to_drop = set(self.stat_exog_list + self.hist_exog_list + self.futr_exog_list) & set(out_df.columns)
+        columns_to_drop = set(
+            self.stat_exog_list + self.hist_exog_list + self.futr_exog_list
+        ) & set(out_df.columns)
         if columns_to_drop:
             out_df = out_df.drop(columns=list(columns_to_drop))
 
@@ -469,7 +468,5 @@ class TabPFN(Forecaster):
             time_col=time_col,
             target_col=target_col,
         )
-        
+
         return out_df
-
-

@@ -58,7 +58,6 @@ class MetricConfig:
             name in PROBABILISTIC_METRICS for name in self.names
         )
 
-
     def set_seasonality(self, freq: Optional[Frequency] = None):
         """
         Sets the seasonality for the metrics based on the frequency of the dataset.

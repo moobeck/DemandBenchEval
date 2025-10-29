@@ -36,4 +36,3 @@ class StatsForecastEngine(ForecastEngine):
         )
 
         return cv_results
-

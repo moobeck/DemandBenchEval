@@ -63,7 +63,9 @@ class Frequency(Enum):
     MONTHLY = "Monthly"
 
     @staticmethod
-    def get_alias(freq: "Frequency", context: Literal["pandas", "nixtla", "demandbench"]) -> str:
+    def get_alias(
+        freq: "Frequency", context: Literal["pandas", "nixtla", "demandbench"]
+    ) -> str:
 
         CONTEXT_ALIASES = {
             "pandas": {

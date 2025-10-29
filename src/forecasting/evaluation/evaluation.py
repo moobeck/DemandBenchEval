@@ -92,7 +92,7 @@ class Evaluator:
         Calculate the quantile levels based on the provided quantiles.
         """
 
-        if  self._metric_config.contains_probabilistic:
+        if self._metric_config.contains_probabilistic:
 
             quantiles_cfg = self._metric_config.quantiles
 
@@ -103,8 +103,8 @@ class Evaluator:
             levels = QuantileUtils.quantiles_to_level(quantiles)
 
             return levels
-        
-        else :
+
+        else:
             return None
 
     def evaluate(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:

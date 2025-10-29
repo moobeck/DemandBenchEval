@@ -38,7 +38,7 @@ class FoundationModelEngine(ForecastEngine):
         cv_config: CrossValDatasetConfig,
         forecast_columns: ForecastColumnConfig = None,
         forecast_config: ForecastConfig = None,
-        ) -> pd.DataFrame:
+    ) -> pd.DataFrame:
         """
         Perform cross-validation for foundation models.
         """
@@ -55,7 +55,6 @@ class FoundationModelEngine(ForecastEngine):
         for model_name, model in self.models.items():
             logging.info(f"Cross-validating foundation model: {model_name}")
 
-
             fcst = model.cross_validation(
                 df=df,
                 horizon=h,
@@ -65,7 +64,7 @@ class FoundationModelEngine(ForecastEngine):
                 id_col=forecast_columns.time_series_index,
                 target_col=forecast_columns.target,
                 time_col=forecast_columns.date,
-                freq=freq
+                freq=freq,
             )
             results.append(fcst)
 

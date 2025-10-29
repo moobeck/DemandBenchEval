@@ -23,7 +23,7 @@ class QuantileUtils:
 
             if level > 0:
                 levels.append(int(round(level)))
-            else: 
+            else:
                 break
 
         return levels

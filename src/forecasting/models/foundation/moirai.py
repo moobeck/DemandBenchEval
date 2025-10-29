@@ -6,7 +6,9 @@ from uni2ts.model.moirai import MoiraiForecast, MoiraiModule
 from uni2ts.model.moirai2 import Moirai2Forecast, Moirai2Module
 from uni2ts.model.moirai_moe import MoiraiMoEForecast, MoiraiMoEModule
 
-from src.forecasting.models.foundation.utils.gluon_ts_forecaster import GluonTSForecaster
+from src.forecasting.models.foundation.utils.gluon_ts_forecaster import (
+    GluonTSForecaster,
+)
 
 
 class Moirai(GluonTSForecaster):
