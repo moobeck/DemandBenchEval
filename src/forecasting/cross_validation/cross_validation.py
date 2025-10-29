@@ -75,10 +75,14 @@ class CrossValidator:
         return a combined DataFrame of predictions.
         """
         logging.info("Starting cross-validation...")
+
         results = []
 
         for framework, engine in self.frameworks.items():
+            logging.info(f"Framework: {framework}, Engine: {engine}")
+
             if engine is None:
+                logging.info(f"No models defined for framework {framework}. Skipping.")
                 continue
 
             logging.info(f"Cross-validating with {framework.name}...")

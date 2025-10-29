@@ -5,6 +5,7 @@ from src.configurations.forecasting.forecasting import ForecastConfig
 from src.configurations.evaluation.cross_validation import CrossValDatasetConfig
 from src.utils.quantile import QuantileUtils
 from src.forecasting.engine.abstract import ForecastEngine
+from src.configurations.utils.enums import Frequency
 import logging
 
 FoundationModelWrapper = Any
@@ -44,9 +45,12 @@ class FoundationModelEngine(ForecastEngine):
 
         results = []
 
+        logging.info("Starting cross-validation for Foundation Models.")
+
         step_size = cv_config.test.step_size
         n_windows = cv_config.test.n_windows
         quantiles = QuantileUtils.create_quantiles(forecast_config.foundation.quantile)
+        freq = Frequency.get_alias(forecast_config.freq, "pandas")
 
         for model_name, model in self.models.items():
             logging.info(f"Cross-validating foundation model: {model_name}")
@@ -61,6 +65,7 @@ class FoundationModelEngine(ForecastEngine):
                 id_col=forecast_columns.time_series_index,
                 target_col=forecast_columns.target,
                 time_col=forecast_columns.date,
+                freq=freq
             )
             results.append(fcst)
 

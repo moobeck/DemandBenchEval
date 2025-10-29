@@ -1,9 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, TypeAlias
 from statsforecast.models import AutoARIMA, AutoTheta, AutoETS, AutoCES
-from ...utils.enums import ModelName, Framework, Frequency
-from ...data.forecast_column import ForecastColumnConfig
-from ...data.input_column import InputColumnConfig
+from ...utils.enums import ModelName, Framework
 from neuralforecast.auto import (
     AutoVanillaTransformer,
     AutoMLP,
@@ -21,6 +19,7 @@ from neuralforecast.auto import (
     AutoPatchTST,
     AutoxLSTM,
 )
+from src.forecasting.models.foundation import Moirai, Chronos, TabPFN
 from dataclasses import dataclass, field
 from typing import Dict, Any
 
@@ -145,17 +144,17 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
         default_params=DefaultParams.NEURAL,
     ),
     ModelName.MOIRAI: ModelSpec(
-        factory=lambda **p: None,
+        factory=lambda **p: Moirai(**p),
         framework=Framework.FM,
         default_params=DefaultParams.FM,
     ),
     ModelName.CHRONOS: ModelSpec(
-        factory=lambda **p: None,
+        factory=lambda **p: Chronos(**p),
         framework=Framework.FM,
         default_params=DefaultParams.FM,
     ),
     ModelName.TABPFN: ModelSpec(
-        factory=lambda **p: None,
+        factory=lambda **p: TabPFN(**p),
         framework=Framework.FM,
         default_params=DefaultParams.FM,
     ),

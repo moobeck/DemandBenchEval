@@ -10,7 +10,6 @@ from utilsforecast.processing import (
     vertical_concat,
 )
 from tqdm import tqdm
-from src.utils.quantile import QuantileUtils
 from neuralforecast.losses.pytorch import quantiles_to_outputs
 
 
@@ -125,7 +124,7 @@ class Chronos(Forecaster):
     ) -> pd.DataFrame:
         
 
-        df = maybe_convert_col_to_datetime(df, time_col)
+        df = maybe_convert_col_to_datetime(df, time_col)        
 
         results = []
         sort_idxs = maybe_compute_sort_indices(df, id_col, time_col)
@@ -149,7 +148,15 @@ class Chronos(Forecaster):
         for _, (cutoffs, train, valid) in tqdm(enumerate(splits)):
 
             future_df = valid[base_cols + self.futr_exog_list + self.stat_exog_list]
-            
+            # Drop duplicates that may arise from static exogenous features
+            future_df = future_df.loc[
+                :, ~future_df.columns.duplicated()
+            ]
+
+            train = train.loc[
+                :, ~train.columns.duplicated()
+            ]
+
             pred_df = self.pipeline.predict_df(
                 df=train,
                 future_df=future_df,

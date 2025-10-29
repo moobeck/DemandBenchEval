@@ -69,7 +69,11 @@ class ForecastColumnConfig:
         """
         Sets the static features for dataset.
         """
-        self.static = dataset.metadata.static_features
+        self.static = [
+            feature
+            for feature in dataset.metadata.static_features
+            if feature in self.exogenous
+        ]
 
     def set_categorical(self, dataset: Dataset):
         """

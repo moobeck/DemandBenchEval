@@ -63,7 +63,7 @@ class GlobalConfig:
 
     @classmethod
     def build(cls, public_config: dict, private_config: dict) -> "GlobalConfig":
-
+        
         system = public_config.get("system", {})
         if not system:
             logging.warning("No system settings provided in the public config.")

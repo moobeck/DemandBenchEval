@@ -12,6 +12,9 @@ from .models.model import ForecastModel
 
 from neuralforecast.losses.pytorch import MAE, MQLoss
 
+import logging
+
+
 
 @dataclass(frozen=True)
 class NeuralForecastConfig:
@@ -82,10 +85,14 @@ class ForecastConfig:
             Framework.FM: {},
         }
 
+        logging.info(f"Forecast models to be instantiated: {self.names}")
+
         for name in self.names:
             # map your config.ModelName to ModelKey
             key = ModelName(name.value)
             spec = MODEL_REGISTRY[key]
+
+            logging.info(f"Instantiating model: {name} of framework {spec.framework}")
 
             # merge defaults with trainer-level params
             params = spec.default_params.copy()
@@ -128,9 +135,19 @@ class ForecastConfig:
                 else:
                     params["loss"] = MAE()
 
+            elif spec.framework == Framework.FM:
+
+                params["stat_exog_list"] = self.columns_config.static
+                params["futr_exog_list"] = self.columns_config.future_exogenous
+                params["hist_exog_list"] = self.columns_config.past_exogenous
+
             model_instance = spec.factory(**params)
+
+            
             if model_instance is not None:  # Skip unavailable models
                 frameworks[spec.framework][name] = model_instance
+
+            
 
         return frameworks
 

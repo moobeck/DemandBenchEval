@@ -30,14 +30,14 @@ METRIC_REGISTRY: dict[MetricName, MetricSpec] = {
     ),
     MetricName.MSE: MetricSpec(factory=lambda **p: partial(mse, **p)),
     MetricName.RMSE: MetricSpec(factory=lambda **p: partial(rmse, **p)),
-    MetricName.SCALED_MQLOSS: MetricSpec(
+    MetricName.SMQL: MetricSpec(
         factory=lambda **p: partial(scaled_mqloss, **p),
         default_params={"seasonality": 7, "quantiles": [0.1, 0.25, 0.5, 0.75, 0.9]},
     ),
 }
 
 PROBABILISTIC_METRICS = {
-    MetricName.SCALED_MQLOSS,
+    MetricName.SMQL,
 }
 
 
