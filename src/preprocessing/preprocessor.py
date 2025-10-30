@@ -1,6 +1,5 @@
 import pandas as pd
 from typing import List, Literal, Union
-from datetime import datetime
 from sklearn.preprocessing import MinMaxScaler
 from utilsforecast.preprocessing import fill_gaps
 from demandbench.datasets import Dataset
