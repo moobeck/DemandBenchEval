@@ -164,7 +164,7 @@ class GlobalConfig:
                 ],
                 seasonality=public_config["metrics"].get("seasonality", None),
                 quantiles=QuantileConfig(
-                    **public_config["metrics"].get("quantiles", None)
+                    **public_config["metrics"].get("quantiles", {})
                 ),
             ),
             wandb=WandbConfig(
