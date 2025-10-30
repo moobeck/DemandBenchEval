@@ -1,7 +1,7 @@
 import logging
 import wandb
-from src.configurations.wandb import WandbConfig
-from src.configurations.enums import DatasetName
+from src.configurations.utils.wandb import WandbConfig
+from src.configurations.utils.enums import DatasetName
 
 
 class WandbOrchestrator:

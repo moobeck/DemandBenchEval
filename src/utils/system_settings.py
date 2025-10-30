@@ -1,9 +1,9 @@
-
 import random
 import numpy as np
 import torch
 
-from src.configurations.system import SystemConfig
+from src.configurations.core.system import SystemConfig
+
 
 class SystemSettings:
 
@@ -22,4 +22,3 @@ class SystemSettings:
         import os
 
         os.environ["CUDA_VISIBLE_DEVICES"] = str(self.gpu)
-        print(f"Using GPU: {self.gpu}")

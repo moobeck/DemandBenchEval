@@ -13,24 +13,12 @@ statsforecast==2.0.1
 coreforecast==0.0.16
 datasetsforecast==1.0.0
 utilsforecast==0.2.12
-neuralforecast== 3.0.1
+neuralforecast==3.0.1
 wandb==0.19.11
-tabpfn>=2.0.0
 category_encoders==2.8.1
 
-
-# TOTO dependencies
-torch>=2.5.0
-transformers>=4.0.0
-huggingface_hub>=0.16.0
-einops>=0.7.0
-gluonts[torch]>=0.15.0
-jaxtyping>=0.2.0
-safetensors>=0.4.0
-
-# HTTP clients (if you call APIs)
-requests==2.32.3
-httpx==0.28.1
+# Timecopilot for time series foundation models
+timecopilot==0.0.20
 
 # Date/time helpers
 python-dateutil==2.8.2
@@ -43,3 +31,13 @@ seaborn==0.13.2
 git+https://github.com/a11to1n3/DemandBench.git
 git+https://github.com/a11to1n3/DemandBench-Favorita-Dataset.git
 git+https://github.com/a11to1n3/DemandBench-M5-Dataset.git
+
+# Time series foundation model libraries
+uni2ts==0.1.2
+chronos
+tabpfn_time_series==1.0.3
+tabpfn_client
+huggingface_hub==0.35.3
+gluonts==0.16.2
+torch==2.8.0
+tqdm==4.67.1

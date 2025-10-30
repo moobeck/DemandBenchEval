@@ -1,4 +1,4 @@
-from src.configurations.enums import FileFormat
+from src.configurations.utils.enums import FileFormat
 import pandas as pd
 
 
@@ -32,5 +32,3 @@ class DataFrameHandler:
             df.to_feather(file_path)
         else:
             raise ValueError(f"Unsupported file format: {file_format}")
-
-
