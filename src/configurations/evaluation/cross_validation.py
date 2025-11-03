@@ -1,11 +1,8 @@
 from dataclasses import dataclass, field
-from typing import Literal
 from ..utils.enums import FrequencyType
 from src.utils.cross_validation import get_offset
 import pandas as pd
 from src.constants.tasks import Task
-
-from demandbench.datasets import Dataset
 
 
 @dataclass

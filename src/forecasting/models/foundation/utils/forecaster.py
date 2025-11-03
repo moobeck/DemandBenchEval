@@ -1,7 +1,4 @@
-import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
-import plotly.graph_objects
 import utilsforecast.processing as ufp
 from gluonts.time_feature.seasonality import (
     DEFAULT_SEASONALITIES,
@@ -11,7 +8,6 @@ from gluonts.time_feature.seasonality import (
 )
 from scipy import stats
 from tqdm import tqdm
-from utilsforecast.plotting import plot_series
 from utilsforecast.processing import (
     backtest_splits,
     drop_index_if_pandas,
@@ -20,7 +16,6 @@ from utilsforecast.processing import (
     take_rows,
     vertical_concat,
 )
-from utilsforecast.validation import ensure_time_dtype
 
 
 def get_seasonality(

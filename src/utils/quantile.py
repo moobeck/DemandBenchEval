@@ -1,5 +1,4 @@
 from typing import List, Optional
-from src.constants.quantile_values import DEFAULT_QUANTILE_VALUES
 from src.configurations.forecasting.quantile import (
     QuantileConfig,
 )
