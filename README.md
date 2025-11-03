@@ -60,7 +60,61 @@ Tasks are defined as combinations of dataset, hierarchical level, sampling frequ
 - Store-level aggregations at all frequencies
 - Various forecasting horizons (e.g., 3 months, 4 weeks, 7 days)
 
-All tasks use rolling-origin evaluation for robust assessment.
+All tasks use rolling-origin evaluation with multiple cutoffs to ensure robust performance assessment.
+The following table summarizes the available tasks in the benchmark:
+
+| dataset           | hierarchy_level | frequency_level | forecasting_horizon | number_of_rows | number_of_timestamps |
+| ----------------- | --------------- | --------------- | ------------------- | -------------- | -------------------- |
+| m5                | product         | weekly          | 4                   | 845444         | 277                  |
+| m5                | product         | monthly         | 3                   | 197270         | 64                   |
+| m5                | store           | daily           | 7                   | 19410          | 1941                 |
+| favorita          | product         | weekly          | 4                   | 332002         | 241                  |
+| favorita          | product         | monthly         | 3                   | 77467          | 56                   |
+| favorita          | store           | daily           | 7                   | 31094          | 1688                 |
+| favorita          | store           | weekly          | 4                   | 4442           | 241                  |
+| rohlik            | product/store   | weekly          | 4                   | 708704         | 200                  |
+| rohlik            | product         | daily           | 7                   | 708704         | 1402                 |
+| rohlik            | product         | weekly          | 4                   | 101243         | 200                  |
+| rossmann          | product/store   | weekly          | 4                   | 290631         | 134                  |
+| rossmann          | store           | weekly          | 4                   | 145315         | 134                  |
+| bakery            | product/store   | daily           | 7                   | 127575         | 1215                 |
+| bakery            | product/store   | weekly          | 4                   | 18225          | 173                  |
+| bakery            | product         | daily           | 7                   | 3645           | 1215                 |
+| bakery            | store           | daily           | 7                   | 42525          | 1215                 |
+| bakery            | store           | weekly          | 4                   | 6075           | 173                  |
+| yaz               | product         | daily           | 7                   | 5355           | 765                  |
+| pharmacy          | product         | weekly          | 4                   | 54621          | 119                  |
+| pharmacy2         | product/store   | daily           | 7                   | 279330         | 684                  |
+| pharmacy2         | product/store   | weekly          | 4                   | 39904          | 97                   |
+| freshretail50k    | product         | daily           | 7                   | 5011           | 90                   |
+| freshretail50k    | store           | daily           | 7                   | 5202           | 90                   |
+| hoteldemand       | product/store   | daily           | 7                   | 46508          | 3227                 |
+| hoteldemand       | product/store   | weekly          | 4                   | 6644           | 461                  |
+| hoteldemand       | product         | daily           | 7                   | 5813           | 3227                 |
+| hoteldemand       | store           | daily           | 7                   | 23254          | 3227                 |
+| hoteldemand       | store           | weekly          | 4                   | 3322           | 461                  |
+| onlineretail      | product         | weekly          | 4                   | 217454         | 53                   |
+| onlineretail2     | product         | weekly          | 4                   | 269021         | 105                  |
+| australianretail  | product/store   | monthly         | 3                   | 64532          | 441                  |
+| australianretail  | product         | monthly         | 3                   | 8066           | 441                  |
+| australianretail  | store           | monthly         | 3                   | 3226           | 441                  |
+| kaggledemand      | product/store   | weekly          | 4                   | 150150         | 130                  |
+| kaggledemand      | store           | weekly          | 4                   | 5362           | 130                  |
+| productdemand     | product/store   | weekly          | 4                   | 689684         | 313                  |
+| productdemand     | product/store   | monthly         | 3                   | 160926         | 73                   |
+| productdemand     | product         | weekly          | 4                   | 172421         | 313                  |
+| productdemand     | product         | monthly         | 3                   | 40231          | 73                   |
+| vn1               | product         | weekly          | 4                   | 7801           | 170                  |
+| kaggleretail      | product/store   | weekly          | 4                   | 421570         | 143                  |
+| kaggleretail      | product         | weekly          | 4                   | 9368           | 143                  |
+| kaggleretail      | store           | weekly          | 4                   | 5204           | 143                  |
+| kagglewalmart     | store           | weekly          | 4                   | 421570         | 143                  |
+| hierarchicalsales | product         | daily           | 7                   | 212164         | 1825                 |
+| hierarchicalsales | product         | weekly          | 4                   | 30309          | 260                  |
+| hierarchicalsales | product         | monthly         | 3                   | 7072           | 60                   |
+| carparts          | product         | monthly         | 3                   | 136374         | 51                   |
+| fossil            | product         | monthly         | 3                   | 44907          | 70                   |
+
 
 ---
 
