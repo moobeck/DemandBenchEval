@@ -2,10 +2,10 @@ from typing import Any, List
 import pandas as pd
 from src.configurations.data.forecast_column import ForecastColumnConfig
 from src.configurations.forecasting.forecasting import ForecastConfig
-from src.configurations.evaluation.cross_validation import CrossValDatasetConfig
+from src.configurations.evaluation.cross_validation import CrossValidationConfig
 from src.utils.quantile import QuantileUtils
 from src.forecasting.engine.abstract import ForecastEngine
-from src.configurations.utils.enums import Frequency
+from src.configurations.utils.enums import FrequencyType
 import logging
 
 FoundationModelWrapper = Any
@@ -35,7 +35,7 @@ class FoundationModelEngine(ForecastEngine):
         self,
         df: pd.DataFrame,
         h: int,
-        cv_config: CrossValDatasetConfig,
+        cv_config: CrossValidationConfig,
         forecast_columns: ForecastColumnConfig = None,
         forecast_config: ForecastConfig = None,
     ) -> pd.DataFrame:
@@ -47,10 +47,10 @@ class FoundationModelEngine(ForecastEngine):
 
         logging.info("Starting cross-validation for Foundation Models.")
 
-        step_size = cv_config.test.step_size
-        n_windows = cv_config.test.n_windows
+        step_size = cv_config.step_size
+        n_windows = cv_config.n_windows
         quantiles = QuantileUtils.create_quantiles(forecast_config.foundation.quantile)
-        freq = Frequency.get_alias(forecast_config.freq, "pandas")
+        freq = FrequencyType.get_alias(forecast_config.freq, "pandas")
 
         for model_name, model in self.models.items():
             logging.info(f"Cross-validating foundation model: {model_name}")

@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from src.configurations.utils.enums import Frequency
+from src.configurations.utils.enums import FrequencyType
 from typing import Callable
 
 
@@ -62,7 +62,7 @@ class DateEncoder:
         months = dates.month
         return np.cos(2 * np.pi * months / 12)
 
-    def __init__(self, freq: Frequency):
+    def __init__(self, freq: FrequencyType):
         """
         Initializes the DateEncoder with a specific frequency.
 
@@ -80,7 +80,7 @@ class DateEncoder:
         """
         encoders = []
         self.out_columns = []
-        if self.freq == Frequency.DAILY:
+        if self.freq == FrequencyType.DAILY:
             encoders += [
                 self.weekday_sin,
                 self.weekday_cos,

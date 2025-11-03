@@ -1,8 +1,9 @@
-from src.configurations.utils.enums import MetricName, Frequency
+from src.configurations.utils.enums import MetricName, FrequencyType
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, TypeAlias, Optional
 from functools import partial
 from utilsforecast.losses import mase, msse, mae, mse, rmse, scaled_mqloss
+from src.configurations.forecasting.quantile import QuantileConfig
 from src.configurations.forecasting.utils.quantile import QuantileUtils
 
 ForecastMetric: TypeAlias = Any
@@ -48,26 +49,28 @@ class MetricConfig:
     """
 
     names: list[MetricName] = field(default_factory=list)
-    seasonality: int = field(default=None, repr=False)
-    quantiles: Optional[list[float]] = field(default=None, repr=False)
+    seasonality: Optional[int] = field(default=None, repr=False)
+    quantiles: Optional[QuantileConfig] = field(default=None, repr=False)
     metrics: Dict[MetricName, MetricSpec] = field(init=False)
 
-    def __post_init__(self):
-        self.seasonality_provided = self.seasonality is not None
-        self.contains_probabilistic = any(
-            name in PROBABILISTIC_METRICS for name in self.names
-        )
 
-    def set_seasonality(self, freq: Optional[Frequency] = None):
+    @property
+    def contains_probabilistic(self) -> bool:
+        """
+        Checks if the metric configuration contains probabilistic metrics.
+        """
+        return any(name in PROBABILISTIC_METRICS for name in self.names)
+
+    def set_seasonality(self, freq: Optional[FrequencyType] = None):
         """
         Sets the seasonality for the metrics based on the frequency of the dataset.
         """
 
-        if freq == Frequency.DAILY:
+        if freq == FrequencyType.DAILY:
             self.seasonality = 7
-        elif freq == Frequency.WEEKLY:
+        elif freq == FrequencyType.WEEKLY:
             self.seasonality = 52
-        elif freq == Frequency.MONTHLY:
+        elif freq == FrequencyType.MONTHLY:
             self.seasonality = 12
         else:
             raise ValueError(f"Unsupported frequency: {freq}")

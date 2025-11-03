@@ -1,5 +1,8 @@
-from typing import Any, Dict, List, Optional
-from src.configurations.forecasting.quantile import QuantileConfig
+from typing import List, Optional
+from src.constants.quantile_values import DEFAULT_QUANTILE_VALUES
+from src.configurations.forecasting.quantile import (
+    QuantileConfig,
+)
 
 
 class QuantileUtils:
@@ -30,22 +33,6 @@ class QuantileUtils:
 
     @staticmethod
     def create_quantiles(quantile_config: QuantileConfig) -> List[float]:
-        """
-        Create a list of quantiles based on the quantile configuration.
+        """Create a list of quantiles based on the provided configuration."""
 
-        Args:
-            quantile_config: Dictionary containing 'min', 'max', and 'step' keys
-                            to define the quantile range and step size.
-
-        Returns:
-            List of quantile levels as floats between 0 and 1.
-        """
-        if not quantile_config:
-            # Default quantiles from 1% to 99%
-            return [round(x * 0.01, 2) for x in range(1, 100)]
-
-        q_min = quantile_config.min
-        q_max = quantile_config.max
-        q_step = quantile_config.step
-
-        return [round(x * 0.01, 2) for x in range(q_min, q_max + 1, q_step)]
+        return [float(q) for q in quantile_config.values]

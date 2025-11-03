@@ -1,7 +1,7 @@
 from mlforecast.target_transforms import BaseTargetTransform
 import pandas as pd
 from src.configurations.evaluation.cross_validation import CrossValidationConfig
-from src.configurations.utils.enums import Frequency, TargetScalerType
+from src.configurations.utils.enums import FrequencyType, TargetScalerType
 from src.configurations.forecasting.forecasting import ForecastConfig
 from src.configurations.data.preprocessing import PreprocessingConfig
 
@@ -10,7 +10,7 @@ class TargetScaler(BaseTargetTransform):
     """Base class for target scaling transforms that use a cutoff based on cross-validation configuration."""
 
     def __init__(
-        self, cv_cfg: CrossValidationConfig, freq: Frequency, forecast: ForecastConfig
+        self, cv_cfg: CrossValidationConfig, freq: FrequencyType, forecast: ForecastConfig
     ):
         self.cv_cfg = cv_cfg
         self.freq = freq
@@ -27,7 +27,6 @@ class TargetScaler(BaseTargetTransform):
         return self.cv_cfg.get_cutoff_date(
             max_date=df[self.time_col].max(),
             freq=self.freq,
-            split="test",
             horizon=self.forecast.horizon,
         )
 
@@ -39,7 +38,7 @@ class TargetScalerFactory:
     def create_scaler(
         scaler_type: PreprocessingConfig,
         cv_cfg: CrossValidationConfig,
-        freq: Frequency,
+        freq: FrequencyType,
         forecast: ForecastConfig,
     ):
         """Create a target scaler based on the specified type."""
@@ -117,7 +116,7 @@ class LocalRobustScaler(TargetScaler):
     based on a training cutoff defined by the CV config."""
 
     def __init__(
-        self, cv_cfg: CrossValidationConfig, freq: Frequency, quantile: float = 0.9
+        self, cv_cfg: CrossValidationConfig, freq: FrequencyType, quantile: float = 0.9
     ):
         super().__init__(cv_cfg, freq)
         self.quantile = quantile

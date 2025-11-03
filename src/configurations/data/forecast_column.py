@@ -1,26 +1,49 @@
-from dataclasses import dataclass, field
 from typing import List
 from demandbench.datasets import Dataset
 from typing import Literal
 
+from src.constants.column_names import (
+    DEFAULT_FORECAST_COLUMN_NAMES,
+    ForecastColumnNames,
+)
 
-@dataclass
+
 class ForecastColumnConfig:
-    """
-    A dataclass to store the names of the columns used in the output DataFrame.
-    """
+    """Mutable feature registry built on top of immutable column names."""
 
-    date: str = "date"
-    time_series_index: str = "skuID"
-    target: str = "demand"
-    store_index: str = "storeID"
-    product_index: str = "productID"
-    categorical: List[str] = field(default_factory=list)
-    past_exogenous: List[str] = field(default_factory=list)
-    future_exogenous: List[str] = field(default_factory=list)
-    exogenous: List[str] = field(default_factory=list)
-    static: List[str] = field(default_factory=list)
-    cutoff: str = "cutoff"
+    def __init__(
+        self, names: ForecastColumnNames = DEFAULT_FORECAST_COLUMN_NAMES
+    ) -> None:
+        self._names = names
+        self.categorical: List[str] = []
+        self.past_exogenous: List[str] = []
+        self.future_exogenous: List[str] = []
+        self.exogenous: List[str] = []
+        self.static: List[str] = []
+
+    @property
+    def date(self) -> str:
+        return self._names.date
+
+    @property
+    def time_series_index(self) -> str:
+        return self._names.time_series_index
+
+    @property
+    def target(self) -> str:
+        return self._names.target
+
+    @property
+    def store_index(self) -> str:
+        return self._names.store_index
+
+    @property
+    def product_index(self) -> str:
+        return self._names.product_index
+
+    @property
+    def cutoff(self) -> str:
+        return self._names.cutoff
 
     @property
     def ts_base_cols(self) -> List[str]:
@@ -34,19 +57,19 @@ class ForecastColumnConfig:
         Sets the past exogenous features for dataset.
         """
 
-        self.past_exogenous = dataset.metadata.past_exo_features
+        self.past_exogenous = list(dataset.metadata.past_exo_features or [])
 
     def set_future_exogenous(self, dataset: Dataset):
         """
         Sets the future exogenous features for dataset.
         """
-        self.future_exogenous = dataset.metadata.future_exo_features
+        self.future_exogenous = list(dataset.metadata.future_exo_features or [])
 
     def set_static(self, dataset: Dataset):
         """
         Sets the static features for dataset.
         """
-        self.static = dataset.metadata.static_features
+        self.static = list(dataset.metadata.static_features or [])
 
     def set_exogenous(self):
         """
@@ -183,3 +206,5 @@ class ForecastColumnConfig:
                 ]
 
         self.set_exogenous()
+
+DEFAULT_FORECASTING_COLUMNS = ForecastColumnConfig()

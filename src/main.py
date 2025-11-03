@@ -1,14 +1,17 @@
 import logging
 from src.configurations.core.global_cfg import GlobalConfig
+from src.configurations.core.config_loader import ConfigLoader
 from src.utils.wandb_orchestrator import WandbOrchestrator
 from src.utils.dataframe import DataFrameHandler
 from src.utils.system_settings import SystemSettings
-from src.dataset.dataset_factory import DatasetFactory
+from src.dataset.dataset_loader import DatasetLoader
 from src.preprocessing.preprocessor import Preprocessor
 from src.utils.statistics import SKUStatistics
 from src.forecasting.cross_validation.cross_validation import CrossValidator
 from src.forecasting.evaluation.evaluation import Evaluator, EvaluationPlotter
 from src.utils.args_parser import ArgParser
+from src.constants.tasks import TaskName, TASKS
+from src.configurations.utils.enums import DatasetName
 
 
 def main():
@@ -16,8 +19,8 @@ def main():
     logging.basicConfig(level=logging.INFO)
 
     args = ArgParser.parse()
-    public_cfg_dict = GlobalConfig.load_dict(args.public_config)
-    private_cfg_dict = GlobalConfig.load_dict(args.private_config)
+    config_loader = ConfigLoader(args.config_dir)
+    public_cfg_dict, private_cfg_dict = config_loader.load_all_configs()
 
     cfg = GlobalConfig.build(public_cfg_dict, private_cfg_dict)
 
@@ -34,16 +37,17 @@ def main():
     wandb_orchestrator.login()
     wandb_orchestrator.start_run()
 
-    for dataset_name in cfg.datasets.names:
+    logging.info(f"Starting processing for {len(cfg.tasks)} tasks.")
+
+
+    for task in cfg.tasks:
 
         # Load dataset
-        dataset = DatasetFactory.create_dataset(dataset_name)
-        cfg.set_dataset(dataset_name, dataset)
+        cfg.set_task(task)
 
         # Preprocessing
         prep = Preprocessor(
-            dataset,
-            cfg.input_columns,
+            task.dataset,
             cfg.preprocessing,
             cfg.forecast_columns,
             cfg.forecast,
@@ -73,10 +77,9 @@ def main():
         )
 
         # Cross-validation
-        cross_validator = CrossValidator(cfg.forecast, cfg.forecast_columns)
+        cross_validator = CrossValidator(cfg.forecast, cfg.forecast_columns, cfg.cross_validation)
         cv_df = cross_validator.cross_validate(
             df=df,
-            cv_config=cfg.cross_validation,
         )
 
         DataFrameHandler.write_dataframe(
@@ -87,7 +90,7 @@ def main():
         evaluator = Evaluator(cfg.metrics, cfg.forecast_columns)
         eval_df = evaluator.evaluate(cv_df, train_df=df)
         metrics_summary = evaluator.summarize_metrics(eval_df)
-        wandb_orchestrator.log_metrics(metrics_summary, dataset_name)
+        wandb_orchestrator.log_metrics(metrics_summary, task.name.value)
 
         DataFrameHandler.write_dataframe(
             eval_df, cfg.filepaths.eval_results, cfg.filepaths.file_format

@@ -5,7 +5,7 @@ from typing import Dict, Any, Optional, List
 from src.configurations.data.forecast_column import ForecastColumnConfig
 from src.configurations.forecasting.forecasting import ForecastConfig
 from src.configurations.evaluation.cross_validation import CrossValidationConfig
-from src.configurations.utils.enums import Frequency
+from src.configurations.utils.enums import FrequencyType
 
 
 class SKUStatistics:
@@ -20,7 +20,7 @@ class SKUStatistics:
         forecast_columns: ForecastColumnConfig,
         cross_validation: CrossValidationConfig,
         forecast: ForecastConfig,
-        freq: Frequency,
+        freq: FrequencyType,
         quantiles: Optional[List[float]] = None,
     ):
         self.df = df.copy()
@@ -41,7 +41,6 @@ class SKUStatistics:
         cutoff = self._cv_cfg.get_cutoff_date(
             max_date=self.df[self._forecast_columns.date].max(),
             freq=self._freq,
-            split="test",
             horizon=self._forecast.horizon,
         )
         df_train = self.df[self.df[self._forecast_columns.date] <= cutoff]

@@ -7,8 +7,8 @@ from src.forecasting.engine.neural import NeuralForecastEngine
 from src.forecasting.engine.foundation import FoundationModelEngine
 from src.configurations.data.forecast_column import ForecastColumnConfig
 from src.configurations.forecasting.forecasting import ForecastConfig
-from src.configurations.utils.enums import Framework, Frequency
-from src.configurations.evaluation.cross_validation import CrossValDatasetConfig
+from src.configurations.utils.enums import Framework, FrequencyType
+from src.configurations.evaluation.cross_validation import CrossValidationConfig
 
 
 class CrossValidator:
@@ -19,11 +19,13 @@ class CrossValidator:
     def __init__(
         self,
         forecast_config: ForecastConfig,
-        forecast_columns: ForecastColumnConfig = None,
+        forecast_columns: ForecastColumnConfig,
+        cross_validation: CrossValidationConfig,
     ):
 
         self._forecast_config = forecast_config
         self._forecast_columns = forecast_columns
+        self._cross_validation = cross_validation
 
         self._factory = {
             Framework.STATS: (StatsForecastEngine, {}),
@@ -61,14 +63,14 @@ class CrossValidator:
 
             params = {
                 "models": models,
-                "freq": Frequency.get_alias(self._forecast_config.freq, "nixtla"),
+                "freq": FrequencyType.get_alias(self._forecast_config.freq, "nixtla"),
                 **extra,
             }
             fw_instances[fw] = cls(**params)
         return fw_instances
 
     def cross_validate(
-        self, df: pd.DataFrame, cv_config: CrossValDatasetConfig
+        self, df: pd.DataFrame
     ) -> pd.DataFrame:
         """
         Perform cross-validation for each forecasting framework and
@@ -86,7 +88,7 @@ class CrossValidator:
                 continue
 
             logging.info(f"Cross-validating with {framework.name}...")
-            cv_input = self._prepare_cv_inputs(framework, df, cv_config=cv_config)
+            cv_input = self._prepare_cv_inputs(framework, df)
             df_cv = self._run_framework_cv(engine, **cv_input)
             results.append(df_cv)
 
@@ -99,7 +101,6 @@ class CrossValidator:
         self,
         framework: Framework,
         df: pd.DataFrame,
-        cv_config: CrossValDatasetConfig,
     ) -> Dict[str, Any]:
         """
         Build the arguments needed for a framework's cross_validation call.
@@ -123,7 +124,7 @@ class CrossValidator:
 
         return {
             "df": df[cols],
-            "cv_config": cv_config,
+            "cv_config": self._cross_validation,
             "forecast_columns": self._forecast_columns,
             "h": self._forecast_config.horizon,
             **kwargs,
