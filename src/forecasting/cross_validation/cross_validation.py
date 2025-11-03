@@ -69,9 +69,7 @@ class CrossValidator:
             fw_instances[fw] = cls(**params)
         return fw_instances
 
-    def cross_validate(
-        self, df: pd.DataFrame
-    ) -> pd.DataFrame:
+    def cross_validate(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Perform cross-validation for each forecasting framework and
         return a combined DataFrame of predictions.

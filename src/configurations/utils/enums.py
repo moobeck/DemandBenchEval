@@ -132,9 +132,7 @@ class HierarchyType(Enum):
     PRODUCT = "product"
 
     @staticmethod
-    def get_alias(
-        hierarchy: "HierarchyType", context: Literal["demandbench"]
-    ) -> str:
+    def get_alias(hierarchy: "HierarchyType", context: Literal["demandbench"]) -> str:
 
         CONTEXT_ALIASES = {
             "demandbench": {
@@ -150,11 +148,12 @@ class HierarchyType(Enum):
         # Use value-based lookup to handle enum instance issues
         context_map = CONTEXT_ALIASES[context]
         for hierarchy_key, alias in context_map.items():
-            if hierarchy.value == hierarchy_key.value:  # Compare enum values instead of objects
+            if (
+                hierarchy.value == hierarchy_key.value
+            ):  # Compare enum values instead of objects
                 return alias
 
         raise ValueError(f"No alias defined for {hierarchy} in context '{context}'")
-
 
 
 class TargetScalerType(Enum):

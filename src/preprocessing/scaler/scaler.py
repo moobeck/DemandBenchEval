@@ -10,7 +10,10 @@ class TargetScaler(BaseTargetTransform):
     """Base class for target scaling transforms that use a cutoff based on cross-validation configuration."""
 
     def __init__(
-        self, cv_cfg: CrossValidationConfig, freq: FrequencyType, forecast: ForecastConfig
+        self,
+        cv_cfg: CrossValidationConfig,
+        freq: FrequencyType,
+        forecast: ForecastConfig,
     ):
         self.cv_cfg = cv_cfg
         self.freq = freq

@@ -141,15 +141,12 @@ class ForecastConfig:
 
         return frameworks
 
-
-
     def set_columns(self, columns_config: ForecastColumnConfig):
         """
         Set the input columns for the forecast configuration based on the dataset.
         """
         self.columns_config = columns_config
 
-    
     def set_freq(self, freq: FrequencyType):
         """
         Set the frequency for the forecast configuration.

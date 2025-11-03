@@ -39,7 +39,6 @@ def main():
 
     logging.info(f"Starting processing for {len(cfg.tasks)} tasks.")
 
-
     for task in cfg.tasks:
 
         # Load dataset
@@ -77,7 +76,9 @@ def main():
         )
 
         # Cross-validation
-        cross_validator = CrossValidator(cfg.forecast, cfg.forecast_columns, cfg.cross_validation)
+        cross_validator = CrossValidator(
+            cfg.forecast, cfg.forecast_columns, cfg.cross_validation
+        )
         cv_df = cross_validator.cross_validate(
             df=df,
         )

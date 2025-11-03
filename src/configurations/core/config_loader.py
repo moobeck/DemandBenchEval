@@ -36,7 +36,7 @@ class ConfigLoader:
             "filepaths": "filepaths.yaml",
             "forecast": "forecast.yaml",
             "metrics": "metrics.yaml",
-            "tasks": "task.yaml"
+            "tasks": "task.yaml",
         }
 
         for key, filename in config_files.items():
@@ -63,7 +63,9 @@ class ConfigLoader:
         if config_data:
             private_config.update(config_data)
         else:
-            logging.warning(f"Failed to load or empty private config file: {private_file}")
+            logging.warning(
+                f"Failed to load or empty private config file: {private_file}"
+            )
 
         return private_config
 
@@ -94,7 +96,7 @@ class ConfigLoader:
                 logging.warning(f"Config file not found: {file_path}")
                 return {}
 
-            with open(file_path, 'r') as f:
+            with open(file_path, "r") as f:
                 data = yaml.safe_load(f)
                 return data if data is not None else {}
 

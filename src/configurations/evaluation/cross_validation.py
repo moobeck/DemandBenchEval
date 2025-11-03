@@ -7,6 +7,7 @@ from src.constants.tasks import Task
 
 from demandbench.datasets import Dataset
 
+
 @dataclass
 class CrossValidationConfig:
     n_windows: int = field(default_factory=lambda: 322)
@@ -26,15 +27,9 @@ class CrossValidationConfig:
 
         start_date, end_date = task.dataset.metadata.time_range
         frequency = task.dataset.metadata.frequency
-        freq_map = {
-        'daily': 'D',
-        'weekly': 'W',
-        'monthly': 'MS'
-        }
+        freq_map = {"daily": "D", "weekly": "W", "monthly": "MS"}
         date_range = pd.date_range(
-            start=start_date,
-            end=end_date,
-            freq=freq_map[frequency]
+            start=start_date, end=end_date, freq=freq_map[frequency]
         )
         num_time_points = len(date_range)
 
@@ -44,7 +39,6 @@ class CrossValidationConfig:
         test_size = num_time_points - train_size
 
         self.n_windows = test_size - self.step_size + 1
-        
 
     def get_cutoff_date(
         self,
@@ -66,5 +60,6 @@ class CrossValidationConfig:
         else:
             raise ValueError(f"Unsupported frequency: {freq}")
         return max_date - offset
+
 
 DEFAULT_CROSS_VALIDATION_CONFIG = CrossValidationConfig()

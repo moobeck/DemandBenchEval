@@ -12,4 +12,5 @@ class PreprocessingConfig:
 
     target_transform: TargetScalerType = field(default=DEFAULT_TARGET_TRANSFORM)
 
+
 DEFAULT_PREPROCESSING_CONFIG = PreprocessingConfig()

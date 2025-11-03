@@ -29,7 +29,6 @@ from src.configurations.utils.enums import DatasetName
 import logging
 
 
-
 class DatasetLoader:
     """
     Factory class to load dataset instances based on dataset names.
@@ -86,5 +85,3 @@ class DatasetLoader:
             return load_fossil()
         else:
             raise ValueError(f"Unknown dataset name: {dataset_name}")
-        
-            

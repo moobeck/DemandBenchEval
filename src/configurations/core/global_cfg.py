@@ -6,8 +6,14 @@ from typing import Any, List
 
 from src.configurations.core.system import SystemConfig
 from src.configurations.core.file_path import FilePathConfig
-from src.configurations.data.forecast_column import ForecastColumnConfig, DEFAULT_FORECASTING_COLUMNS
-from src.configurations.evaluation.cross_validation import CrossValidationConfig, DEFAULT_CROSS_VALIDATION_CONFIG
+from src.configurations.data.forecast_column import (
+    ForecastColumnConfig,
+    DEFAULT_FORECASTING_COLUMNS,
+)
+from src.configurations.evaluation.cross_validation import (
+    CrossValidationConfig,
+    DEFAULT_CROSS_VALIDATION_CONFIG,
+)
 from src.configurations.forecasting.forecasting import ForecastConfig
 from src.configurations.evaluation.metrics import MetricConfig
 from src.configurations.forecasting.quantile import DEFAULT_QUANTILE_CONFIG
@@ -19,7 +25,11 @@ from src.configurations.utils.enums import (
 )
 from src.constants import DEFAULT_MODEL_FRAMEWORK_CONFIG
 from src.constants.tasks import TASKS, Task
-from src.configurations.data.preprocessing import PreprocessingConfig, DEFAULT_PREPROCESSING_CONFIG
+from src.configurations.data.preprocessing import (
+    PreprocessingConfig,
+    DEFAULT_PREPROCESSING_CONFIG,
+)
+
 
 @dataclass(frozen=True)
 class GlobalConfig:
@@ -38,7 +48,7 @@ class GlobalConfig:
         Sets the configuration for a given task.
         """
         self.filepaths.set_file_paths(task.dataset_name)
-        self.forecast_columns.set_columns(task.dataset)
+        self.forecast_columns.set_columns(task)
         self.forecast.set_columns(self.forecast_columns)
         self.forecast.set_freq(task.frequency)
         self.metrics.set_seasonality(freq=task.frequency)
@@ -52,16 +62,22 @@ class GlobalConfig:
         Builds a GlobalConfig instance from public and private configuration dictionaries.
         """
         system_config = cls._build_system_config(public_config.get("system", {}))
-        filepaths_config = cls._build_filepaths_config(public_config.get("filepaths", {}))
+        filepaths_config = cls._build_filepaths_config(
+            public_config.get("filepaths", {})
+        )
         preprocessing_config = DEFAULT_PREPROCESSING_CONFIG
         forecast_columns_config = DEFAULT_FORECASTING_COLUMNS
         cross_validation_config = DEFAULT_CROSS_VALIDATION_CONFIG
         forecast_config = cls._build_forecast_config(public_config.get("forecast", {}))
         metrics_config = cls._build_metrics_config(public_config.get("metrics", {}))
-        wandb_config = cls._build_wandb_config(public_config.get("log_wandb", False), private_config.get("wandb", {}))
+        wandb_config = cls._build_wandb_config(
+            public_config.get("log_wandb", False), private_config.get("wandb", {})
+        )
         tasks = cls._build_tasks(public_config.get("tasks", []))
 
-        logging.info(f"Building GlobalConfig with tasks: {[task.name for task in tasks]}")
+        logging.info(
+            f"Building GlobalConfig with tasks: {[task.name for task in tasks]}"
+        )
 
         return GlobalConfig(
             system=system_config,
@@ -82,7 +98,7 @@ class GlobalConfig:
             logging.warning("No system settings provided in the public config.")
         return SystemConfig(
             GPU=system_dict.get("GPU", 0),
-            RANDOM_SEED=system_dict.get("RANDOM_SEED", 42)
+            RANDOM_SEED=system_dict.get("RANDOM_SEED", 42),
         )
 
     @classmethod
@@ -91,10 +107,14 @@ class GlobalConfig:
         if not filepaths_dict:
             logging.warning("No file paths provided in the public config.")
         return FilePathConfig(
-            processed_data_dir=filepaths_dict.get("processed_data_dir", "data/processed"),
+            processed_data_dir=filepaths_dict.get(
+                "processed_data_dir", "data/processed"
+            ),
             sku_stats_dir=filepaths_dict.get("sku_stats_dir", "data/sku_stats"),
             cv_results_dir=filepaths_dict.get("cv_results_dir", "data/cv_results"),
-            eval_results_dir=filepaths_dict.get("eval_results_dir", "data/eval_results"),
+            eval_results_dir=filepaths_dict.get(
+                "eval_results_dir", "data/eval_results"
+            ),
             eval_plots_dir=filepaths_dict.get("eval_plots_dir", "data/eval_plots"),
             file_format=FileFormat[filepaths_dict.get("file_format", "FEATHER")],
         )

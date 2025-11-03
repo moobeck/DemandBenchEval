@@ -53,7 +53,6 @@ class MetricConfig:
     quantiles: Optional[QuantileConfig] = field(default=None, repr=False)
     metrics: Dict[MetricName, MetricSpec] = field(init=False)
 
-
     @property
     def contains_probabilistic(self) -> bool:
         """

@@ -3,9 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from src.configurations.utils.enums import DatasetName, FrequencyType, HierarchyType
-from src.constants.cross_validation_windows import TrainTestSplitConfig, DEFAULT_TRAIN_TEST_SPLIT
+from src.constants.cross_validation_windows import (
+    TrainTestSplitConfig,
+    DEFAULT_TRAIN_TEST_SPLIT,
+)
 from src.dataset.dataset_loader import DatasetLoader
 from functools import cached_property
+
 
 class TaskName(Enum):
     M5_PRODUCT_WEEKLY_4 = "m5_product_weekly_4"
@@ -38,7 +42,9 @@ class TaskName(Enum):
     HOTEL_STORE_WEEKLY_4 = "hotel_store_weekly_4"
     ONLINERETAIL_PRODUCT_WEEKLY_4 = "onlineretail_product_weekly_4"
     ONLINERETAIL2_PRODUCT_WEEKLY_4 = "onlineretail2_product_weekly_4"
-    AUSTRALIANRETAIL_PRODUCT_STORE_MONTHLY_3 = "australianretail_product_store_monthly_3"
+    AUSTRALIANRETAIL_PRODUCT_STORE_MONTHLY_3 = (
+        "australianretail_product_store_monthly_3"
+    )
     AUSTRALIANRETAIL_PRODUCT_MONTHLY_3 = "australianretail_product_monthly_3"
     AUSTRALIANRETAIL_STORE_MONTHLY_3 = "australianretail_store_monthly_3"
     KAGGLEDEMAND_PRODUCT_STORE_WEEKLY_4 = "kaggledemand_product_store_weekly_4"
@@ -76,16 +82,16 @@ class Task:
         dataset = DatasetLoader.load(self.dataset_name)
 
         dataset = dataset.aggregate_frequency(
-            FrequencyType.get_alias(
-                self.frequency, context="demandbench"
-            )
+            FrequencyType.get_alias(self.frequency, context="demandbench")
         )
 
-        dataset = dataset.aggregate_hierarchy(
-            HierarchyType.get_alias(
-                self.hierarchy, context="demandbench"
+        dataset = (
+            dataset.aggregate_hierarchy(
+                HierarchyType.get_alias(self.hierarchy, context="demandbench")
             )
-        ) if self.hierarchy != HierarchyType.PRODUCT_STORE else dataset
+            if self.hierarchy != HierarchyType.PRODUCT_STORE
+            else dataset
+        )
 
         return dataset
 
@@ -113,7 +119,6 @@ class TaskNameParser:
 
     def parse_all(self):
         return (
-            
             self.parse_dataset(),
             self.parse_hierarchy(),
             self.parse_frequency(),
@@ -131,7 +136,6 @@ TASKS: dict[str, Task] = {
     )
     for task_enum in TaskName
 }
-
 
 
 __all__ = ["Task", "TaskName", "TASKS"]
