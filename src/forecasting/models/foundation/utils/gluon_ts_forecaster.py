@@ -84,7 +84,7 @@ class GluonTSForecaster(Forecaster):
     def get_predictor(self, prediction_length: int) -> PyTorchPredictor:
         raise NotImplementedError
 
-    def gluonts_instance_fcst_to_df(
+    def _gluonts_instance_fcst_to_df(
         self,
         fcst: Forecast,
         freq: str,
@@ -114,7 +114,7 @@ class GluonTSForecaster(Forecaster):
                 )
         return fcst_df
 
-    def gluonts_fcsts_to_df(
+    def _gluonts_fcsts_to_df(
         self,
         fcsts: Iterable[Forecast],
         freq: str,
@@ -123,7 +123,7 @@ class GluonTSForecaster(Forecaster):
     ) -> pd.DataFrame:
         df = []
         for fcst in tqdm(fcsts):
-            fcst_df = self.gluonts_instance_fcst_to_df(
+            fcst_df = self._gluonts_instance_fcst_to_df(
                 fcst=fcst,
                 freq=freq,
                 model_name=model_name,
@@ -181,7 +181,7 @@ class GluonTSForecaster(Forecaster):
                 num_samples=self.num_samples,
             )
 
-        fcst_df = self.gluonts_fcsts_to_df(
+        fcst_df = self._gluonts_fcsts_to_df(
             fcsts,
             freq=freq,
             model_name=self.alias,

@@ -85,8 +85,6 @@ class Preprocessor:
 
         return self.df_merged
 
-
-
     def prepare_forecasting_data(self) -> pd.DataFrame:
         """Prepare a pandas DataFrame for forecasting."""
 

@@ -37,32 +37,32 @@ class ForecastColumnConfig:
         """
         return [self.time_series_index, self.date, self.target]
 
-    def set_past_exogenous(self, dataset: Dataset):
+    def _set_past_exogenous(self, dataset: Dataset):
         """
         Sets the past exogenous features for dataset.
         """
 
         self.past_exogenous = list(dataset.metadata.past_exo_features or [])
 
-    def set_future_exogenous(self, dataset: Dataset):
+    def _set_future_exogenous(self, dataset: Dataset):
         """
         Sets the future exogenous features for dataset.
         """
         self.future_exogenous = list(dataset.metadata.future_exo_features or [])
 
-    def set_static(self, dataset: Dataset):
+    def _set_static(self, dataset: Dataset):
         """
         Sets the static features for dataset.
         """
         self.static = list(dataset.metadata.static_features or [])
 
-    def set_exogenous(self):
+    def _set_exogenous(self):
         """
         Sets the exogenous features for dataset.
         """
         self.exogenous = self.past_exogenous + self.future_exogenous + self.static
 
-    def set_categorical(self, dataset: Dataset):
+    def _set_categorical(self, dataset: Dataset):
         """
         Sets the categorical features for dataset.
         """
@@ -78,14 +78,14 @@ class ForecastColumnConfig:
         This includes setting exogenous, static, and categorical features.
         """
 
-        self.set_id_column(task)
-        self.set_past_exogenous(task.dataset)
-        self.set_future_exogenous(task.dataset)
-        self.set_static(task.dataset)
-        self.set_exogenous()
-        self.set_categorical(task.dataset)
+        self._set_id_column(task)
+        self._set_past_exogenous(task.dataset)
+        self._set_future_exogenous(task.dataset)
+        self._set_static(task.dataset)
+        self._set_exogenous()
+        self._set_categorical(task.dataset)
 
-    def set_id_column(self, task: Task):
+    def _set_id_column(self, task: Task):
         """
         Sets the time series index column based on the task's hierarchy.
         """
@@ -126,7 +126,7 @@ class ForecastColumnConfig:
                 f"Invalid feature_type: {feature_type}. Must be one of 'past_exogenous', 'future_exogenous', or 'static'."
             )
 
-        self.set_exogenous()
+        self._set_exogenous()
 
     def remove_features(
         self,
@@ -168,7 +168,7 @@ class ForecastColumnConfig:
                 f"Invalid feature_type: {feature_type}. Must be one of 'past_exogenous', 'future_exogenous', 'static', or None."
             )
 
-        self.set_exogenous()
+        self._set_exogenous()
 
     def replace_features(self, mapping: dict):
         """
@@ -198,7 +198,7 @@ class ForecastColumnConfig:
                     new_feature if col == old_feature else col for col in self.static
                 ]
 
-        self.set_exogenous()
+        self._set_exogenous()
 
 
 DEFAULT_FORECASTING_COLUMNS = ForecastColumnConfig()

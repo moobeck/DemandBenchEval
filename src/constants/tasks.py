@@ -117,13 +117,6 @@ class TaskNameParser:
     def parse_horizon(self) -> int:
         return int(self.parts[-1])
 
-    def parse_all(self):
-        return (
-            self.parse_dataset(),
-            self.parse_hierarchy(),
-            self.parse_frequency(),
-            self.parse_horizon(),
-        )
 
 
 TASKS: dict[str, Task] = {

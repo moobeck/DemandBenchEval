@@ -21,7 +21,7 @@ class ConfigLoader:
         self.public_dir = self.config_dir / "public"
         self.private_dir = self.config_dir / "private"
 
-    def load_public_config(self) -> Dict[str, Any]:
+    def _load_public_config(self) -> Dict[str, Any]:
         """
         Load and merge all public config files.
 
@@ -49,7 +49,7 @@ class ConfigLoader:
 
         return public_config
 
-    def load_private_config(self) -> Dict[str, Any]:
+    def _load_private_config(self) -> Dict[str, Any]:
         """
         Load the private config file.
 
@@ -76,8 +76,8 @@ class ConfigLoader:
         Returns:
             Tuple of (public_config, private_config)
         """
-        public_config = self.load_public_config()
-        private_config = self.load_private_config()
+        public_config = self._load_public_config()
+        private_config = self._load_private_config()
 
         return public_config, private_config
 

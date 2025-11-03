@@ -348,7 +348,7 @@ class QuantileConverter:
         q_hi = 1 - q_lo
         return q_lo, q_hi
 
-    def maybe_convert_level_to_quantiles(
+    def _maybe_convert_level_to_quantiles(
         self,
         df: pd.DataFrame,
         models: list[str],
