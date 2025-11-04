@@ -16,6 +16,7 @@ utilsforecast==0.2.12
 neuralforecast==3.0.1
 wandb==0.19.11
 category_encoders==2.8.1
+mlforecast==1.0.2
 
 # Timecopilot for time series foundation models
 timecopilot==0.0.20
