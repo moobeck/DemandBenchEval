@@ -136,7 +136,7 @@ class GlobalConfig:
         if not metrics_dict:
             logging.warning("No metrics settings provided in the public config.")
         return MetricConfig(
-            names=[MetricName[name] for name in metrics_dict],
+            names=[MetricName[metric] for metric in metrics_dict],
             quantiles=DEFAULT_QUANTILE_CONFIG,
         )
 
