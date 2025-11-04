@@ -1,67 +1,62 @@
-from dataclasses import dataclass
-from typing import Dict, TypedDict, Literal
-from ..utils.enums import DatasetName, Frequency
+from dataclasses import dataclass, field
+from ..utils.enums import FrequencyType
 from src.utils.cross_validation import get_offset
 import pandas as pd
+from src.constants.tasks import Task
 
 
-@dataclass(frozen=True)
-class CrossValWindowConfig:
-    n_windows: int
-    step_size: int
-    refit: bool
-
-
-class CrossValDatasetConfig(TypedDict):
-    test: CrossValWindowConfig
-    val: CrossValWindowConfig
-
-
-@dataclass()
+@dataclass
 class CrossValidationConfig:
-    data: Dict[DatasetName, CrossValDatasetConfig]
-    test: CrossValWindowConfig = None
-    val: CrossValWindowConfig = None
+    n_windows: int = field(default_factory=lambda: 322)
 
-    def set_dataset_config(self, dataset_name: DatasetName) -> None:
+    @property
+    def step_size(self) -> int:
+        return 1
+
+    @property
+    def refit(self) -> bool:
+        return False
+
+    def set_task(self, task: Task) -> None:
         """
-        Sets the dataset configuration for cross-validation.
+        Sets the cross-validation configuration based on the task.
         """
 
-        dataset_config = self.data.get(dataset_name)
-        if dataset_config:
-            self.test = dataset_config.get("test")
-            self.val = dataset_config.get("val")
+        start_date, end_date = task.dataset.metadata.time_range
+        frequency = task.dataset.metadata.frequency
+        freq_map = {"daily": "D", "weekly": "W", "monthly": "MS"}
+        date_range = pd.date_range(
+            start=start_date, end=end_date, freq=freq_map[frequency]
+        )
+        num_time_points = len(date_range)
 
-        else:
-            raise ValueError(
-                f"No cross-validation config found for dataset: {dataset_name}"
-            )
+        rel_train_size = task.train_test_split.rel_train_size
+
+        train_size = int(round(rel_train_size * num_time_points, 0))
+        test_size = num_time_points - train_size
+
+        self.n_windows = test_size - self.step_size + 1
 
     def get_cutoff_date(
         self,
         max_date: pd.Timestamp,
-        freq: Frequency,
-        split: Literal["test", "val"],
+        freq: FrequencyType,
         horizon: int,
     ) -> pd.Timestamp:
         """
-        Calculate the cutoff date for training data based on frequency and split type.
+        Calculate the cutoff date for training data based on frequency.
         """
-        if split == "test":
-            config = self.test
-        elif split == "val":
-            config = self.val
-        else:
-            raise ValueError(f"Unsupported split: {split}")
 
-        n_windows = config.n_windows
-        step_size = config.step_size
+        n_windows = self.n_windows
+        step_size = self.step_size
 
-        if freq == Frequency.DAILY:
+        if freq == FrequencyType.DAILY:
             offset = pd.Timedelta(days=get_offset(n_windows, step_size, horizon))
-        elif freq == Frequency.WEEKLY:
+        elif freq == FrequencyType.WEEKLY:
             offset = pd.Timedelta(weeks=get_offset(n_windows, step_size, horizon))
         else:
             raise ValueError(f"Unsupported frequency: {freq}")
         return max_date - offset
+
+
+DEFAULT_CROSS_VALIDATION_CONFIG = CrossValidationConfig()

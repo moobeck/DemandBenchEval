@@ -2,181 +2,169 @@ from dataclasses import dataclass
 
 import yaml
 import logging
-from typing import Any
+from typing import Any, List
 
 from src.configurations.core.system import SystemConfig
 from src.configurations.core.file_path import FilePathConfig
-from src.configurations.data.datasets import DatasetConfig
-from src.configurations.data.input_column import InputColumnConfig
-from src.configurations.data.preprocessing import PreprocessingConfig
-from src.configurations.data.forecast_column import ForecastColumnConfig
+from src.configurations.data.forecast_column import (
+    ForecastColumnConfig,
+    DEFAULT_FORECASTING_COLUMNS,
+)
 from src.configurations.evaluation.cross_validation import (
     CrossValidationConfig,
-    CrossValWindowConfig,
-    CrossValDatasetConfig,
+    DEFAULT_CROSS_VALIDATION_CONFIG,
 )
 from src.configurations.forecasting.forecasting import ForecastConfig
 from src.configurations.evaluation.metrics import MetricConfig
-from src.configurations.forecasting.quantile import QuantileConfig
+from src.configurations.forecasting.quantile import DEFAULT_QUANTILE_CONFIG
 from src.configurations.utils.wandb import WandbConfig
 from src.configurations.utils.enums import (
-    DatasetName,
     FileFormat,
     ModelName,
-    Framework,
     MetricName,
-    TargetScalerType,
 )
-from demandbench.datasets import Dataset
+from src.constants import DEFAULT_MODEL_FRAMEWORK_CONFIG
+from src.constants.tasks import TASKS, Task
+from src.configurations.data.preprocessing import (
+    PreprocessingConfig,
+    DEFAULT_PREPROCESSING_CONFIG,
+)
 
 
 @dataclass(frozen=True)
 class GlobalConfig:
     system: SystemConfig
     filepaths: FilePathConfig
-    datasets: DatasetConfig
-    input_columns: InputColumnConfig
     preprocessing: PreprocessingConfig
     forecast_columns: ForecastColumnConfig
     cross_validation: CrossValidationConfig
     forecast: ForecastConfig
     metrics: MetricConfig
     wandb: WandbConfig
+    tasks: List[Task]
 
-    def set_dataset(self, dataset_name: DatasetName, dataset: Dataset):
+    def set_task(self, task: Task):
         """
-        Sets the dataset for the configuration.
+        Sets the configuration for a given task.
         """
-        self.filepaths.set_file_paths(dataset_name)
-        self.forecast_columns.set_columns(dataset)
-        self.forecast.set_freq(dataset, self.input_columns)
-        self.forecast.set_horizon()
-        self.forecast.set_lags()
+        self.filepaths.set_file_paths(task.dataset_name)
+        self.forecast_columns.set_columns(task)
         self.forecast.set_columns(self.forecast_columns)
-
-        if not self.metrics.seasonality_provided:
-            self.metrics.set_seasonality(freq=self.forecast.freq)
+        self.forecast.set_freq(task.frequency)
+        self.forecast.set_horizon(task.horizon)
+        self.metrics.set_seasonality(freq=task.frequency)
         self.metrics.set_metrics()
 
-        self.cross_validation.set_dataset_config(dataset_name)
+        self.cross_validation.set_task(task)
 
     @classmethod
     def build(cls, public_config: dict, private_config: dict) -> "GlobalConfig":
+        """
+        Builds a GlobalConfig instance from public and private configuration dictionaries.
+        """
+        system_config = cls._build_system_config(public_config.get("system", {}))
+        filepaths_config = cls._build_filepaths_config(
+            public_config.get("filepaths", {})
+        )
+        preprocessing_config = DEFAULT_PREPROCESSING_CONFIG
+        forecast_columns_config = DEFAULT_FORECASTING_COLUMNS
+        cross_validation_config = DEFAULT_CROSS_VALIDATION_CONFIG
+        forecast_config = cls._build_forecast_config(public_config.get("forecast", {}))
+        metrics_config = cls._build_metrics_config(public_config.get("metrics", {}))
+        wandb_config = cls._build_wandb_config(
+            public_config.get("log_wandb", False), private_config.get("wandb", {})
+        )
+        tasks = cls._build_tasks(public_config.get("tasks", []))
 
-        system = public_config.get("system", {})
-        if not system:
-            logging.warning("No system settings provided in the public config.")
-
-        filepaths = public_config.get("filepaths", {})
-        if not filepaths:
-            logging.warning("No file paths provided in the public config.")
-        dataset_names = public_config.get("datasets", [])
-        input_colums = public_config.get("input_columns", {})
-        if not input_colums:
-            logging.warning("No input columns provided in the public config.")
-        preprocessing = public_config.get("preprocessing", {})
-        if not preprocessing:
-            logging.warning("No preprocessing settings provided in the public config.")
-        forecast_columns = public_config.get("forecast_columns", {})
-        if not forecast_columns:
-            logging.warning("No forecast columns provided in the public config.")
-        cross_validation_data = public_config.get("cross_validation", {})
-        if not cross_validation_data:
-            logging.warning(
-                "No cross-validation settings provided in the public config."
-            )
-        forecast = public_config.get("forecast", {})
-        if not forecast:
-            logging.warning("No forecast settings provided in the public config.")
-        metrics = public_config.get("metrics", {})
-        if not metrics:
-            logging.warning("No metrics settings provided in the public config.")
-        lags = public_config.get("lags", [])
-        if not lags:
-            logging.warning("No lags provided in the public config.")
-
-        log_wandb = public_config.get("log_wandb", False)
-        wandb: dict = private_config.get("wandb", {})  #
-        if not wandb and log_wandb:
-            logging.warning("No W&B settings provided in the private config.")
-        wandb.update({"log_wandb": log_wandb})
+        logging.info(
+            f"Building GlobalConfig with tasks: {[task.name for task in tasks]}"
+        )
 
         return GlobalConfig(
-            system=SystemConfig(
-                GPU=system.get("GPU", 0), RANDOM_SEED=system.get("RANDOM_SEED", 42)
-            ),
-            filepaths=FilePathConfig(
-                processed_data_dir=filepaths.get(
-                    "processed_data_dir", "data/processed"
-                ),
-                sku_stats_dir=filepaths.get("sku_stats_dir", "data/sku_stats"),
-                cv_results_dir=filepaths.get("cv_results_dir", "data/cv_results"),
-                eval_results_dir=filepaths.get("eval_results_dir", "data/eval_results"),
-                eval_plots_dir=filepaths.get("eval_plots_dir", "data/eval_plots"),
-                file_format=FileFormat[filepaths.get("file_format", "FEATHER")],
-            ),
-            datasets=DatasetConfig(names=[DatasetName[name] for name in dataset_names]),
-            input_columns=InputColumnConfig(
-                time_series_index=input_colums["time_series_index"],
-                date=input_colums["date"],
-                target=input_colums["target"],
-                frequency=input_colums["frequency"],
-            ),
-            preprocessing=PreprocessingConfig(
-                target_transform=TargetScalerType[preprocessing["target_transform"]],
-            ),
-            forecast_columns=ForecastColumnConfig(
-                time_series_index=forecast_columns["time_series_index"],
-                date=forecast_columns["date"],
-                product_index=forecast_columns.get("product_index", "productID"),
-                store_index=forecast_columns.get("store_index", "storeID"),
-                target=forecast_columns["target"],
-                cutoff=forecast_columns["cutoff"],
-            ),
-            cross_validation=CrossValidationConfig(
-                data={
-                    DatasetName[name]: CrossValDatasetConfig(
-                        test=CrossValWindowConfig(
-                            n_windows=cv["test"]["n_windows"],
-                            step_size=cv["test"]["step_size"],
-                            refit=cv["test"]["refit"],
-                        ),
-                        val=CrossValWindowConfig(
-                            n_windows=cv["val"]["n_windows"],
-                            step_size=cv["val"]["step_size"],
-                            refit=cv["val"]["refit"],
-                        ),
-                    )
-                    for name, cv in cross_validation_data.items()
-                }
-            ),
-            forecast=ForecastConfig(
-                names=[ModelName[name] for name in forecast["models"]],
-                model_config={
-                    Framework[fw]: forecast["model_config"][fw]
-                    for fw in forecast["model_config"]
-                },
-                lags_config=lags,
-            ),
-            metrics=MetricConfig(
-                names=[
-                    MetricName[name] for name in public_config["metrics"]["metrics"]
-                ],
-                seasonality=public_config["metrics"].get("seasonality", None),
-                quantiles=QuantileConfig(
-                    **public_config["metrics"].get("quantiles", {})
-                ),
-            ),
-            wandb=WandbConfig(
-                api_key=(wandb.get("api_key") if wandb else None),
-                entity=(wandb.get("entity") if wandb else None),
-                project=(wandb.get("project", "bench-forecast") if wandb else None),
-                log_wandb=wandb.get("log_wandb", False) if wandb else False,
-            ),
+            system=system_config,
+            filepaths=filepaths_config,
+            preprocessing=preprocessing_config,
+            forecast_columns=forecast_columns_config,
+            cross_validation=cross_validation_config,
+            forecast=forecast_config,
+            metrics=metrics_config,
+            wandb=wandb_config,
+            tasks=tasks,
         )
+
+    @classmethod
+    def _build_system_config(cls, system_dict: dict) -> SystemConfig:
+        """Builds the SystemConfig from the provided dictionary."""
+        if not system_dict:
+            logging.warning("No system settings provided in the public config.")
+        return SystemConfig(
+            GPU=system_dict.get("GPU", 0),
+            RANDOM_SEED=system_dict.get("RANDOM_SEED", 42),
+        )
+
+    @classmethod
+    def _build_filepaths_config(cls, filepaths_dict: dict) -> FilePathConfig:
+        """Builds the FilePathConfig from the provided dictionary."""
+        if not filepaths_dict:
+            logging.warning("No file paths provided in the public config.")
+        return FilePathConfig(
+            processed_data_dir=filepaths_dict.get(
+                "processed_data_dir", "data/processed"
+            ),
+            sku_stats_dir=filepaths_dict.get("sku_stats_dir", "data/sku_stats"),
+            cv_results_dir=filepaths_dict.get("cv_results_dir", "data/cv_results"),
+            eval_results_dir=filepaths_dict.get(
+                "eval_results_dir", "data/eval_results"
+            ),
+            eval_plots_dir=filepaths_dict.get("eval_plots_dir", "data/eval_plots"),
+            file_format=FileFormat[filepaths_dict.get("file_format", "FEATHER")],
+        )
+
+    @classmethod
+    def _build_forecast_config(cls, forecast_dict: dict) -> ForecastConfig:
+        """Builds the ForecastConfig from the provided dictionary."""
+        if not forecast_dict:
+            logging.warning("No forecast settings provided in the public config.")
+        return ForecastConfig(
+            names=[ModelName[name] for name in forecast_dict.get("models", [])],
+            model_config=DEFAULT_MODEL_FRAMEWORK_CONFIG,
+        )
+
+    @classmethod
+    def _build_metrics_config(cls, metrics_dict: dict) -> MetricConfig:
+        """Builds the MetricConfig from the provided dictionary."""
+        if not metrics_dict:
+            logging.warning("No metrics settings provided in the public config.")
+        return MetricConfig(
+            names=[MetricName[metric] for metric in metrics_dict],
+            quantiles=DEFAULT_QUANTILE_CONFIG,
+        )
+
+    @classmethod
+    def _build_wandb_config(cls, log_wandb: bool, wandb_dict: dict) -> WandbConfig:
+        """Builds the WandbConfig from the provided settings."""
+        if not wandb_dict and log_wandb:
+            logging.warning("No W&B settings provided in the private config.")
+        wandb_dict = dict(wandb_dict)  # Copy to avoid mutating original
+        wandb_dict["log_wandb"] = log_wandb
+        return WandbConfig(
+            api_key=wandb_dict.get("api_key"),
+            entity=wandb_dict.get("entity"),
+            project=wandb_dict.get("project", "bench-forecast"),
+            log_wandb=wandb_dict.get("log_wandb", False),
+        )
+
+    @classmethod
+    def _build_tasks(cls, task_names: list) -> List[Task]:
+        """Builds the list of Task objects from task names."""
+        return [TASKS[name] for name in task_names]
 
     @staticmethod
     def load_dict(path) -> dict[str, Any]:
+        """
+        Loads a YAML configuration file and returns it as a dictionary.
+        If the file is not found, logs a warning and returns an empty dict.
+        """
         try:
             with open(path) as f:
                 return yaml.safe_load(f) or {}

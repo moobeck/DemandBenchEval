@@ -39,7 +39,7 @@ class FilePathConfig:
         )
         self.eval_plots = f"{self.eval_plots_dir}/{dataset_name.value}.png"
 
-    def iter_directories(self):
+    def _iter_directories(self):
         """
         Yield directory path attributes declared on this dataclass (attributes ending with '_dir').
         Skips None or empty values.
@@ -48,7 +48,7 @@ class FilePathConfig:
             if name.endswith("_dir") and isinstance(val, str) and val.strip():
                 yield val
 
-    def missing_directories(self, dirs):
+    def _missing_directories(self, dirs):
         """
         Given an iterable of directory paths, return a list of those that do not currently exist
         or are not directories.
@@ -62,17 +62,17 @@ class FilePathConfig:
                 missing.append(d)
         return missing
 
-    def create_directories(self, dirs, exist_ok: bool = True):
+    def _create_directories(self, dirs, exist_ok: bool = True):
         """
         Create the directories from the provided iterable that are missing.
         """
 
-        for d in self.missing_directories(dirs):
+        for d in self._missing_directories(dirs):
             os.makedirs(d, exist_ok=exist_ok)
 
     def ensure_directories_exist(self):
         """
         Ensure all directory attributes on this dataclass exist on disk.
         """
-        dirs = list(self.iter_directories())
-        self.create_directories(dirs)
+        dirs = list(self._iter_directories())
+        self._create_directories(dirs)

@@ -1,7 +1,7 @@
 import pandas as pd
 from statsforecast import StatsForecast
 from src.configurations.data.forecast_column import ForecastColumnConfig
-from src.configurations.evaluation.cross_validation import CrossValDatasetConfig
+from src.configurations.evaluation.cross_validation import CrossValidationConfig
 from src.forecasting.engine.abstract import ForecastEngine
 
 
@@ -16,12 +16,12 @@ class StatsForecastEngine(ForecastEngine):
         self,
         df: pd.DataFrame,
         h: int,
-        cv_config: CrossValDatasetConfig,
+        cv_config: CrossValidationConfig,
         forecast_columns: ForecastColumnConfig,
     ):
-        n_windows = cv_config.test.n_windows
-        step_size = cv_config.test.step_size
-        refit = cv_config.test.refit
+        n_windows = cv_config.n_windows
+        step_size = cv_config.step_size
+        refit = cv_config.refit
 
         cv_results = self._engine.cross_validation(
             df=df,

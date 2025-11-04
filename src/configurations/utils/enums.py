@@ -45,6 +45,11 @@ class MetricName(Enum):
     SMQL = "smql"
 
 
+PROBABILISTIC_METRICS = {
+    MetricName.SMQL,
+}
+
+
 class DatasetName(Enum):
     M5 = "m5"
     FAVORITA = "favorita"
@@ -53,35 +58,47 @@ class DatasetName(Enum):
     BAKERY = "bakery"
     YAZ = "yaz"
     PHARMACY = "pharmacy"
+    PHARMACY2 = "pharmacy2"
     HOTEL = "hoteldemand"
     ONLINERETAIL = "onlineretail"
+    ONLINERETAIL2 = "onlineretail2"
+    FRESHRETAIL50K = "freshretail50k"
+    HIERARCHICALSALES = "hierarchicalsales"
+    AUSTRALIANRETAIL = "australianretail"
+    CARPARTS = "carparts"
+    KAGGLEDEMAND = "kaggledemand"
+    PRODUCTDEMAND = "productdemand"
+    VN1 = "vn1"
+    KAGGLERETAIL = "kaggleretail"
+    KAGGLEWALMART = "kagglewalmart"
+    FOSSIL = "fossil"
 
 
-class Frequency(Enum):
+class FrequencyType(Enum):
     DAILY = "Daily"
     WEEKLY = "Weekly"
     MONTHLY = "Monthly"
 
     @staticmethod
     def get_alias(
-        freq: "Frequency", context: Literal["pandas", "nixtla", "demandbench"]
+        freq: "FrequencyType", context: Literal["pandas", "nixtla", "demandbench"]
     ) -> str:
 
         CONTEXT_ALIASES = {
             "pandas": {
-                Frequency.DAILY: "D",
-                Frequency.WEEKLY: "W-MON",
-                Frequency.MONTHLY: "MS",
+                FrequencyType.DAILY: "D",
+                FrequencyType.WEEKLY: "W-MON",
+                FrequencyType.MONTHLY: "MS",
             },
             "nixtla": {
-                Frequency.DAILY: "D",
-                Frequency.WEEKLY: "W-MON",
-                Frequency.MONTHLY: "MS",
+                FrequencyType.DAILY: "D",
+                FrequencyType.WEEKLY: "W-MON",
+                FrequencyType.MONTHLY: "MS",
             },
             "demandbench": {
-                Frequency.DAILY: "daily",
-                Frequency.WEEKLY: "weekly",
-                Frequency.MONTHLY: "monthly",
+                FrequencyType.DAILY: "daily",
+                FrequencyType.WEEKLY: "weekly",
+                FrequencyType.MONTHLY: "monthly",
             },
         }
 
@@ -97,21 +114,46 @@ class Frequency(Enum):
         raise ValueError(f"No alias defined for {freq} in context '{context}'")
 
     @staticmethod
-    def get_season_length(freq: "Frequency") -> int:
+    def get_season_length(freq: "FrequencyType") -> int:
 
         SEASON_LENGTHS = {
-            Frequency.DAILY: 7,
-            Frequency.WEEKLY: 52,
-            Frequency.MONTHLY: 12,
+            FrequencyType.DAILY: 7,
+            FrequencyType.WEEKLY: 52,
+            FrequencyType.MONTHLY: 12,
         }
         if freq not in SEASON_LENGTHS:
             raise ValueError(f"Unsupported frequency: {freq}")
         return SEASON_LENGTHS[freq]
 
 
-class TimeInSeconds(Enum):
-    DAILY = 86400
-    WEEKLY = 604800
+class HierarchyType(Enum):
+    PRODUCT_STORE = "product/store"
+    STORE = "store"
+    PRODUCT = "product"
+
+    @staticmethod
+    def get_alias(hierarchy: "HierarchyType", context: Literal["demandbench"]) -> str:
+
+        CONTEXT_ALIASES = {
+            "demandbench": {
+                HierarchyType.PRODUCT_STORE: "product/store",
+                HierarchyType.STORE: "store",
+                HierarchyType.PRODUCT: "product",
+            },
+        }
+
+        if context not in CONTEXT_ALIASES:
+            raise ValueError(f"Unknown context: {context}")
+
+        # Use value-based lookup to handle enum instance issues
+        context_map = CONTEXT_ALIASES[context]
+        for hierarchy_key, alias in context_map.items():
+            if (
+                hierarchy.value == hierarchy_key.value
+            ):  # Compare enum values instead of objects
+                return alias
+
+        raise ValueError(f"No alias defined for {hierarchy} in context '{context}'")
 
 
 class TargetScalerType(Enum):

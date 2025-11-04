@@ -1,0 +1,5 @@
+system:
+  GPU: 0
+  RANDOM_SEED: 42
+  log_wandb: false
+

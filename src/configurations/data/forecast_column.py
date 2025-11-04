@@ -1,26 +1,34 @@
-from dataclasses import dataclass, field
 from typing import List
 from demandbench.datasets import Dataset
 from typing import Literal
 
 
-@dataclass
-class ForecastColumnConfig:
-    """
-    A dataclass to store the names of the columns used in the output DataFrame.
-    """
+from src.constants.tasks import Task, HierarchyType
 
-    date: str = "date"
-    time_series_index: str = "skuID"
-    target: str = "demand"
-    store_index: str = "storeID"
-    product_index: str = "productID"
-    categorical: List[str] = field(default_factory=list)
-    past_exogenous: List[str] = field(default_factory=list)
-    future_exogenous: List[str] = field(default_factory=list)
-    exogenous: List[str] = field(default_factory=list)
-    static: List[str] = field(default_factory=list)
-    cutoff: str = "cutoff"
+ID_COLUMN_MAPPING = {
+    HierarchyType.PRODUCT_STORE: "timeSeriesID",
+    HierarchyType.PRODUCT: "productID",
+    HierarchyType.STORE: "storeID",
+}
+
+
+class ForecastColumnConfig:
+    """Mutable feature registry built on top of immutable column names."""
+
+    def __init__(self) -> None:
+
+        self.date: str = "date"
+        self.time_series_index: str = "timeSeriesID"
+        self.target: str = "target"
+        self.store_index: str = "storeID"
+        self.product_index: str = "productID"
+        self.cutoff: str = "cutoff"
+
+        self.categorical: List[str] = []
+        self.past_exogenous: List[str] = []
+        self.future_exogenous: List[str] = []
+        self.exogenous: List[str] = []
+        self.static: List[str] = []
 
     @property
     def ts_base_cols(self) -> List[str]:
@@ -29,32 +37,32 @@ class ForecastColumnConfig:
         """
         return [self.time_series_index, self.date, self.target]
 
-    def set_past_exogenous(self, dataset: Dataset):
+    def _set_past_exogenous(self, dataset: Dataset):
         """
         Sets the past exogenous features for dataset.
         """
 
-        self.past_exogenous = dataset.metadata.past_exo_features
+        self.past_exogenous = list(dataset.metadata.past_exo_features or [])
 
-    def set_future_exogenous(self, dataset: Dataset):
+    def _set_future_exogenous(self, dataset: Dataset):
         """
         Sets the future exogenous features for dataset.
         """
-        self.future_exogenous = dataset.metadata.future_exo_features
+        self.future_exogenous = list(dataset.metadata.future_exo_features or [])
 
-    def set_static(self, dataset: Dataset):
+    def _set_static(self, dataset: Dataset):
         """
         Sets the static features for dataset.
         """
-        self.static = dataset.metadata.static_features
+        self.static = list(dataset.metadata.static_features or [])
 
-    def set_exogenous(self):
+    def _set_exogenous(self):
         """
         Sets the exogenous features for dataset.
         """
         self.exogenous = self.past_exogenous + self.future_exogenous + self.static
 
-    def set_categorical(self, dataset: Dataset):
+    def _set_categorical(self, dataset: Dataset):
         """
         Sets the categorical features for dataset.
         """
@@ -64,16 +72,24 @@ class ForecastColumnConfig:
             if feature in self.exogenous
         ]
 
-    def set_columns(self, dataset: Dataset):
+    def set_columns(self, task: Task):
         """
         Sets the forecast columns based on the dataset metadata.
         This includes setting exogenous, static, and categorical features.
         """
-        self.set_past_exogenous(dataset)
-        self.set_future_exogenous(dataset)
-        self.set_static(dataset)
-        self.set_exogenous()
-        self.set_categorical(dataset)
+
+        self._set_id_column(task)
+        self._set_past_exogenous(task.dataset)
+        self._set_future_exogenous(task.dataset)
+        self._set_static(task.dataset)
+        self._set_exogenous()
+        self._set_categorical(task.dataset)
+
+    def _set_id_column(self, task: Task):
+        """
+        Sets the time series index column based on the task's hierarchy.
+        """
+        self.time_series_index = ID_COLUMN_MAPPING[task.hierarchy]
 
     @staticmethod
     def _add_columns(columns: List[str], target_list: List[str]):
@@ -110,7 +126,7 @@ class ForecastColumnConfig:
                 f"Invalid feature_type: {feature_type}. Must be one of 'past_exogenous', 'future_exogenous', or 'static'."
             )
 
-        self.set_exogenous()
+        self._set_exogenous()
 
     def remove_features(
         self,
@@ -152,7 +168,7 @@ class ForecastColumnConfig:
                 f"Invalid feature_type: {feature_type}. Must be one of 'past_exogenous', 'future_exogenous', 'static', or None."
             )
 
-        self.set_exogenous()
+        self._set_exogenous()
 
     def replace_features(self, mapping: dict):
         """
@@ -182,4 +198,7 @@ class ForecastColumnConfig:
                     new_feature if col == old_feature else col for col in self.static
                 ]
 
-        self.set_exogenous()
+        self._set_exogenous()
+
+
+DEFAULT_FORECASTING_COLUMNS = ForecastColumnConfig()

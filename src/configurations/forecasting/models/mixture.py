@@ -119,13 +119,13 @@ class TGMM(nn.Module):
         self.is_distribution_output = True
         self.has_predicted = False
 
-    def domain_map(self, output: torch.Tensor):
+    def _domain_map(self, output: torch.Tensor):
         output = output.reshape(
             output.shape[0], output.shape[1], -1, self.outputsize_multiplier
         )
         return torch.tensor_split(output, self.n_outputs, dim=-1)
 
-    def scale_decouple(
+    def _scale_decouple(
         self,
         output,
         loc: Optional[torch.Tensor] = None,
@@ -153,7 +153,7 @@ class TGMM(nn.Module):
         else:
             return (means, stds)
 
-    def get_distribution(self, distr_args) -> Distribution:
+    def _get_distribution(self, distr_args) -> Distribution:
         if self.weighted:
             means, stds, weights = distr_args
         else:
@@ -170,7 +170,7 @@ class TGMM(nn.Module):
     def sample(self, distr_args: torch.Tensor, num_samples: Optional[int] = None):
         if num_samples is None:
             num_samples = self.num_samples
-        distr = self.get_distribution(distr_args=distr_args)
+        distr = self._get_distribution(distr_args=distr_args)
         samples = distr.sample(sample_shape=(num_samples,))
         samples = samples.permute(1, 2, 3, 0)
         sample_mean = torch.mean(samples, dim=-1, keepdim=True)
@@ -179,7 +179,7 @@ class TGMM(nn.Module):
         quants = quants.permute(1, 2, 3, 0)
         return samples, sample_mean, quants
 
-    def update_quantile(self, q: Optional[List[float]] = None):
+    def _update_quantile(self, q: Optional[List[float]] = None):
         if q is not None:
             self.quantiles = nn.Parameter(
                 torch.tensor(q, dtype=torch.float32), requires_grad=False
@@ -202,7 +202,7 @@ class TGMM(nn.Module):
         distr_args: torch.Tensor,
         mask: Union[torch.Tensor, None] = None,
     ):
-        distr = self.get_distribution(distr_args=distr_args)
+        distr = self._get_distribution(distr_args=distr_args)
         x = distr._pad(y)
         log_prob_x = distr.component_distribution.log_prob(x)
         log_mix_prob = torch.log_softmax(distr.mixture_distribution.logits, dim=-1)

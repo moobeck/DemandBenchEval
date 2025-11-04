@@ -7,8 +7,7 @@ from src.preprocessing.scaler.scaler import TargetScalerFactory
 from src.preprocessing.encoder.date_encoder import DateEncoder
 from src.preprocessing.encoder.category_encoder import CategoryEncoder
 from src.preprocessing.encoder.statistical_encoder import StatisticalFeaturesEncoder
-from src.configurations.utils.enums import Frequency
-from src.configurations.data.input_column import InputColumnConfig
+from src.configurations.utils.enums import FrequencyType
 from src.configurations.data.preprocessing import PreprocessingConfig
 from src.configurations.forecasting.forecasting import ForecastConfig
 from src.configurations.data.forecast_column import ForecastColumnConfig
@@ -26,14 +25,12 @@ class Preprocessor:
     def __init__(
         self,
         dataset: Dataset,
-        input_columns: InputColumnConfig,
         preprocessing: PreprocessingConfig,
         forecast_columns: ForecastColumnConfig,
         forecast: ForecastConfig,
         cross_validation: CrossValidationConfig,
     ):
 
-        self._input_columns = input_columns
         self._preprocessing = preprocessing
         self._dataset = dataset
         self._forecast_columns = forecast_columns
@@ -62,11 +59,14 @@ class Preprocessor:
 
         logging.info(f"Removing SKUs: {skus}")
 
+        # Print all columns in the DataFrame
+        logging.info(f"Columns in the DataFrame: {self.df_merged.columns.tolist()}")
+
         if self.df_merged is None:
             raise ValueError("Data not merged. Call merge() first.")
 
-        time_series_col = self._input_columns.time_series_index
-        date_col = self._input_columns.date
+        time_series_col = self._forecast_columns.time_series_index
+        date_col = self._forecast_columns.date
 
         if skus == "not_at_min_date":
             min_date = self.df_merged[date_col].min()
@@ -85,20 +85,6 @@ class Preprocessor:
 
         return self.df_merged
 
-    def _filter_by_frequency(self, df: pd.DataFrame):
-        """
-        Filter the merged DataFrame by a specific frequency.
-        """
-        frequency_alias = Frequency.get_alias(self._forecast.freq, "demandbench")
-
-        df = (
-            df[df[self._input_columns.frequency] == frequency_alias]
-            .copy()
-            .reset_index(drop=True)
-        )
-
-        return df
-
     def prepare_forecasting_data(self) -> pd.DataFrame:
         """Prepare a pandas DataFrame for forecasting."""
 
@@ -106,16 +92,6 @@ class Preprocessor:
 
         if self.df_merged is None:
             raise ValueError("Data not merged. Call merge() first.")
-
-        df = self._filter_by_frequency(self.df_merged)
-
-        # Rename columns to match names expected by the forecasting config
-        df = df.rename(
-            columns={
-                self._input_columns.time_series_index: self._forecast_columns.time_series_index,
-                self._input_columns.target: self._forecast_columns.target,
-            }
-        )
 
         selected_columns = list(
             set(
@@ -126,10 +102,10 @@ class Preprocessor:
             )
         )
 
-        df = df[selected_columns].copy()
+        df = self.df_merged[selected_columns].copy()
 
         # Fill gaps in the time series
-        frequency_alias = Frequency.get_alias(self._forecast.freq, "pandas")
+        frequency_alias = FrequencyType.get_alias(self._forecast.freq, "pandas")
 
         df = fill_gaps(
             df,

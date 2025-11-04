@@ -1,13 +1,11 @@
 from dataclasses import dataclass, field
 from typing import List, Dict, Any
-from ..utils.enums import ModelName, Framework, Frequency
+from ..utils.enums import ModelName, Framework, FrequencyType
 from ..data.forecast_column import ForecastColumnConfig
-from ..data.input_column import InputColumnConfig
-from demandbench.datasets import Dataset
 from .models.mixture import MixtureLossFactory
 from .utils.quantile import QuantileLossFactory, QuantileUtils
 from .models.model import MODEL_REGISTRY
-from .quantile import QuantileConfig
+from .quantile import QuantileConfig, DEFAULT_QUANTILE_CONFIG
 from .models.model import ForecastModel
 
 from neuralforecast.losses.pytorch import MAE, MQLoss
@@ -22,32 +20,29 @@ class NeuralForecastConfig:
     """
 
     mixture: Dict[str, Any] = field(default_factory=dict)
-    quantile: QuantileConfig = field(default_factory=QuantileConfig)
+    quantile: QuantileConfig = field(default=DEFAULT_QUANTILE_CONFIG)
     gpus: int = 1
     cpus: int = 1
     num_samples: int = 1
-    input_size: int = 1
 
 
 @dataclass
 class FoundationModelConfig:
     num_samples: int = 1
-    quantile: QuantileConfig = field(default_factory=QuantileConfig)
+    quantile: QuantileConfig = field(default=DEFAULT_QUANTILE_CONFIG)
 
 
 @dataclass(frozen=True)
 class StatisticalForecastConfig:
-    quantile: QuantileConfig = field(default_factory=QuantileConfig)
+    quantile: QuantileConfig = field(default=DEFAULT_QUANTILE_CONFIG)
 
 
 @dataclass
 class ForecastConfig:
     names: List[ModelName]
-    freq: Frequency = Frequency.DAILY
+    freq: FrequencyType = FrequencyType.DAILY
     horizon: int = 14
-    lags: List[int] = field(default_factory=list)
     model_config: Dict[Framework, Dict[str, Any]] = field(default_factory=dict)
-    lags_config: Dict[str, Dict[str, int]] = field(default_factory=dict)
     columns_config: ForecastColumnConfig = field(default_factory=ForecastColumnConfig)
 
     @property
@@ -58,11 +53,10 @@ class ForecastConfig:
         neural_cfg = self.model_config.get(Framework.NEURAL, {})
         return NeuralForecastConfig(
             mixture=neural_cfg.get("mixture", {}),
-            quantile=QuantileConfig(**neural_cfg.get("quantile", {})),
+            quantile=DEFAULT_QUANTILE_CONFIG,
             gpus=neural_cfg.get("gpus", 1),
             cpus=neural_cfg.get("cpus", 1),
             num_samples=neural_cfg.get("num_samples", 1),
-            input_size=len(self.lags),
         )
 
     @property
@@ -73,7 +67,7 @@ class ForecastConfig:
         fm_cfg = self.model_config.get(Framework.FM, {})
         return FoundationModelConfig(
             num_samples=fm_cfg.get("num_samples", 1),
-            quantile=QuantileConfig(**fm_cfg.get("quantile", {})),
+            quantile=DEFAULT_QUANTILE_CONFIG,
         )
 
     @property
@@ -97,7 +91,7 @@ class ForecastConfig:
             # merge defaults with trainer-level params
             params = spec.default_params.copy()
             if spec.framework == Framework.STATS:
-                params["season_length"] = Frequency.get_season_length(self.freq)
+                params["season_length"] = FrequencyType.get_season_length(self.freq)
             elif spec.framework == Framework.NEURAL:
                 params["h"] = self.horizon
 
@@ -113,7 +107,6 @@ class ForecastConfig:
                         for col in self.columns_config.past_exogenous
                         if col not in self.columns_config.static
                     ],
-                    "input_size": self.neural.input_size,
                 }
 
                 mixture_config = self.neural.mixture
@@ -148,61 +141,20 @@ class ForecastConfig:
 
         return frameworks
 
-    def set_freq(self, dataset: Dataset, input_column: InputColumnConfig):
-        """
-        Set the frequency of the forecast configuration based on the dataset.
-        """
-
-        frequencies = dataset.features[input_column.frequency].unique()
-
-        # check if any of the daily frequency identifiers are present
-        if Frequency.get_alias(Frequency.DAILY, "demandbench") in frequencies:
-            self.freq = Frequency.DAILY
-        elif Frequency.get_alias(Frequency.WEEKLY, "demandbench") in frequencies:
-            self.freq = Frequency.WEEKLY
-        else:
-            raise ValueError(
-                f"Unsupported frequency found in the dataset: {frequencies}. "
-                "Only 'daily' and 'weekly' frequencies are supported."
-            )
-
-    def set_lags(self, dataset_name: str = None):
-        """
-        Set the lags for the forecast configuration based on frequency and dataset.
-        """
-        if not self.lags:
-            # Determine dataset name
-            ds_name = dataset_name or (
-                self.model_config.get("dataset_name") if self.model_config else None
-            )
-            lags_cfg = self.lags_config.get(ds_name, {}) if ds_name else {}
-
-            if self.freq == Frequency.DAILY:
-                n_lags = lags_cfg.get("daily", 50)
-                self.lags = range(1, n_lags + 1)
-            elif self.freq == Frequency.WEEKLY:
-                n_lags = lags_cfg.get("weekly", 15)
-                self.lags = range(1, n_lags + 1)
-            else:
-                raise ValueError(f"Unsupported frequency: {self.freq}")
-
-            tabpfn_config = self.model_config.get(Framework.FM, {}).get("TABPFN")
-            if tabpfn_config and "n_lags" in tabpfn_config:
-                tabpfn_config["n_lags"] = len(self.lags)
-
-    def set_horizon(self):
-        """
-        Set the horizon based on the frequency defined in the dataset.
-        """
-        if self.freq == Frequency.DAILY:
-            self.horizon = 7
-        elif self.freq == Frequency.WEEKLY:
-            self.horizon = 4
-        else:
-            raise ValueError(f"Unsupported frequency: {self.freq}")
-
     def set_columns(self, columns_config: ForecastColumnConfig):
         """
         Set the input columns for the forecast configuration based on the dataset.
         """
         self.columns_config = columns_config
+
+    def set_freq(self, freq: FrequencyType):
+        """
+        Set the frequency for the forecast configuration.
+        """
+        self.freq = freq
+
+    def set_horizon(self, horizon: int):
+        """
+        Set the forecast horizon for the forecast configuration.
+        """
+        self.horizon = horizon

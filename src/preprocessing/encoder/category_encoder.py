@@ -2,7 +2,7 @@ from category_encoders import CatBoostEncoder
 import pandas as pd
 
 from src.configurations.evaluation.cross_validation import CrossValidationConfig
-from src.configurations.utils.enums import Frequency
+from src.configurations.utils.enums import FrequencyType
 from src.configurations.data.forecast_column import ForecastColumnConfig
 
 
@@ -11,7 +11,7 @@ class CategoryEncoder:
     def __init__(
         self,
         cv_cfg: CrossValidationConfig,
-        freq: Frequency,
+        freq: FrequencyType,
         forecast_columns: ForecastColumnConfig,
         horizon: int,
     ):
@@ -48,7 +48,6 @@ class CategoryEncoder:
         cutoff = self._cv_cfg.get_cutoff_date(
             max_date=df[self._forecast_columns.date].max(),
             freq=self._freq,
-            split="test",
             horizon=self._horizon,
         )
 
