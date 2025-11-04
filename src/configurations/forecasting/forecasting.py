@@ -152,3 +152,9 @@ class ForecastConfig:
         Set the frequency for the forecast configuration.
         """
         self.freq = freq
+
+    def set_horizon(self, horizon: int):
+        """
+        Set the forecast horizon for the forecast configuration.
+        """
+        self.horizon = horizon

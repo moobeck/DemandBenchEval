@@ -51,6 +51,7 @@ class GlobalConfig:
         self.forecast_columns.set_columns(task)
         self.forecast.set_columns(self.forecast_columns)
         self.forecast.set_freq(task.frequency)
+        self.forecast.set_horizon(task.horizon)
         self.metrics.set_seasonality(freq=task.frequency)
         self.metrics.set_metrics()
 
