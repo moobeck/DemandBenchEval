@@ -4,14 +4,11 @@ from src.configurations.core.config_loader import ConfigLoader
 from src.utils.wandb_orchestrator import WandbOrchestrator
 from src.utils.dataframe import DataFrameHandler
 from src.utils.system_settings import SystemSettings
-from src.dataset.dataset_loader import DatasetLoader
 from src.preprocessing.preprocessor import Preprocessor
 from src.utils.statistics import SKUStatistics
 from src.forecasting.cross_validation.cross_validation import CrossValidator
 from src.forecasting.evaluation.evaluation import Evaluator, EvaluationPlotter
 from src.utils.args_parser import ArgParser
-from src.constants.tasks import TaskName, TASKS
-from src.configurations.utils.enums import DatasetName
 
 
 def main():
@@ -112,9 +109,6 @@ def main():
 
         fig.savefig(cfg.filepaths.eval_plots, dpi=300, bbox_inches="tight")
 
-        wandb_orchestrator.log_image(
-            alias="error_distribution_plot", filepath=cfg.filepaths.eval_plots
-        )
 
         wandb_orchestrator.finish()
 

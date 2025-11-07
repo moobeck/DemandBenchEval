@@ -53,12 +53,6 @@ class WandbOrchestrator:
             wandb.log(data) if self.run else None
             self.run.log(data) if self.run else None
 
-    def log_image(self, alias: str, filepath: str):
-
-        if self.run:
-            logging.info(f"Logging image: {alias} from {filepath}")
-            # Log image to W&B
-            wandb.log({alias: wandb.Image(filepath)}) if self.run else None
 
     def finish(self):
         if self.run:
