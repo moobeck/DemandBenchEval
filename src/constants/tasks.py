@@ -118,7 +118,6 @@ class TaskNameParser:
         return int(self.parts[-1])
 
 
-
 TASKS: dict[str, Task] = {
     task_enum.value: Task(
         name=task_enum,

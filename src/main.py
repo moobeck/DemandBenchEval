@@ -21,7 +21,7 @@ def main():
 
     cfg = GlobalConfig.build(public_cfg_dict, private_cfg_dict)
 
-    # ------ System Settings ------ 
+    # ------ System Settings ------
     system_settings = SystemSettings(cfg.system)
     system_settings.configure_environment()
     system_settings.set_seed()
@@ -36,7 +36,7 @@ def main():
 
     for task in cfg.tasks:
 
-        #------ Data Loading & Preprocessing ------#
+        # ------ Data Loading & Preprocessing ------#
         cfg.set_task(task)
 
         # Preprocessing
@@ -77,8 +77,9 @@ def main():
             df=df,
         )
 
-        wandb_orchestrator.maybe_log_hyperparameters(cross_validator.frameworks, task.name)
-
+        wandb_orchestrator.maybe_log_hyperparameters(
+            cross_validator.frameworks, task.name
+        )
 
         DataFrameHandler.write_dataframe(
             cv_df, cfg.filepaths.cv_results, cfg.filepaths.file_format
@@ -89,8 +90,8 @@ def main():
             type_="results",
         )
 
-        #------ Evaluation ------#
-  
+        # ------ Evaluation ------#
+
         evaluator = Evaluator(cfg.metrics, cfg.forecast_columns)
         eval_df = evaluator.evaluate(cv_df, train_df=df)
         metrics_summary = evaluator.summarize_metrics(eval_df)
@@ -114,7 +115,6 @@ def main():
         ).plot_error_distributions()
 
         fig.savefig(cfg.filepaths.eval_plots, dpi=300, bbox_inches="tight")
-
 
         wandb_orchestrator.finish()
 

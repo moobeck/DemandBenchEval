@@ -54,7 +54,6 @@ class WandbOrchestrator:
             wandb.log(data) if self.run else None
             self.run.log(data) if self.run else None
 
-
     def maybe_log_hyperparameters(self, frameworks: dict, task_name: str):
         if self.run:
             if Framework.NEURAL in frameworks and frameworks[Framework.NEURAL]:
@@ -62,7 +61,10 @@ class WandbOrchestrator:
 
                 models = neural_engine.models
 
-                hyperparams = {model.alias: model.results.get_best_result().config for model in models}
+                hyperparams = {
+                    model.alias: model.results.get_best_result().config
+                    for model in models
+                }
                 if hyperparams:
                     logging.info(
                         f"Logging hyperparameters for task {task_name}: {hyperparams}"
@@ -74,7 +76,6 @@ class WandbOrchestrator:
                 logging.info(
                     f"No neural framework found or no models defined for task {task_name}. Skipping hyperparameter logging."
                 )
-
 
     def finish(self):
         if self.run:
