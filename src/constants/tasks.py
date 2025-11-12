@@ -71,7 +71,7 @@ class Task:
     dataset_name: DatasetName
     hierarchy: HierarchyType
     frequency: FrequencyType
-    forecast_horizon: int
+    horizon: int
     train_test_split: TrainTestSplitConfig = field(
         default_factory=lambda: DEFAULT_TRAIN_TEST_SPLIT
     )
@@ -124,7 +124,7 @@ TASKS: dict[str, Task] = {
         dataset_name=TaskNameParser(task_enum.value).parse_dataset(),
         hierarchy=TaskNameParser(task_enum.value).parse_hierarchy(),
         frequency=TaskNameParser(task_enum.value).parse_frequency(),
-        forecast_horizon=TaskNameParser(task_enum.value).parse_horizon(),
+        horizon=TaskNameParser(task_enum.value).parse_horizon(),
     )
     for task_enum in TaskName
 }
