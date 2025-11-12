@@ -95,7 +95,7 @@ def main():
         evaluator = Evaluator(cfg.metrics, cfg.forecast_columns)
         eval_df = evaluator.evaluate(cv_df, train_df=df)
         metrics_summary = evaluator.summarize_metrics(eval_df)
-        wandb_orchestrator.log_metrics(metrics_summary, task.name.value)
+        wandb_orchestrator.log_metrics(metrics_summary, task.name)
 
         DataFrameHandler.write_dataframe(
             eval_df, cfg.filepaths.eval_results, cfg.filepaths.file_format

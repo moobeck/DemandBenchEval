@@ -72,7 +72,8 @@ class GlobalConfig:
         forecast_config = cls._build_forecast_config(public_config.get("forecast", {}))
         metrics_config = cls._build_metrics_config(public_config.get("metrics", {}))
         wandb_config = cls._build_wandb_config(
-            public_config.get("log_wandb", False), private_config.get("wandb", {})
+            public_config,
+            private_config.get("wandb", {}),
         )
         tasks = cls._build_tasks(public_config.get("tasks", []))
 
@@ -141,8 +142,13 @@ class GlobalConfig:
         )
 
     @classmethod
-    def _build_wandb_config(cls, log_wandb: bool, wandb_dict: dict) -> WandbConfig:
+    def _build_wandb_config(cls, public_config: dict, wandb_dict: dict) -> WandbConfig:
         """Builds the WandbConfig from the provided settings."""
+
+        log_wandb = public_config.get("log_wandb")
+        if log_wandb is None:
+            log_wandb = public_config.get("system", {}).get("log_wandb", False)
+
         if not wandb_dict and log_wandb:
             logging.warning("No W&B settings provided in the private config.")
         wandb_dict = dict(wandb_dict)  # Copy to avoid mutating original
