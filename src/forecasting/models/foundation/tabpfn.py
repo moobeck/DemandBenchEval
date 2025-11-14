@@ -4,7 +4,7 @@ from contextlib import contextmanager
 if sys.version_info >= (3, 13):
     raise ImportError("TabPFN requires Python < 3.13")
 
-from tabpfn_time_series.defaults import TABPFN_TS_DEFAULT_QUANTILE_CONFIG
+from tabpfn_time_series.defaults import DEFAULT_QUANTILE_CONFIG
 
 import pandas as pd
 import torch
@@ -275,10 +275,10 @@ class TabPFN(Forecaster):
         freq = self._maybe_infer_freq(df, freq)
         qc = QuantileConverter(level=level, quantiles=quantiles)
 
-        if qc.quantiles and qc.quantiles != TABPFN_TS_DEFAULT_QUANTILE_CONFIG:
+        if qc.quantiles and qc.quantiles != DEFAULT_QUANTILE_CONFIG:
             raise ValueError(
                 f"TabPFN only supports the default quantiles: "
-                f"{TABPFN_TS_DEFAULT_QUANTILE_CONFIG}, but got {qc.quantiles}."
+                f"{DEFAULT_QUANTILE_CONFIG}, but got {qc.quantiles}."
             )
 
         with self._get_model() as model:
