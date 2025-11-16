@@ -3,7 +3,7 @@ from statsforecast import StatsForecast
 from src.configurations.data.forecast_column import ForecastColumnConfig
 from src.configurations.evaluation.cross_validation import CrossValidationConfig
 from src.forecasting.engine.abstract import ForecastEngine
-
+from typing import List
 
 class StatsForecastEngine(ForecastEngine):
     def __init__(self, *args, **kw):
@@ -11,6 +11,18 @@ class StatsForecastEngine(ForecastEngine):
 
     def _get_model_names(self):
         return [str(model) for model in self._engine.models]
+
+    @staticmethod
+    def cv_inputs() -> List[str]:
+        """
+        Return the list of input parameter names required for cross-validation.
+        """
+        return [
+            "df",
+            "h",
+            "cv_config",
+            "forecast_columns",
+        ]
 
     def cross_validation(
         self,

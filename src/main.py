@@ -23,7 +23,6 @@ def main():
 
     # ------ System Settings ------
     system_settings = SystemSettings(cfg.system)
-    system_settings.configure_environment()
     system_settings.set_seed()
     cfg.filepaths.ensure_directories_exist()
 

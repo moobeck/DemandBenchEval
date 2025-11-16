@@ -102,7 +102,7 @@ class ForecastConfig:
                         for col in self.columns_config.future_exogenous
                         if col not in self.columns_config.static
                     ],
-                    "past_exog_list": [
+                    "hist_exog_list": [
                         col
                         for col in self.columns_config.past_exogenous
                         if col not in self.columns_config.static

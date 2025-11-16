@@ -1,9 +1,19 @@
 from abc import ABC, abstractmethod
 from typing import Any, List
 import pandas as pd
+from dataclasses import dataclass
 
 
 class ForecastEngine(ABC):
+
+    @staticmethod
+    @abstractmethod
+    def cv_inputs() -> List[str]:
+        """
+        Return the list of input parameter names required for cross-validation.
+        """
+        pass
+
     @abstractmethod
     def cross_validation(self, **kwargs: Any) -> pd.DataFrame:
         """
