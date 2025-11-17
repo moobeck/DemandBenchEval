@@ -95,7 +95,10 @@ class ForecastConfig:
             elif spec.framework == Framework.NEURAL:
                 params["h"] = self.horizon
 
-                params["config"] = {
+                config = spec.model.get_default_config(h=self.horizon, backend=params.get("backend"))
+                
+                
+                config.update({
                     "stat_exog_list": self.columns_config.static,
                     "futr_exog_list": [
                         col
@@ -107,7 +110,9 @@ class ForecastConfig:
                         for col in self.columns_config.past_exogenous
                         if col not in self.columns_config.static
                     ],
-                }
+                })
+
+                params["config"] = config
 
                 mixture_config = self.neural.mixture
                 quantile_config = self.neural.quantile
