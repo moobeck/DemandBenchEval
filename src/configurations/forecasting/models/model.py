@@ -22,6 +22,7 @@ from neuralforecast.auto import (
 from src.forecasting.models.foundation import Moirai, Chronos, TabPFN
 from dataclasses import dataclass, field
 from typing import Dict, Any
+from optuna.samplers import TPESampler
 
 
 ForecastModel: TypeAlias = Any
@@ -44,7 +45,7 @@ class ModelSpec:
 class DefaultParams:
 
     STATS = {}
-    NEURAL = {"backend": "ray"}
+    NEURAL = {"backend": "optuna", "search_alg": TPESampler()}
     FM = {}
 
 

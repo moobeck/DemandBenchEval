@@ -95,7 +95,7 @@ class ForecastConfig:
             elif spec.framework == Framework.NEURAL:
                 params["h"] = self.horizon
 
-                config = spec.model.get_default_config(h=self.horizon, backend=params.get("backend"))
+                config = spec.model.get_default_config(h=self.horizon, backend="not_specified")
                 
                 
                 config.update({
@@ -111,6 +111,11 @@ class ForecastConfig:
                         if col not in self.columns_config.static
                     ],
                 })
+
+                backend = params.get("backend")
+
+                if backend == "optuna":
+                    config = spec.model._ray_config_to_optuna(config)
 
                 params["config"] = config
 
