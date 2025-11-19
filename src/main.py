@@ -4,14 +4,11 @@ from src.configurations.core.config_loader import ConfigLoader
 from src.utils.wandb_orchestrator import WandbOrchestrator
 from src.utils.dataframe import DataFrameHandler
 from src.utils.system_settings import SystemSettings
-from src.dataset.dataset_loader import DatasetLoader
 from src.preprocessing.preprocessor import Preprocessor
 from src.utils.statistics import SKUStatistics
 from src.forecasting.cross_validation.cross_validation import CrossValidator
 from src.forecasting.evaluation.evaluation import Evaluator, EvaluationPlotter
 from src.utils.args_parser import ArgParser
-from src.constants.tasks import TaskName, TASKS
-from src.configurations.utils.enums import DatasetName
 
 
 def main():
@@ -24,15 +21,12 @@ def main():
 
     cfg = GlobalConfig.build(public_cfg_dict, private_cfg_dict)
 
-    # System settings
+    # ------ System Settings ------
     system_settings = SystemSettings(cfg.system)
-    system_settings.configure_environment()
     system_settings.set_seed()
-
-    # Ensure directories exist
     cfg.filepaths.ensure_directories_exist()
 
-    # W&B orchestration
+    # ------ W&B Orchestration ------
     wandb_orchestrator = WandbOrchestrator(cfg.wandb, public_cfg_dict)
     wandb_orchestrator.login()
     wandb_orchestrator.start_run()
@@ -41,7 +35,7 @@ def main():
 
     for task in cfg.tasks:
 
-        # Load dataset
+        # ------ Data Loading & Preprocessing ------#
         cfg.set_task(task)
 
         # Preprocessing
@@ -56,7 +50,6 @@ def main():
         prep.remove_skus(skus="not_at_min_date")
         df = prep.prepare_forecasting_data()
 
-        # Calculate SKU statistics
         sku_stats = SKUStatistics(
             df=df,
             forecast_columns=cfg.forecast_columns,
@@ -75,7 +68,7 @@ def main():
             df, cfg.filepaths.processed_data, cfg.filepaths.file_format
         )
 
-        # Cross-validation
+        # ------ Cross-Validation ------#
         cross_validator = CrossValidator(
             cfg.forecast, cfg.forecast_columns, cfg.cross_validation
         )
@@ -83,15 +76,25 @@ def main():
             df=df,
         )
 
+        wandb_orchestrator.maybe_log_hyperparameters(
+            cross_validator.frameworks, task.name
+        )
+
         DataFrameHandler.write_dataframe(
             cv_df, cfg.filepaths.cv_results, cfg.filepaths.file_format
         )
+        wandb_orchestrator.log_artifact(
+            name="cv-results",
+            filepath=cfg.filepaths.cv_results,
+            type_="results",
+        )
 
-        # Evaluation
+        # ------ Evaluation ------#
+
         evaluator = Evaluator(cfg.metrics, cfg.forecast_columns)
         eval_df = evaluator.evaluate(cv_df, train_df=df)
         metrics_summary = evaluator.summarize_metrics(eval_df)
-        wandb_orchestrator.log_metrics(metrics_summary, task.name.value)
+        wandb_orchestrator.log_metrics(metrics_summary, task.name)
 
         DataFrameHandler.write_dataframe(
             eval_df, cfg.filepaths.eval_results, cfg.filepaths.file_format
@@ -111,10 +114,6 @@ def main():
         ).plot_error_distributions()
 
         fig.savefig(cfg.filepaths.eval_plots, dpi=300, bbox_inches="tight")
-
-        wandb_orchestrator.log_image(
-            alias="error_distribution_plot", filepath=cfg.filepaths.eval_plots
-        )
 
         wandb_orchestrator.finish()
 

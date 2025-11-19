@@ -95,19 +95,29 @@ class ForecastConfig:
             elif spec.framework == Framework.NEURAL:
                 params["h"] = self.horizon
 
-                params["config"] = {
+                config = spec.model.get_default_config(h=self.horizon, backend="not_specified")
+                
+                
+                config.update({
                     "stat_exog_list": self.columns_config.static,
                     "futr_exog_list": [
                         col
                         for col in self.columns_config.future_exogenous
                         if col not in self.columns_config.static
                     ],
-                    "past_exog_list": [
+                    "hist_exog_list": [
                         col
                         for col in self.columns_config.past_exogenous
                         if col not in self.columns_config.static
                     ],
-                }
+                })
+
+                backend = params.get("backend")
+
+                if backend == "optuna":
+                    config = spec.model._ray_config_to_optuna(config)
+
+                params["config"] = config
 
                 mixture_config = self.neural.mixture
                 quantile_config = self.neural.quantile

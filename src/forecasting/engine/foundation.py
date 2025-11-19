@@ -31,6 +31,13 @@ class FoundationModelEngine(ForecastEngine):
         self.freq = freq
         self.kwargs = kwargs
 
+    @staticmethod
+    def cv_inputs() -> List[str]:
+        """
+        Return the list of input parameter names required for cross-validation.
+        """
+        return ["df", "h", "cv_config", "forecast_columns", "forecast_config"]
+
     def cross_validation(
         self,
         df: pd.DataFrame,

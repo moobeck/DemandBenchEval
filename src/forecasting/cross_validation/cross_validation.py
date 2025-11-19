@@ -86,7 +86,7 @@ class CrossValidator:
                 continue
 
             logging.info(f"Cross-validating with {framework.name}...")
-            cv_input = self._prepare_cv_inputs(framework, df)
+            cv_input = self._prepare_cv_inputs(framework, engine, df)
             df_cv = self._run_framework_cv(engine, **cv_input)
             results.append(df_cv)
 
@@ -98,34 +98,40 @@ class CrossValidator:
     def _prepare_cv_inputs(
         self,
         framework: Framework,
+        engine: ForecastEngine,
         df: pd.DataFrame,
     ) -> Dict[str, Any]:
         """
         Build the arguments needed for a framework's cross_validation call.
         """
-        cols = list(self._forecast_columns.ts_base_cols)
-        kwargs: Dict[str, Any] = {}
 
-        if framework in [Framework.NEURAL, Framework.FM]:
 
-            kwargs["forecast_config"] = self._forecast_config
-
-            cols += (
+        exo_cols = (
                 self._forecast_columns.future_exogenous
                 + self._forecast_columns.past_exogenous
             )
+        base_cols = cols = list(self._forecast_columns.ts_base_cols)
+        cols = base_cols 
 
-            if framework == Framework.NEURAL:
-                kwargs["static_df"] = self._build_static_df(df)
-            else:
-                cols += self._forecast_columns.static
+        if framework == Framework.NEURAL:
+            cols += exo_cols
+        elif framework == Framework.FM:
+            cols += (exo_cols + self._forecast_columns.static)
 
-        return {
+        possible_inputs = {
             "df": df[cols],
             "cv_config": self._cross_validation,
-            "forecast_columns": self._forecast_columns,
+            "forecast_columns": self._forecast_columns, 
+            "forecast_config": self._forecast_config,
             "h": self._forecast_config.horizon,
-            **kwargs,
+            "static_df": self._build_static_df(df),
+
+        }
+
+        return {
+            k: v
+            for k, v in possible_inputs.items()
+            if k in engine.cv_inputs()
         }
 
     def _build_static_df(

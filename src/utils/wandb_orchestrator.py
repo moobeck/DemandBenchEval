@@ -2,6 +2,7 @@ import logging
 import wandb
 from src.configurations.utils.wandb import WandbConfig
 from src.configurations.utils.enums import DatasetName
+from src.configurations.utils.enums import Framework
 
 
 class WandbOrchestrator:
@@ -53,12 +54,28 @@ class WandbOrchestrator:
             wandb.log(data) if self.run else None
             self.run.log(data) if self.run else None
 
-    def log_image(self, alias: str, filepath: str):
-
+    def maybe_log_hyperparameters(self, frameworks: dict, task_name: str):
         if self.run:
-            logging.info(f"Logging image: {alias} from {filepath}")
-            # Log image to W&B
-            wandb.log({alias: wandb.Image(filepath)}) if self.run else None
+            if Framework.NEURAL in frameworks and frameworks[Framework.NEURAL]:
+                neural_engine = frameworks[Framework.NEURAL]
+
+                models = neural_engine.models
+
+                hyperparams = {
+                    model.alias: model.results.get_best_result().config
+                    for model in models
+                }
+                if hyperparams:
+                    logging.info(
+                        f"Logging hyperparameters for task {task_name}: {hyperparams}"
+                    )
+                    wandb.config.update(
+                        {f"{task_name}_neural_hyperparameters": hyperparams}
+                    )
+            else:
+                logging.info(
+                    f"No neural framework found or no models defined for task {task_name}. Skipping hyperparameter logging."
+                )
 
     def finish(self):
         if self.run:
