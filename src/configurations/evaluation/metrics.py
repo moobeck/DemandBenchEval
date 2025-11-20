@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, TypeAlias, Optional
 from functools import partial
 from utilsforecast.losses import mase, msse, mae, mse, rmse, scaled_mqloss
-from src.configurations.evaluation.utils import spec, scaled_spec, sapis
+from src.configurations.evaluation.utils import spec, scaled_spec, apis, sapis
 from src.configurations.forecasting.quantile import QuantileConfig
 from src.configurations.forecasting.utils.quantile import QuantileUtils
 
@@ -41,7 +41,7 @@ METRIC_REGISTRY: dict[MetricName, MetricSpec] = {
         factory=lambda **p: partial(scaled_spec, **p),
     ),
     MetricName.APIS: MetricSpec(
-        factory=lambda **p: partial(sapis, **p),
+        factory=lambda **p: partial(apis, **p),
     ),
     MetricName.SAPIS: MetricSpec(
         factory=lambda **p: partial(sapis, **p),
