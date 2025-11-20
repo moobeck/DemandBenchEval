@@ -43,6 +43,10 @@ class MetricName(Enum):
     MSE = "mse"
     RMSE = "rmse"
     SMQL = "smql"
+    SPEC = "spec"
+    SSPEC = "sspec"
+    APIS = "apis"
+    SAPIS = "sapis"
 
 
 PROBABILISTIC_METRICS = {
