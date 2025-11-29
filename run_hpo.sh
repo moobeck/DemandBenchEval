@@ -49,7 +49,7 @@ done
 RUN_ROOT="$BASE_CONFIG/tuning"
 RUN_TAG="${RUN_TAG:-$(date +%Y%m%d_%H%M%S)_$$}"
 ISOLATE_OUTPUTS="${ISOLATE_OUTPUTS:-1}"  # set to 0 to reuse base filepaths (not concurrency-safe)
-OUTPUT_ROOT="${OUTPUT_ROOT:-$REPO_ROOT/data/runs/$RUN_TAG}"
+OUTPUT_ROOT="${OUTPUT_ROOT:-$REPO_ROOT/data/runs}"
 RUN_DIR="$RUN_ROOT/hpo_$RUN_TAG"
 RUN_PUBLIC="$RUN_DIR/public"
 RUN_PRIVATE="$RUN_DIR/private"
@@ -58,13 +58,10 @@ dir_nonempty() {
   [[ -d "$1" ]] && find "$1" -mindepth 1 -print -quit | grep -q .
 }
 
-if [[ -d "$RUN_DIR" || ( "$ISOLATE_OUTPUTS" == "1" && -d "$OUTPUT_ROOT" ) ]]; then
+if [[ -d "$RUN_DIR" ]]; then
   if [[ "${ALLOW_OVERWRITE:-0}" != "1" ]]; then
     block=()
     dir_nonempty "$RUN_DIR" && block+=("RUN_DIR=$RUN_DIR")
-    if [[ "$ISOLATE_OUTPUTS" == "1" ]]; then
-      dir_nonempty "$OUTPUT_ROOT" && block+=("OUTPUT_ROOT=$OUTPUT_ROOT")
-    fi
     if ((${#block[@]} > 0)); then
       echo "[!] Target directory already exists and is not empty. Set ALLOW_OVERWRITE=1 to reuse:" >&2
       for b in "${block[@]}"; do echo "    $b" >&2; done
