@@ -41,6 +41,10 @@ if [[ -n "${MODELS:-}" ]]; then
 else
   MODELS=(TFT TCN XLSTM TIDE)
 fi
+# Normalize model names to uppercase to match ModelName enum keys
+for i in "${!MODELS[@]}"; do
+  MODELS[$i]="$(echo "${MODELS[$i]}" | tr '[:lower:]' '[:upper:]')"
+done
 
 RUN_ROOT="$BASE_CONFIG/tuning"
 RUN_TAG="${RUN_TAG:-$(date +%Y%m%d_%H%M%S)_$$}"
