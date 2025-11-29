@@ -80,4 +80,7 @@ class StatisticalFeaturesEncoder:
             }
         )
 
+        # Fill any NaNs from degenerate statistics (e.g., constant series) to avoid downstream crashes
+        df[self.out_columns] = df[self.out_columns].fillna(0)
+
         return df
