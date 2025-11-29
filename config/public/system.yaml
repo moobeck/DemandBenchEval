@@ -1,5 +1,4 @@
 system:
-  GPU: 0
+  GPU: 1
   RANDOM_SEED: 42
-  log_wandb: false
-
+  log_wandb: true
