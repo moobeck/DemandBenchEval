@@ -158,6 +158,10 @@ PY
 ) || { echo "[!] Failed to parse tasks or file paths" >&2; exit 1; }
 
 declare -a completed skipped failed
+# Ensure arrays are initialized even under `set -u`
+completed=()
+skipped=()
+failed=()
 total=0
 
 while IFS='|' read -r TASK DATASET; do
@@ -224,17 +228,17 @@ echo
 echo "=== HPO summary ==="
 echo "Config used: $RUN_DIR"
 echo "Total tasks: $total"
-echo "Completed: ${#completed[@]}"
-echo "Skipped (existing results): ${#skipped[@]}"
-echo "Failed: ${#failed[@]}"
+echo "Completed: ${#completed[@]:-0}"
+echo "Skipped (existing results): ${#skipped[@]:-0}"
+echo "Failed: ${#failed[@]:-0}"
 
-if [[ ${#completed[@]} -gt 0 ]]; then
-  printf "Completed tasks: %s\n" "${completed[*]}"
+if [[ ${#completed[@]:-0} -gt 0 ]]; then
+  printf "Completed tasks: %s\n" "${completed[*]:-}"
 fi
-if [[ ${#skipped[@]} -gt 0 ]]; then
-  printf "Skipped tasks: %s\n" "${skipped[*]}"
+if [[ ${#skipped[@]:-0} -gt 0 ]]; then
+  printf "Skipped tasks: %s\n" "${skipped[*]:-}"
 fi
-if [[ ${#failed[@]} -gt 0 ]]; then
-  printf "Failed tasks: %s\n" "${failed[*]}"
+if [[ ${#failed[@]:-0} -gt 0 ]]; then
+  printf "Failed tasks: %s\n" "${failed[*]:-}"
   exit 1
 fi
