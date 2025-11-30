@@ -80,17 +80,57 @@ class WandbOrchestrator:
             wandb.log(data) if self.run else None
             self.run.log(data) if self.run else None
 
+    @staticmethod
+    def _extract_best_config(results):
+        """
+        Attempt to extract the best hyperparameter config from different backends.
+        Supports Ray Tune (ResultGrid), Optuna (Study), and simple mappings.
+        """
+        if results is None:
+            return None
+
+        # Ray Tune's ResultGrid
+        if hasattr(results, "get_best_result"):
+            try:
+                best = results.get_best_result()
+                return getattr(best, "config", None)
+            except Exception:
+                return None
+
+        # Optuna Study
+        if hasattr(results, "best_trial"):
+            try:
+                best_trial = results.best_trial
+                if hasattr(best_trial, "params"):
+                    return best_trial.params
+                return getattr(best_trial, "config", None)
+            except Exception:
+                return None
+
+        # Fallback to common attributes
+        for attr in ("best_params", "best_config", "config"):
+            cfg = getattr(results, attr, None)
+            if cfg:
+                return cfg
+
+        return None
+
     def maybe_log_hyperparameters(self, frameworks: dict, task_name: str):
         if self.run:
             if Framework.NEURAL in frameworks and frameworks[Framework.NEURAL]:
                 neural_engine = frameworks[Framework.NEURAL]
 
-                models = neural_engine.models
+                models = getattr(neural_engine, "models", [])
 
-                hyperparams = {
-                    model.alias: model.results.get_best_result().config
-                    for model in models
-                }
+                hyperparams = {}
+                for model in models:
+                    best_cfg = self._extract_best_config(
+                        getattr(model, "results", None)
+                    )
+                    if best_cfg:
+                        alias = getattr(model, "alias", str(model))
+                        hyperparams[alias] = best_cfg
+
                 if hyperparams:
                     logging.info(
                         f"Logging hyperparameters for task {task_name}: {hyperparams}"
