@@ -7,6 +7,7 @@ from .utils.quantile import QuantileLossFactory, QuantileUtils
 from .models.model import MODEL_REGISTRY
 from .quantile import QuantileConfig, DEFAULT_QUANTILE_CONFIG
 from .models.model import ForecastModel
+from neuralforecast.auto import AutoxLSTM
 
 from neuralforecast.losses.pytorch import MAE, MQLoss
 
@@ -115,6 +116,37 @@ class ForecastConfig:
                 backend = params.get("backend")
 
                 if backend == "optuna":
+                    # Narrow AutoxLSTM search space to avoid degenerate trials.
+                    if spec.model is AutoxLSTM:
+                        def _clamp(dist, lower=None, upper=None):
+                            try:
+                                if lower is not None and hasattr(dist, "lower"):
+                                    dist.lower = max(dist.lower, lower)
+                                if upper is not None and hasattr(dist, "upper"):
+                                    dist.upper = min(dist.upper, upper)
+                            except Exception:
+                                pass
+
+                        # Clamp key distributions if present.
+                        for key, lo, hi in [
+                            ("encoder_dropout", 0.0, 0.5),
+                            ("learning_rate", 1e-4, 5e-2),
+                            ("encoder_hidden_size", 16, 128),
+                            ("decoder_hidden_size", 16, 128),
+                            ("encoder_n_blocks", 1, 3),
+                            ("input_size", 7, 35),
+                            ("step_size", 1, 14),
+                        ]:
+                            if key in config:
+                                _clamp(config[key], lower=lo, upper=hi)
+
+                        # Force scaler choices away from None if present.
+                        scaler = config.get("scaler_type")
+                        if scaler is not None and hasattr(scaler, "categories"):
+                            scaler.categories = [
+                                c for c in scaler.categories if c is not None
+                            ]
+
                     config = spec.model._ray_config_to_optuna(config)
 
                 params["config"] = config
