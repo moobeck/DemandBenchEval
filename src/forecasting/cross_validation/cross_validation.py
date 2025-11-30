@@ -183,22 +183,36 @@ class CrossValidator:
                 "Verify models emit forecasts (e.g., increase quantiles, horizons) and CV settings."
             )
 
-        # Keep only prediction columns that have at least one non-null value.
-        usable_preds = [c for c in pred_cols if df_out[c].notna().any()]
-        dropped_preds = [c for c in pred_cols if c not in usable_preds]
+        # Drop models whose prediction columns are all-NaN; keep models with any signal.
+        model_cols: Dict[str, List[str]] = {}
+        for col in pred_cols:
+            base = col.split("-")[0]
+            model_cols.setdefault(base, []).append(col)
 
-        if dropped_preds:
-            logging.warning(
-                "Dropping %d prediction columns with all-NaN values: %s",
-                len(dropped_preds),
-                dropped_preds,
+        models_to_drop = []
+        for model, cols in model_cols.items():
+            if not df_out[cols].notna().any().any():
+                models_to_drop.extend(cols)
+                logging.warning(
+                    "Dropping model %s (all prediction columns are NaN): %s",
+                    model,
+                    cols,
+                )
+
+        if models_to_drop:
+            df_out = df_out.drop(columns=models_to_drop)
+
+        remaining_pred_cols = [c for c in df_out.columns if c not in meta_cols]
+        if not remaining_pred_cols:
+            null_ratios = (
+                df_out.reindex(columns=pred_cols)
+                .isna()
+                .mean()
+                .fillna(1.0)
+                .to_dict()
             )
-            df_out = df_out.drop(columns=dropped_preds)
-
-        if not usable_preds:
-            null_ratios = df_out[pred_cols].isna().mean().to_dict()
             logging.error(
-                "All prediction columns are NaN. Non-null ratios per column: %s",
+                "All prediction columns are NaN across models. Non-null ratios per column: %s",
                 null_ratios,
             )
             raise ValueError(
