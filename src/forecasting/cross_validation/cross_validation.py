@@ -172,6 +172,24 @@ class CrossValidator:
                 "Check data quality and CV/hyperparameter settings (e.g., reduce input_size/step_size)."
             )
 
+        # Ensure prediction columns contain actual forecasts (not just targets/meta)
+        meta_cols = set(self._forecast_columns.ts_base_cols)
+        meta_cols.add(getattr(self._forecast_columns, "cutoff", "cutoff"))
+        pred_cols = [c for c in df_out.columns if c not in meta_cols]
+
+        if not pred_cols:
+            raise ValueError(
+                "Cross-validation produced no prediction columns. "
+                "Verify models emit forecasts (e.g., increase quantiles, horizons) and CV settings."
+            )
+
+        preds_non_null = df_out[pred_cols].notna().any().any()
+        if not preds_non_null:
+            raise ValueError(
+                "Cross-validation produced only NaN prediction columns. "
+                "Adjust search space or CV settings (smaller input_size/step_size, validate data)."
+            )
+
         return df_out
 
     @staticmethod
