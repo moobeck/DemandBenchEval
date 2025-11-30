@@ -160,10 +160,19 @@ class CrossValidator:
         """
         df_out = engine.cross_validation(**cv_kwargs)
 
-        return df_out.set_index(
+        df_out = df_out.set_index(
             [self._forecast_columns.time_series_index, self._forecast_columns.date],
             drop=True,
         )
+
+        # Guard against degenerate runs (e.g., all-NaN predictions from failed trials)
+        if df_out.empty or df_out.isna().all().all():
+            raise ValueError(
+                "Cross-validation returned empty or all-NaN predictions. "
+                "Check data quality and CV/hyperparameter settings (e.g., reduce input_size/step_size)."
+            )
+
+        return df_out
 
     @staticmethod
     def _combine_results(
