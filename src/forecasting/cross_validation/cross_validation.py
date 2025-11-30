@@ -183,8 +183,19 @@ class CrossValidator:
                 "Verify models emit forecasts (e.g., increase quantiles, horizons) and CV settings."
             )
 
-        preds_non_null = df_out[pred_cols].notna().any().any()
-        if not preds_non_null:
+        # Keep only prediction columns that have at least one non-null value.
+        usable_preds = [c for c in pred_cols if df_out[c].notna().any()]
+        dropped_preds = [c for c in pred_cols if c not in usable_preds]
+
+        if dropped_preds:
+            logging.warning(
+                "Dropping %d prediction columns with all-NaN values: %s",
+                len(dropped_preds),
+                dropped_preds,
+            )
+            df_out = df_out.drop(columns=dropped_preds)
+
+        if not usable_preds:
             raise ValueError(
                 "Cross-validation produced only NaN prediction columns. "
                 "Adjust search space or CV settings (smaller input_size/step_size, validate data)."
