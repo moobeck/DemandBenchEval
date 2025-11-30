@@ -196,8 +196,14 @@ class CrossValidator:
             df_out = df_out.drop(columns=dropped_preds)
 
         if not usable_preds:
+            null_ratios = df_out[pred_cols].isna().mean().to_dict()
+            logging.error(
+                "All prediction columns are NaN. Non-null ratios per column: %s",
+                null_ratios,
+            )
             raise ValueError(
                 "Cross-validation produced only NaN prediction columns. "
+                f"Checked columns: {pred_cols}. "
                 "Adjust search space or CV settings (smaller input_size/step_size, validate data)."
             )
 
