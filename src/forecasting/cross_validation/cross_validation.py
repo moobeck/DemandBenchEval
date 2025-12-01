@@ -128,10 +128,10 @@ class CrossValidator:
             date_col = self._forecast_columns.date
             min_len = df[id_col].value_counts().min()
 
-            # Estimate a conservative maximum input size and feasible n_windows.
             horizon = self._forecast_config.horizon
-            min_input_size = min(14, max(horizon, 6))  # aligns with capped search spaces
-            min_required_len = min_input_size + horizon
+            # Pad to the maximum input size we allow (worst-case for search space).
+            max_input_size = min(14, max(2 * horizon, horizon, 6))
+            min_required_len = max_input_size + horizon
 
             df = self._pad_short_series(
                 df,
