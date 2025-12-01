@@ -15,10 +15,32 @@ class WandbOrchestrator:
     def __init__(self, config: WandbConfig, public_config: dict):
         self.config = config
         self.public_config = public_config
-        self.tags = [
+        self.tags = self._build_tags(public_config)
+        self.run = None
+
+    @staticmethod
+    def _build_tags(public_config: dict) -> list[str]:
+        """
+        Compose W&B tags with model names and dataset names (from task strings).
+        """
+        model_tags = [
             str(m) for m in public_config.get("forecast", {}).get("models", [])
         ]
-        self.run = None
+
+        task_names = public_config.get("tasks", []) or []
+        dataset_tags = []
+        for task in task_names:
+            if isinstance(task, str) and "_" in task:
+                dataset_tags.append(task.split("_", 1)[0].upper())
+
+        # Deduplicate while preserving order
+        seen = set()
+        tags = []
+        for tag in model_tags + dataset_tags:
+            if tag not in seen:
+                seen.add(tag)
+                tags.append(tag)
+        return tags
 
     @staticmethod
     def _load_key_from_envfile() -> str | None:
