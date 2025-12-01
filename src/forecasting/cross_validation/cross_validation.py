@@ -143,6 +143,7 @@ class CrossValidator:
                 ),
             )
             min_len = df[id_col].value_counts().min()
+            min_input_size = max_input_size
 
             feasible_windows = max(
                 1,
