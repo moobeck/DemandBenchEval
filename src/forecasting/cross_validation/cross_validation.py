@@ -110,13 +110,14 @@ class CrossValidator:
             self._forecast_columns.future_exogenous
             + self._forecast_columns.past_exogenous
         )
+        static_cols = list(self._forecast_columns.static)
         base_cols = cols = list(self._forecast_columns.ts_base_cols)
         cols = base_cols
 
         if framework == Framework.NEURAL:
-            cols += exo_cols
+            cols += exo_cols + static_cols
         elif framework == Framework.FM:
-            cols += (exo_cols + self._forecast_columns.static)
+            cols += (exo_cols + static_cols)
 
         df = df[cols]
 
