@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import List, Dict, Any
+import torch
 from ..utils.enums import ModelName, Framework, FrequencyType
 from ..data.forecast_column import ForecastColumnConfig
 from .models.mixture import MixtureLossFactory
@@ -10,6 +11,7 @@ from .models.model import ForecastModel
 from neuralforecast.auto import AutoxLSTM
 
 from neuralforecast.losses.pytorch import MAE, MQLoss
+from ray import tune
 
 import logging
 
@@ -96,9 +98,10 @@ class ForecastConfig:
             elif spec.framework == Framework.NEURAL:
                 params["h"] = self.horizon
 
-                config = spec.model.get_default_config(h=self.horizon, backend="not_specified")
-                
-                
+                config = spec.model.get_default_config(
+                    h=self.horizon, backend="not_specified"
+                )
+
                 config.update({
                     "stat_exog_list": self.columns_config.static,
                     "futr_exog_list": [
@@ -116,36 +119,42 @@ class ForecastConfig:
                 backend = params.get("backend")
 
                 if backend == "optuna":
-                    # Narrow AutoxLSTM search space to avoid degenerate trials.
+                    # Short-series-friendly search spaces.
+                    horizon = self.horizon
+                    safe_input_common = sorted(
+                        {
+                            max(4, horizon // 2),
+                            max(6, horizon),
+                            min(14, 2 * horizon),
+                        }
+                    )
+                    max_step_common = max(1, min(horizon // 2, 3))
+
                     if spec.model is AutoxLSTM:
-                        def _clamp(dist, lower=None, upper=None):
-                            try:
-                                if lower is not None and hasattr(dist, "lower"):
-                                    dist.lower = max(dist.lower, lower)
-                                if upper is not None and hasattr(dist, "upper"):
-                                    dist.upper = min(dist.upper, upper)
-                            except Exception:
-                                pass
-
-                        # Clamp key distributions if present.
-                        for key, lo, hi in [
-                            ("encoder_dropout", 0.0, 0.5),
-                            ("learning_rate", 1e-4, 5e-2),
-                            ("encoder_hidden_size", 16, 128),
-                            ("decoder_hidden_size", 16, 128),
-                            ("encoder_n_blocks", 1, 3),
-                            ("input_size", 7, 35),
-                            ("step_size", 1, 14),
-                        ]:
-                            if key in config:
-                                _clamp(config[key], lower=lo, upper=hi)
-
-                        # Force scaler choices away from None if present.
-                        scaler = config.get("scaler_type")
-                        if scaler is not None and hasattr(scaler, "categories"):
-                            scaler.categories = [
-                                c for c in scaler.categories if c is not None
-                            ]
+                        max_step_xlstm = max(1, min(horizon // 2, 4))
+                        config.update(
+                            {
+                                "input_size": tune.choice(safe_input_common),
+                                "step_size": tune.randint(1, max_step_xlstm + 1),
+                                "encoder_hidden_size": tune.choice([32, 64]),
+                                "decoder_hidden_size": tune.choice([32, 64]),
+                                "encoder_dropout": tune.uniform(0.0, 0.3),
+                                "learning_rate": tune.loguniform(1e-4, 1e-2),
+                                "encoder_n_blocks": tune.randint(1, 3),
+                                "max_steps": tune.choice([200, 400]),
+                                "batch_size": tune.choice([32, 64]),
+                                "windows_batch_size": tune.choice([128, 256]),
+                                "scaler_type": tune.choice(["standard", "robust"]),
+                                "start_padding_enabled": True,
+                            }
+                        )
+                    else:
+                        if "input_size" in config:
+                            config["input_size"] = tune.choice(safe_input_common)
+                        if "step_size" in config:
+                            config["step_size"] = tune.randint(
+                                1, max_step_common + 1
+                            )
 
                     config = spec.model._ray_config_to_optuna(config)
 
@@ -153,7 +162,7 @@ class ForecastConfig:
 
                 mixture_config = self.neural.mixture
                 quantile_config = self.neural.quantile
-                params["gpus"] = self.neural.gpus
+                params["gpus"] = min(self.neural.gpus, torch.cuda.device_count())
                 params["cpus"] = self.neural.cpus
                 params["num_samples"] = self.neural.num_samples
 

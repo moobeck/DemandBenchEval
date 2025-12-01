@@ -1,6 +1,7 @@
 import logging
 import pandas as pd
 from typing import Any, Dict, List
+from copy import deepcopy
 from src.forecasting.engine.abstract import ForecastEngine
 from src.forecasting.engine.statistical import StatsForecastEngine
 from src.forecasting.engine.neural import NeuralForecastEngine
@@ -105,23 +106,64 @@ class CrossValidator:
         Build the arguments needed for a framework's cross_validation call.
         """
 
-
         exo_cols = (
-                self._forecast_columns.future_exogenous
-                + self._forecast_columns.past_exogenous
-            )
+            self._forecast_columns.future_exogenous
+            + self._forecast_columns.past_exogenous
+        )
         base_cols = cols = list(self._forecast_columns.ts_base_cols)
-        cols = base_cols 
+        cols = base_cols
 
         if framework == Framework.NEURAL:
             cols += exo_cols
         elif framework == Framework.FM:
             cols += (exo_cols + self._forecast_columns.static)
 
+        df = df[cols]
+
+        # For neural models, pad short series with zeros and shrink n_windows to avoid window failures.
+        cv_cfg = self._cross_validation
+        if framework == Framework.NEURAL:
+            id_col = self._forecast_columns.time_series_index
+            date_col = self._forecast_columns.date
+            min_len = df[id_col].value_counts().min()
+
+            # Estimate a conservative maximum input size and feasible n_windows.
+            horizon = self._forecast_config.horizon
+            min_input_size = min(14, max(horizon, 6))  # aligns with capped search spaces
+            min_required_len = min_input_size + horizon
+
+            df = self._pad_short_series(
+                df,
+                id_col=id_col,
+                date_col=date_col,
+                min_required_len=min_required_len,
+                freq_alias=FrequencyType.get_alias(
+                    self._forecast_config.freq, "pandas"
+                ),
+            )
+            min_len = df[id_col].value_counts().min()
+
+            feasible_windows = max(
+                1,
+                min(
+                    cv_cfg.n_windows,
+                    int((min_len - min_input_size - horizon) / cv_cfg.step_size) + 1,
+                ),
+            )
+            if feasible_windows < cv_cfg.n_windows:
+                logging.warning(
+                    "Reducing n_windows from %d to %d to fit shortest series (len=%d).",
+                    cv_cfg.n_windows,
+                    feasible_windows,
+                    min_len,
+                )
+            cv_cfg = deepcopy(cv_cfg)
+            cv_cfg.n_windows = feasible_windows
+
         possible_inputs = {
-            "df": df[cols],
-            "cv_config": self._cross_validation,
-            "forecast_columns": self._forecast_columns, 
+            "df": df,
+            "cv_config": cv_cfg,
+            "forecast_columns": self._forecast_columns,
             "forecast_config": self._forecast_config,
             "h": self._forecast_config.horizon,
             "static_df": self._build_static_df(df),
@@ -133,6 +175,51 @@ class CrossValidator:
             for k, v in possible_inputs.items()
             if k in engine.cv_inputs()
         }
+
+    @staticmethod
+    def _pad_short_series(
+        df: pd.DataFrame,
+        id_col: str,
+        date_col: str,
+        min_required_len: int,
+        freq_alias: str,
+    ) -> pd.DataFrame:
+        """
+        Prepend zero rows for series shorter than the required length.
+        """
+        lengths = df[id_col].value_counts()
+        to_pad = lengths[lengths < min_required_len]
+        if to_pad.empty:
+            return df
+
+        pad_frames = []
+        zero_template = {col: 0 for col in df.columns}
+        zero_template[id_col] = None
+        zero_template[date_col] = None
+
+        for ts_id, length in to_pad.items():
+            subset = df[df[id_col] == ts_id]
+            first_date = subset[date_col].min()
+            needed = min_required_len - length
+            pad_dates = pd.date_range(
+                end=first_date, periods=needed + 1, freq=freq_alias
+            )[:-1]
+            if pad_dates.empty:
+                continue
+            pad_df = pd.DataFrame(
+                {
+                    **zero_template,
+                    id_col: ts_id,
+                    date_col: pad_dates,
+                }
+            )
+            pad_frames.append(pad_df)
+
+        if pad_frames:
+            df = pd.concat([df] + pad_frames, ignore_index=True)
+            df = df.sort_values([id_col, date_col]).reset_index(drop=True)
+
+        return df
 
     def _build_static_df(
         self,
