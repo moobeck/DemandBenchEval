@@ -155,8 +155,8 @@ class ForecastConfig:
                             config["step_size"] = tune.randint(
                                 1, max_step_common + 1
                             )
-                        if "start_padding_enabled" in config:
-                            config["start_padding_enabled"] = True
+                        # Force padding even if the default config lacks this key.
+                        config["start_padding_enabled"] = True
 
                     config = spec.model._ray_config_to_optuna(config)
 
