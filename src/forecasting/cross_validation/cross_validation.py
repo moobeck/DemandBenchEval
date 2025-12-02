@@ -1,6 +1,6 @@
 import logging
 import pandas as pd
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from copy import deepcopy
 from src.forecasting.engine.abstract import ForecastEngine
 from src.forecasting.engine.statistical import StatsForecastEngine
@@ -44,31 +44,36 @@ class CrossValidator:
 
     def _build_frameworks(self) -> Dict[Framework, ForecastEngine]:
         fw_instances = {}
+        for fw in self._factory:
+            fw_instances[fw] = self._create_engine(fw)
+        return fw_instances
+
+    def _create_engine(self, fw: Framework) -> Optional[ForecastEngine]:
+        """
+        Create a forecasting engine for the given framework, or return None if no models are configured.
+        """
         models_dict = self._forecast_config.models
 
-        for fw, (cls, extra) in self._factory.items():
-            matching_fw = None
-            for models_fw in models_dict.keys():
-                if fw.value == models_fw.value:
-                    matching_fw = models_fw
-                    break
+        matching_fw = None
+        for models_fw in models_dict.keys():
+            if fw.value == models_fw.value:
+                matching_fw = models_fw
+                break
 
-            if matching_fw is None or not models_dict[matching_fw]:
-                fw_instances[fw] = None
-                continue
+        if matching_fw is None or not models_dict[matching_fw]:
+            return None
 
-            models = list(models_dict.get(fw, {}).values())
-            if not models:
-                fw_instances[fw] = None
-                continue
+        models = list(models_dict.get(fw, {}).values())
+        if not models:
+            return None
 
-            params = {
-                "models": models,
-                "freq": FrequencyType.get_alias(self._forecast_config.freq, "nixtla"),
-                **extra,
-            }
-            fw_instances[fw] = cls(**params)
-        return fw_instances
+        cls, extra = self._factory[fw]
+        params = {
+            "models": models,
+            "freq": FrequencyType.get_alias(self._forecast_config.freq, "nixtla"),
+            **extra,
+        }
+        return cls(**params)
 
     def cross_validate(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -247,7 +252,24 @@ class CrossValidator:
         """
         Call the engine's cross_validation and set the proper index.
         """
-        df_out = engine.cross_validation(**cv_kwargs)
+        try:
+            df_out = engine.cross_validation(**cv_kwargs)
+        except RuntimeError as exc:
+            # Fallback to CPU if a GPU failure occurs during neural training.
+            if isinstance(engine, NeuralForecastEngine) and "CUDA" in str(exc):
+                logging.error(
+                    "CUDA error during neural cross-validation (%s). Retrying on CPU.",
+                    exc,
+                )
+                # Force neural models to use CPU and rebuild the engine.
+                self._forecast_config.model_config[Framework.NEURAL]["gpus"] = 0
+                new_engine = self._create_engine(Framework.NEURAL)
+                if new_engine is None:
+                    raise
+                self.frameworks[Framework.NEURAL] = new_engine
+                df_out = new_engine.cross_validation(**cv_kwargs)
+            else:
+                raise
 
         df_out = df_out.set_index(
             [self._forecast_columns.time_series_index, self._forecast_columns.date],
