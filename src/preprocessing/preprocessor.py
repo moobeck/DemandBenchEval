@@ -175,6 +175,28 @@ class Preprocessor:
             date_encoder.out_columns, feature_type="future_exogenous"
         )
 
+        # Ensure static features are truly static; otherwise treat them as dynamic
+        if self._forecast_columns.static:
+            id_col = self._forecast_columns.time_series_index
+            varying_static = []
+            for col in list(self._forecast_columns.static):
+                if col not in df.columns:
+                    continue
+                if df.groupby(id_col)[col].nunique(dropna=False).gt(1).any():
+                    varying_static.append(col)
+
+            if varying_static:
+                logging.warning(
+                    "Static features change over time; moving to past_exogenous: %s",
+                    varying_static,
+                )
+                self._forecast_columns.remove_features(
+                    varying_static, feature_type="static"
+                )
+                self._forecast_columns.add_features(
+                    varying_static, feature_type="past_exogenous"
+                )
+
         ml_forecast = MLForecast(
             models=[],
             freq=self._forecast.freq,
