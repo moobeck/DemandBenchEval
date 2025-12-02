@@ -300,13 +300,9 @@ class CrossValidator:
                 .fillna(1.0)
                 .to_dict()
             )
-            logging.error(
-                "All prediction columns are NaN across models. Non-null ratios per column: %s",
-                null_ratios,
-            )
             raise ValueError(
                 "Cross-validation produced only NaN prediction columns. "
-                f"Checked columns: {pred_cols}. "
+                f"Checked columns: {pred_cols}. Non-null ratios: {null_ratios}. "
                 "Adjust search space or CV settings (smaller input_size/step_size, validate data)."
             )
 
