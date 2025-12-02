@@ -115,7 +115,6 @@ class Evaluator:
         df = self._fill_model_columns(df, model_names)
 
         eval_kwargs = dict(
-            df=df,
             models=model_names,
             target_col=self._forecast_columns.target,
             time_col=self._forecast_columns.date,
@@ -164,7 +163,7 @@ class Evaluator:
                     chunks.append(evaluate(df=batch_df, **eval_kwargs))
                 return pd.concat(chunks, ignore_index=True)
 
-        return evaluate(**eval_kwargs)
+        return evaluate(df=df, **eval_kwargs)
 
     def summarize_metrics(self, metrics_df: pd.DataFrame) -> Dict[str, Any]:
         """
