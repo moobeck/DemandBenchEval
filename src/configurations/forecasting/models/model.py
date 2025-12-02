@@ -1,7 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, TypeAlias
+
+from optuna.samplers import TPESampler
 from statsforecast.models import AutoARIMA, AutoTheta, AutoETS, AutoCES
-from ...utils.enums import ModelName, Framework
 from neuralforecast.auto import (
     AutoVanillaTransformer,
     AutoMLP,
@@ -19,11 +20,10 @@ from neuralforecast.auto import (
     AutoPatchTST,
     AutoxLSTM,
 )
-from src.forecasting.models.foundation import Moirai, Chronos, TabPFN
-from dataclasses import dataclass, field
-from typing import Dict, Any
-from optuna.samplers import TPESampler
 
+from src.forecasting.models.foundation import Moirai, Chronos, TabPFN
+from src.forecasting.utils.optuna_callbacks import fail_on_nonfinite_trial
+from ...utils.enums import ModelName, Framework
 
 ForecastModel: TypeAlias = Any
 
@@ -45,7 +45,12 @@ class ModelSpec:
 class DefaultParams:
 
     STATS = {}
-    NEURAL = {"backend": "optuna", "search_alg": TPESampler()}
+    NEURAL = {
+        "backend": "optuna",
+        "search_alg": TPESampler(),
+        # Callback to mark non-finite trials as failed so they are not selected as best.
+        "callbacks": [fail_on_nonfinite_trial()],
+    }
     FM = {}
 
 

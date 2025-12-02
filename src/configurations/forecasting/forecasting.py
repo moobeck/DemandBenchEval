@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass, field
 from typing import List, Dict, Any
 import torch
@@ -14,6 +15,7 @@ from neuralforecast.losses.pytorch import MAE, MQLoss
 from ray import tune
 
 import logging
+from src.forecasting.utils.optuna_logging import make_trial_logger
 
 
 @dataclass(frozen=True)
@@ -93,6 +95,13 @@ class ForecastConfig:
 
             # merge defaults with trainer-level params
             params = spec.default_params.copy()
+            # Optional: log Optuna trials for inspection by setting OPTUNA_LOG_DIR
+            optuna_log_dir = os.getenv("OPTUNA_LOG_DIR")
+            if optuna_log_dir and params.get("backend") == "optuna":
+                log_path = os.path.join(optuna_log_dir, f"{name.value}.jsonl")
+                callbacks = params.get("callbacks", [])
+                callbacks.append(make_trial_logger(log_path))
+                params["callbacks"] = callbacks
             if spec.framework == Framework.STATS:
                 params["season_length"] = FrequencyType.get_season_length(self.freq)
             elif spec.framework == Framework.NEURAL:
