@@ -146,6 +146,21 @@ class Preprocessor:
             for col in self._forecast_columns.exogenous
             if col not in self._forecast_columns.categorical
         ]
+
+        non_numeric_exog = [
+            col for col in non_cat_exog if not pd.api.types.is_numeric_dtype(df[col])
+        ]
+
+        if non_numeric_exog:
+            logging.warning(
+                "Detected non-numeric exogenous columns; treating as categorical: %s",
+                non_numeric_exog,
+            )
+            for col in non_numeric_exog:
+                if col not in self._forecast_columns.categorical:
+                    self._forecast_columns.categorical.append(col)
+            non_cat_exog = [col for col in non_cat_exog if col not in non_numeric_exog]
+
         if non_cat_exog:
             df[non_cat_exog] = global_min_max_scaler.fit_transform(df[non_cat_exog])
 
