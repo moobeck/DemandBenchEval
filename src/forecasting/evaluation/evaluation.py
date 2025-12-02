@@ -25,8 +25,8 @@ class Evaluator:
         self._forecast_columns = forecast_columns
 
         self.metrics = self._metric_config.metrics
-        # Optional chunking to reduce memory for large evaluations.
-        self.chunk_size = int(os.getenv("EVAL_CHUNK_SIZE", "0")) or None
+        # Force chunking by default to keep memory bounded; set EVAL_CHUNK_SIZE=0 to disable.
+        self.chunk_size = int(os.getenv("EVAL_CHUNK_SIZE", "500")) or None
 
     def _get_model_cols(self, df: pd.DataFrame) -> List[str]:
         """
@@ -125,22 +125,39 @@ class Evaluator:
         )
         eval_kwargs.update(kwargs)
 
-        if self.chunk_size:
+        # Auto-select a chunk size if not provided and the dataset is large.
+        chunk_size = self.chunk_size
+        if chunk_size is None:
+            n_rows = len(df)
+            n_ids = df[self._forecast_columns.time_series_index].nunique()
+            if n_rows > 1_000_000 or n_ids > 2000:
+                chunk_size = max(200, min(2000, max(n_ids // 10, 1)))
+                logging.info(
+                    "Auto chunking evaluation (rows=%d, series=%d) with chunk size=%d. "
+                    "Override via EVAL_CHUNK_SIZE.",
+                    n_rows,
+                    n_ids,
+                    chunk_size,
+                )
+
+        if chunk_size:
             ids = df[self._forecast_columns.time_series_index].unique()
-            if len(ids) > self.chunk_size:
+            if len(ids) > chunk_size:
                 logging.info(
                     "Chunked evaluation enabled (chunk size=%d, total series=%d).",
-                    self.chunk_size,
+                    chunk_size,
                     len(ids),
                 )
                 chunks = []
-                for i in range(0, len(ids), self.chunk_size):
-                    batch_ids = ids[i : i + self.chunk_size]
-                    batch_df = df[df[self._forecast_columns.time_series_index].isin(batch_ids)]
+                for i in range(0, len(ids), chunk_size):
+                    batch_ids = ids[i : i + chunk_size]
+                    batch_df = df[
+                        df[self._forecast_columns.time_series_index].isin(batch_ids)
+                    ]
                     logging.info(
                         "Evaluating batch %d-%d (%d series, %d rows)",
                         i,
-                        min(len(ids), i + self.chunk_size),
+                        min(len(ids), i + chunk_size),
                         len(batch_ids),
                         len(batch_df),
                     )

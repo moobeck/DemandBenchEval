@@ -154,6 +154,8 @@ class Preprocessor:
         )
 
         date_encoder = DateEncoder(freq=freq)
+        date_encoders = date_encoder.get_encoders()
+        # Register date-derived features after they are populated
         self._forecast_columns.add_features(
             date_encoder.out_columns, feature_type="future_exogenous"
         )
@@ -162,7 +164,7 @@ class Preprocessor:
             models=[],
             freq=self._forecast.freq,
             target_transforms=[local_scaler],
-            date_features=date_encoder.get_encoders(),
+            date_features=date_encoders,
         )
 
         df = ml_forecast.preprocess(
