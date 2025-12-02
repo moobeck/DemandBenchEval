@@ -50,11 +50,15 @@ class CrossValidationConfig:
         n_windows = self.n_windows
         step_size = self.step_size
 
-        if freq == FrequencyType.DAILY:
-            offset = pd.Timedelta(days=get_offset(n_windows, step_size, horizon))
-        elif freq == FrequencyType.WEEKLY:
-            offset = pd.Timedelta(weeks=get_offset(n_windows, step_size, horizon))
-        else:
+        offset_units = get_offset(n_windows, step_size, horizon)
+        offset_by_freq = {
+            FrequencyType.DAILY: pd.Timedelta(days=offset_units),
+            FrequencyType.WEEKLY: pd.Timedelta(weeks=offset_units),
+            FrequencyType.MONTHLY: pd.DateOffset(months=offset_units),
+        }
+        try:
+            offset = offset_by_freq[freq]
+        except KeyError:
             raise ValueError(f"Unsupported frequency: {freq}")
         return max_date - offset
 
