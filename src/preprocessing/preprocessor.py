@@ -114,10 +114,19 @@ class Preprocessor:
             time_col=self._forecast_columns.date,
         )
 
-        # Fill missing values
-        df = df.ffill()
-        # Fill remaining NaNs with 0
-        df = df.fillna(0)
+        # Fill missing values per series to avoid cross-series leakage on ffill/bfill.
+        id_col = self._forecast_columns.time_series_index
+        date_col = self._forecast_columns.date
+        df = df.sort_values([id_col, date_col])
+        df = df.groupby(id_col).ffill()
+        df = df.groupby(id_col).bfill()
+
+        # Only fill remaining numeric NaNs with 0; leave categoricals untouched.
+        numeric_cols = [
+            col for col in df.columns if pd.api.types.is_numeric_dtype(df[col])
+        ]
+        if numeric_cols:
+            df[numeric_cols] = df[numeric_cols].fillna(0)
 
         return df
 
