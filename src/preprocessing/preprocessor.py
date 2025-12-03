@@ -140,30 +140,6 @@ class Preprocessor:
         if self.df_merged is None:
             raise ValueError("Data not merged. Call merge() first.")
 
-        # Ensure we have an ID column present; fall back to known identifiers if absent.
-        id_col = self._forecast_columns.time_series_index
-        fallback_ids = [
-            self._forecast_columns.product_index,
-            self._forecast_columns.store_index,
-            "timeSeriesID",
-        ]
-        if id_col not in self.df_merged.columns:
-            for candidate in fallback_ids:
-                if candidate in self.df_merged.columns:
-                    logging.warning(
-                        "Time-series id column '%s' not found; falling back to '%s'.",
-                        id_col,
-                        candidate,
-                    )
-                    self._forecast_columns.time_series_index = candidate
-                    id_col = candidate
-                    break
-            else:
-                raise KeyError(
-                    f"Time-series id column '{id_col}' not found in data columns: "
-                    f"{list(self.df_merged.columns)}"
-                )
-
         selected_columns = list(
             set(
                 (
