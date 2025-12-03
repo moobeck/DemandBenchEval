@@ -135,6 +135,7 @@ class CrossValidator:
             min_len = df[id_col].value_counts().min()
 
             horizon = self._forecast_config.horizon
+            val_size = self._neural_val_size()
             # Pad to the maximum input size implied by the search space/default configs
             # so every sampled window has enough history.
             max_input_size = self._max_neural_input_size()
@@ -152,19 +153,29 @@ class CrossValidator:
             min_len = df[id_col].value_counts().min()
             min_input_size = max_input_size
 
-            feasible_windows = max(
-                1,
-                min(
-                    cv_cfg.n_windows,
-                    int((min_len - min_input_size - horizon) / cv_cfg.step_size) + 1,
-                ),
+            # Ensure there is enough training signal after reserving val/test windows.
+            # Train length = len - val_size - test_size, where test_size = h + step*(n_windows-1).
+            max_windows_by_history = (
+                int(
+                    max(
+                        0,
+                        min_len - val_size - min_input_size - 2 * horizon,
+                    )
+                    / cv_cfg.step_size
+                )
+                + 1
             )
+            feasible_windows = max(1, min(cv_cfg.n_windows, max_windows_by_history))
             if feasible_windows < cv_cfg.n_windows:
                 logging.warning(
-                    "Reducing n_windows from %d to %d to fit shortest series (len=%d).",
+                    "Reducing n_windows from %d to %d to fit shortest series "
+                    "(len=%d, val_size=%d, max_input_size=%d, h=%d).",
                     cv_cfg.n_windows,
                     feasible_windows,
                     min_len,
+                    val_size,
+                    min_input_size,
+                    horizon,
                 )
             cv_cfg = deepcopy(cv_cfg)
             cv_cfg.n_windows = feasible_windows
@@ -207,6 +218,16 @@ class CrossValidator:
                 max_size = max(max_size, candidate)
 
         return max_size
+
+    def _neural_val_size(self) -> int:
+        """
+        BaseAuto models default to val_size = h when val_size=0.
+        Use that convention so we don't over-allocate test windows and starve training.
+        """
+        cv_val = getattr(self._cross_validation, "val_size", 0)
+        if cv_val:
+            return cv_val
+        return self._forecast_config.horizon
 
     @staticmethod
     def _pad_short_series(
