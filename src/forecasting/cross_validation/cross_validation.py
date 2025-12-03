@@ -10,6 +10,7 @@ from src.configurations.data.forecast_column import ForecastColumnConfig
 from src.configurations.forecasting.forecasting import ForecastConfig
 from src.configurations.utils.enums import Framework, FrequencyType
 from src.configurations.evaluation.cross_validation import CrossValidationConfig
+from src.configurations.forecasting.models.model import MODEL_REGISTRY
 
 
 class CrossValidator:
@@ -134,8 +135,9 @@ class CrossValidator:
             min_len = df[id_col].value_counts().min()
 
             horizon = self._forecast_config.horizon
-            # Pad to the maximum input size we allow (worst-case for search space).
-            max_input_size = min(14, max(2 * horizon, horizon, 6))
+            # Pad to the maximum input size implied by the search space/default configs
+            # so every sampled window has enough history.
+            max_input_size = self._max_neural_input_size()
             min_required_len = max_input_size + horizon
 
             df = self._pad_short_series(
@@ -182,6 +184,29 @@ class CrossValidator:
             for k, v in possible_inputs.items()
             if k in engine.cv_inputs()
         }
+
+    def _max_neural_input_size(self) -> int:
+        """
+        Compute a conservative upper bound for neural input_size so padding/windows are feasible.
+        Mirrors the search space used in ForecastConfig for optuna backends and falls back to
+        model defaults when present.
+        """
+        horizon = self._forecast_config.horizon
+        # Matches the safe search space constructed in ForecastConfig for optuna.
+        max_size = max(max(4, horizon // 2), max(6, horizon), min(14, 2 * horizon))
+
+        for model_name in self._forecast_config.names:
+            spec = MODEL_REGISTRY.get(model_name)
+            if spec is None or spec.framework != Framework.NEURAL:
+                continue
+            default_cfg = spec.model.get_default_config(
+                h=horizon, backend="not_specified"
+            )
+            candidate = default_cfg.get("input_size")
+            if isinstance(candidate, int):
+                max_size = max(max_size, candidate)
+
+        return max_size
 
     @staticmethod
     def _pad_short_series(
