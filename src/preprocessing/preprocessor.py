@@ -46,6 +46,53 @@ class Preprocessor:
 
         self.df_merged = self._dataset.get_merged_data().to_pandas()
 
+        # Some datasets (e.g., Favorita) keep store-level identifiers only in the
+        # feature chunks. If required columns are missing after the default merge,
+        # backfill them from `dataset.features`.
+        required_cols = set(
+            list(self._forecast_columns.ts_base_cols) + list(self._forecast_columns.exogenous)
+        )
+        missing_cols = [col for col in required_cols if col not in self.df_merged.columns]
+
+        if missing_cols and hasattr(self._dataset, "features"):
+            feature_cols = [
+                col for col in missing_cols if col in self._dataset.features.columns
+            ]
+            if feature_cols:
+                # Join using lightweight keys available in both sides.
+                join_keys = [
+                    col
+                    for col in ["idx", self._forecast_columns.date, "frequency"]
+                    if col in self.df_merged.columns
+                    and col in self._dataset.features.columns
+                ]
+                if not join_keys:
+                    logging.warning(
+                        "Missing columns %s but no common join keys between merged data "
+                        "and features. Skipping backfill.",
+                        feature_cols,
+                    )
+                    return
+
+                features_df = (
+                    self._dataset.features.select(join_keys + feature_cols)
+                    .to_pandas()
+                )
+                before_cols = set(self.df_merged.columns)
+                self.df_merged = self.df_merged.merge(
+                    features_df, on=join_keys, how="left"
+                )
+                added = set(self.df_merged.columns) - before_cols
+                logging.info(
+                    "Added missing columns from feature chunks: %s",
+                    sorted(added & set(feature_cols)),
+                )
+            else:
+                logging.warning(
+                    "Required columns %s are missing and not present in features.",
+                    missing_cols,
+                )
+
     def remove_skus(self, skus: Union[List[str], Literal["not_at_min_date"]]):
         """
         Remove specific SKUs from the merged DataFrame.
