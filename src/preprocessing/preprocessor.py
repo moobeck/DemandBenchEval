@@ -213,8 +213,11 @@ class Preprocessor:
         # Fill missing values per series to avoid cross-series leakage on ffill/bfill.
         date_col = self._forecast_columns.date
         df = df.sort_values([id_col, date_col])
-        df = df.groupby(id_col).ffill()
-        df = df.groupby(id_col).bfill()
+        # Groupby-fill only the non-key columns so we don't lose the id column
+        fill_cols = [col for col in df.columns if col not in (id_col, date_col)]
+        if fill_cols:
+            df[fill_cols] = df.groupby(id_col)[fill_cols].ffill()
+            df[fill_cols] = df.groupby(id_col)[fill_cols].bfill()
 
         # Only fill remaining numeric NaNs with 0; leave categoricals untouched.
         numeric_cols = [
