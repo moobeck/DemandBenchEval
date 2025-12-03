@@ -151,6 +151,31 @@ class Preprocessor:
 
         df = self.df_merged[selected_columns].copy()
 
+        # Ensure the configured id column exists; if missing but an equivalent
+        # identifier is present (e.g., storeID/productID), duplicate it to the
+        # expected name instead of changing the configured column.
+        id_col = self._forecast_columns.time_series_index
+        candidate_ids = [
+            self._forecast_columns.store_index,
+            self._forecast_columns.product_index,
+            "timeSeriesID",
+        ]
+        if id_col not in df.columns:
+            for candidate in candidate_ids:
+                if candidate in df.columns:
+                    logging.warning(
+                        "Time-series id column '%s' not found; copying from '%s'.",
+                        id_col,
+                        candidate,
+                    )
+                    df[id_col] = df[candidate]
+                    break
+            else:
+                raise KeyError(
+                    f"Time-series id column '{id_col}' not found in data columns: "
+                    f"{list(df.columns)}"
+                )
+
         # Fill gaps in the time series
         frequency_alias = FrequencyType.get_alias(self._forecast.freq, "pandas")
 
