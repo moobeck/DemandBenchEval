@@ -114,10 +114,9 @@ class Preprocessor:
             time_col=self._forecast_columns.date,
         )
 
+
         # Fill missing values
         df = df.ffill()
-        # Fill remaining NaNs with 0
-        df = df.fillna(0)
 
         return df
 
