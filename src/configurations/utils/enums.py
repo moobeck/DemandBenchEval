@@ -73,7 +73,6 @@ class DatasetName(Enum):
     KAGGLEDEMAND = "kaggledemand"
     PRODUCTDEMAND = "productdemand"
     VN1 = "vn1"
-    KAGGLERETAIL = "kaggleretail"
     KAGGLEWALMART = "kagglewalmart"
     FOSSIL = "fossil"
 

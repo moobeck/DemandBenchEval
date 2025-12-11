@@ -105,9 +105,6 @@ The following table summarizes the available tasks in the benchmark:
 | productdemand     | product         | weekly          | 4                   | 172421         | 313                  |
 | productdemand     | product         | monthly         | 3                   | 40231          | 73                   |
 | vn1               | product         | weekly          | 4                   | 7801           | 170                  |
-| kaggleretail      | product/store   | weekly          | 4                   | 421570         | 143                  |
-| kaggleretail      | product         | weekly          | 4                   | 9368           | 143                  |
-| kaggleretail      | store           | weekly          | 4                   | 5204           | 143                  |
 | kagglewalmart     | store           | weekly          | 4                   | 421570         | 143                  |
 | hierarchicalsales | product         | daily           | 7                   | 212164         | 1825                 |
 | hierarchicalsales | product         | weekly          | 4                   | 30309          | 260                  |

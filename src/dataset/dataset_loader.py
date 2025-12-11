@@ -18,7 +18,6 @@ from demandbench.datasets import (
     load_productdemand,
     load_pharmacy2,
     load_vn1,
-    load_kaggleretail,
     load_kagglewalmart,
     load_fossil,
 )
@@ -77,8 +76,6 @@ class DatasetLoader:
             return load_pharmacy2()
         elif dataset_name == DatasetName.VN1:
             return load_vn1()
-        elif dataset_name == DatasetName.KAGGLERETAIL:
-            return load_kaggleretail()
         elif dataset_name == DatasetName.KAGGLEWALMART:
             return load_kagglewalmart()
         elif dataset_name == DatasetName.FOSSIL:

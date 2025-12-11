@@ -58,5 +58,5 @@ class SKUStatistics:
             }
             for q in self.quantiles:
                 row[f"quantile_{q}"] = np.quantile(target, q)
-            rows.append(row)
-        return pd.DataFrame(rows).set_index(self._forecast_columns.time_series_index)
+            rows.append(row)        
+        return pd.DataFrame(rows)

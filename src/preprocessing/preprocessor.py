@@ -46,145 +46,10 @@ class Preprocessor:
 
         self.df_merged = self._dataset.get_merged_data().to_pandas()
 
-        # Some datasets (e.g., Favorita) keep store-level identifiers only in the
-        # feature chunks. If required columns are missing after the default merge,
-        # backfill them from `dataset.features`.
-        required_cols = set(
-            list(self._forecast_columns.ts_base_cols) + list(self._forecast_columns.exogenous)
-        )
-        missing_cols = [col for col in required_cols if col not in self.df_merged.columns]
 
-        if missing_cols and hasattr(self._dataset, "features"):
-            feature_cols = [
-                col for col in missing_cols if col in self._dataset.features.columns
-            ]
-            if feature_cols:
-                # Join using lightweight keys available in both sides.
-                join_keys = [
-                    col
-                    for col in ["idx", self._forecast_columns.date, "frequency"]
-                    if col in self.df_merged.columns
-                    and col in self._dataset.features.columns
-                ]
-                if not join_keys:
-                    logging.warning(
-                        "Missing columns %s but no common join keys between merged data "
-                        "and features. Skipping backfill.",
-                        feature_cols,
-                    )
-                    return
-
-                features_df = (
-                    self._dataset.features.select(join_keys + feature_cols)
-                    .to_pandas()
-                )
-                before_cols = set(self.df_merged.columns)
-                self.df_merged = self.df_merged.merge(
-                    features_df, on=join_keys, how="left"
-                )
-                added = set(self.df_merged.columns) - before_cols
-                logging.info(
-                    "Added missing columns from feature chunks: %s",
-                    sorted(added & set(feature_cols)),
-                )
-            else:
-                logging.warning(
-                    "Required columns %s are missing and not present in features.",
-                    missing_cols,
-                )
-
-    def remove_skus(self, skus: Union[List[str], Literal["not_at_min_date"]]):
-        """
-        Remove specific SKUs from the merged DataFrame.
-
-        Parameters:
-        - skus (List[str] | "not_at_min_date"):
-            - If a list of SKUs is provided, those SKUs will be removed.
-            - If "not_at_min_date" is passed, all SKUs that do NOT have data starting
-            at the minimum date in the DataFrame will be removed.
-        """
-
-        logging.info(f"Removing SKUs: {skus}")
-
-        # Print all columns in the DataFrame
-        logging.info(f"Columns in the DataFrame: {self.df_merged.columns.tolist()}")
-
-        if self.df_merged is None:
-            raise ValueError("Data not merged. Call merge() first.")
-
-        time_series_col = self._forecast_columns.time_series_index
-        date_col = self._forecast_columns.date
-
-        if skus == "not_at_min_date":
-            min_date = self.df_merged[date_col].min()
-
-            # Find SKUs that have entries on the minimum date
-            skus_to_keep = self.df_merged[self.df_merged[date_col] == min_date][
-                time_series_col
-            ].unique()
-
-            # Keep only rows with those SKUs
-            self.df_merged = self.df_merged[
-                self.df_merged[time_series_col].isin(skus_to_keep)
-            ]
-        else:
-            self.df_merged = self.df_merged[~self.df_merged[time_series_col].isin(skus)]
-
-        return self.df_merged
 
     def prepare_forecasting_data(self) -> pd.DataFrame:
         """Prepare a pandas DataFrame for forecasting."""
-
-        logging.info("Preparing data for forecasting")
-
-        if self.df_merged is None:
-            raise ValueError("Data not merged. Call merge() first.")
-
-        def _ensure_id_column(frame: pd.DataFrame) -> str:
-            """
-            Guarantee the configured id column exists in the given frame.
-            If missing, copy from common equivalents or suffixed variants (e.g., storeID_x).
-            """
-            id_col = self._forecast_columns.time_series_index
-            if id_col in frame.columns:
-                return id_col
-
-            variants = [
-                col
-                for col in frame.columns
-                if col.replace("_x", "").replace("_y", "") == id_col
-            ]
-            if variants:
-                src = variants[0]
-                logging.warning(
-                    "Time-series id column '%s' not found; copying from variant '%s'.",
-                    id_col,
-                    src,
-                )
-                frame[id_col] = frame[src]
-                return id_col
-
-            candidate_ids = [
-                self._forecast_columns.store_index,
-                self._forecast_columns.product_index,
-                "timeSeriesID",
-            ]
-            for candidate in candidate_ids:
-                if candidate and candidate in frame.columns:
-                    logging.warning(
-                        "Time-series id column '%s' not found; copying from '%s'.",
-                        id_col,
-                        candidate,
-                    )
-                    frame[id_col] = frame[candidate]
-                    return id_col
-
-            raise KeyError(
-                f"Time-series id column '{id_col}' not found in data columns: "
-                f"{list(frame.columns)}"
-            )
-
-        id_col = _ensure_id_column(self.df_merged)
 
         selected_columns = list(
             set(
@@ -196,7 +61,6 @@ class Preprocessor:
         )
 
         df = self.df_merged[selected_columns].copy()
-        id_col = _ensure_id_column(df)
 
         # Fill gaps in the time series
         frequency_alias = FrequencyType.get_alias(self._forecast.freq, "pandas")
@@ -206,25 +70,19 @@ class Preprocessor:
             freq=frequency_alias,
             id_col=self._forecast_columns.time_series_index,
             time_col=self._forecast_columns.date,
+            start="global",
+            end="global"
         )
 
-        id_col = _ensure_id_column(df)
 
-        # Fill missing values per series to avoid cross-series leakage on ffill/bfill.
-        date_col = self._forecast_columns.date
-        df = df.sort_values([id_col, date_col])
-        # Groupby-fill only the non-key columns so we don't lose the id column
-        fill_cols = [col for col in df.columns if col not in (id_col, date_col)]
-        if fill_cols:
-            df[fill_cols] = df.groupby(id_col)[fill_cols].ffill()
-            df[fill_cols] = df.groupby(id_col)[fill_cols].bfill()
+        # Fill missing values in features with backfill 
+        feature_cols = [
+            col for col in df.columns if col not in self._forecast_columns.ts_base_cols
+        ]   
 
-        # Only fill remaining numeric NaNs with 0; leave categoricals untouched.
-        numeric_cols = [
-            col for col in df.columns if pd.api.types.is_numeric_dtype(df[col])
-        ]
-        if numeric_cols:
-            df[numeric_cols] = df[numeric_cols].fillna(0)
+        df[feature_cols] = df.groupby(self._forecast_columns.time_series_index)[feature_cols].bfill().ffill()
+
+        df[self._forecast_columns.target] = df[self._forecast_columns.target].fillna(0)
 
         return df
 
@@ -281,29 +139,6 @@ class Preprocessor:
         self._forecast_columns.add_features(
             date_encoder.out_columns, feature_type="future_exogenous"
         )
-
-        # Ensure static features are truly static; otherwise treat them as dynamic
-        if self._forecast_columns.static:
-            id_col = self._forecast_columns.time_series_index
-            varying_static = []
-            for col in list(self._forecast_columns.static):
-                if col not in df.columns:
-                    continue
-                if df.groupby(id_col)[col].nunique(dropna=False).gt(1).any():
-                    varying_static.append(col)
-
-            if varying_static:
-                logging.warning(
-                    "Static features change over time; moving to past_exogenous: %s",
-                    varying_static,
-                )
-                self._forecast_columns.remove_features(
-                    varying_static, feature_type="static"
-                )
-                self._forecast_columns.add_features(
-                    varying_static, feature_type="past_exogenous"
-                )
-
         ml_forecast = MLForecast(
             models=[],
             freq=self._forecast.freq,
