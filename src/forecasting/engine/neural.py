@@ -10,6 +10,13 @@ class NeuralForecastEngine(ForecastEngine):
     def __init__(self, *args, **kw):
         self._engine = NeuralForecast(*args, **kw)
 
+    @property
+    def models(self) -> List:
+        """
+        Expose the underlying NeuralForecast models (used for logging/search results).
+        """
+        return getattr(self._engine, "models", [])
+
 
     @staticmethod
     def cv_inputs() -> List[str]:
@@ -35,7 +42,6 @@ class NeuralForecastEngine(ForecastEngine):
             static_df=static_df,
             n_windows=cv_config.n_windows,
             step_size=cv_config.step_size,
-            refit=cv_config.refit,
             verbose=True,
             id_col=forecast_columns.time_series_index,
             target_col=forecast_columns.target,

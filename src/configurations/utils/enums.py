@@ -13,6 +13,7 @@ class ModelName(Enum):
     THETA = "theta"
     ETS = "ets"
     CES = "ces"
+    CROSTON = "croston"
     LGBM = "lgbm"
     CATBOOST = "catboost"
     RF = "rf"
@@ -73,7 +74,6 @@ class DatasetName(Enum):
     KAGGLEDEMAND = "kaggledemand"
     PRODUCTDEMAND = "productdemand"
     VN1 = "vn1"
-    KAGGLERETAIL = "kaggleretail"
     KAGGLEWALMART = "kagglewalmart"
     FOSSIL = "fossil"
 

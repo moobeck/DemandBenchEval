@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 from utilsforecast.evaluation import evaluate
 import logging
@@ -24,6 +25,8 @@ class Evaluator:
         self._forecast_columns = forecast_columns
 
         self.metrics = self._metric_config.metrics
+        # Force chunking by default to keep memory bounded; set EVAL_CHUNK_SIZE=0 to disable.
+        self.chunk_size = int(os.getenv("EVAL_CHUNK_SIZE", "500")) or None
 
     def _get_model_cols(self, df: pd.DataFrame) -> List[str]:
         """
@@ -111,16 +114,56 @@ class Evaluator:
         model_names = self._get_model_cols(df)
         df = self._fill_model_columns(df, model_names)
 
-        return evaluate(
-            df=df,
+        eval_kwargs = dict(
             models=model_names,
             target_col=self._forecast_columns.target,
             time_col=self._forecast_columns.date,
             id_col=self._forecast_columns.time_series_index,
             metrics=list(self.metrics.values()),
             level=self._get_level(),
-            **kwargs,
         )
+        eval_kwargs.update(kwargs)
+
+        # Auto-select a chunk size if not provided and the dataset is large.
+        chunk_size = self.chunk_size
+        if chunk_size is None:
+            n_rows = len(df)
+            n_ids = df[self._forecast_columns.time_series_index].nunique()
+            if n_rows > 1_000_000 or n_ids > 2000:
+                chunk_size = max(200, min(2000, max(n_ids // 10, 1)))
+                logging.info(
+                    "Auto chunking evaluation (rows=%d, series=%d) with chunk size=%d. "
+                    "Override via EVAL_CHUNK_SIZE.",
+                    n_rows,
+                    n_ids,
+                    chunk_size,
+                )
+
+        if chunk_size:
+            ids = df[self._forecast_columns.time_series_index].unique()
+            if len(ids) > chunk_size:
+                logging.info(
+                    "Chunked evaluation enabled (chunk size=%d, total series=%d).",
+                    chunk_size,
+                    len(ids),
+                )
+                chunks = []
+                for i in range(0, len(ids), chunk_size):
+                    batch_ids = ids[i : i + chunk_size]
+                    batch_df = df[
+                        df[self._forecast_columns.time_series_index].isin(batch_ids)
+                    ]
+                    logging.info(
+                        "Evaluating batch %d-%d (%d series, %d rows)",
+                        i,
+                        min(len(ids), i + chunk_size),
+                        len(batch_ids),
+                        len(batch_df),
+                    )
+                    chunks.append(evaluate(df=batch_df, **eval_kwargs))
+                return pd.concat(chunks, ignore_index=True)
+
+        return evaluate(df=df, **eval_kwargs)
 
     def summarize_metrics(self, metrics_df: pd.DataFrame) -> Dict[str, Any]:
         """

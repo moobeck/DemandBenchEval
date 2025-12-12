@@ -1,4 +1,8 @@
 metrics:
   - MASE
+  - MAE
+  - SMQL
   - SPEC
+  - SSPEC
+  - APIS
   - SAPIS

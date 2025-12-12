@@ -1,2 +1,21 @@
 tasks:
-  - hotel_product_store_weekly_4
+  - rohlik_product_daily_7
+  - yaz_product_daily_7
+  - pharmacy2_product_store_weekly_4
+  - freshretail50k_product_daily_7
+  - hotel_product_store_daily_7
+  - hierarchicalsales_product_daily_7
+  - favorita_store_weekly_4
+  - bakery_store_weekly_4
+  - rossmann_product_store_weekly_4
+  - pharmacy_product_weekly_4
+  - onlineretail_product_weekly_4
+  - onlineretail2_product_weekly_4
+  - kaggledemand_product_store_weekly_4
+  - vn1_product_weekly_4
+  - kagglewalmart_store_weekly_4
+  - m5_product_monthly_3
+  - australianretail_product_store_monthly_3
+  - productdemand_product_store_monthly_3
+  - carparts_product_monthly_3
+  - fossil_product_monthly_3

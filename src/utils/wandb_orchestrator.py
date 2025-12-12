@@ -1,4 +1,6 @@
 import logging
+import os
+from pathlib import Path
 import wandb
 from src.configurations.utils.wandb import WandbConfig
 from src.configurations.utils.enums import DatasetName
@@ -13,16 +15,62 @@ class WandbOrchestrator:
     def __init__(self, config: WandbConfig, public_config: dict):
         self.config = config
         self.public_config = public_config
-        self.tags = [
-            str(m) for m in public_config.get("forecast", {}).get("models", [])
-        ]
+        self.tags = self._build_tags(public_config)
         self.run = None
 
+    @staticmethod
+    def _build_tags(public_config: dict) -> list[str]:
+        """
+        Compose W&B tags with model names and dataset names (from task strings).
+        """
+        model_tags = [
+            str(m) for m in public_config.get("forecast", {}).get("models", [])
+        ]
+
+        task_names = public_config.get("tasks", []) or []
+        dataset_tags = []
+        for task in task_names:
+            if isinstance(task, str) and "_" in task:
+                dataset_tags.append(task.split("_", 1)[0].upper())
+
+        # Deduplicate while preserving order
+        seen = set()
+        tags = []
+        for tag in model_tags + dataset_tags:
+            if tag not in seen:
+                seen.add(tag)
+                tags.append(tag)
+        return tags
+
+    @staticmethod
+    def _load_key_from_envfile() -> str | None:
+        """
+        Look for WANDB_KEY in a .env file at repo root (three levels up from this file).
+        Supports simple KEY=VALUE lines without interpolation.
+        """
+        env_path = Path(__file__).resolve().parents[2] / ".env"
+        if not env_path.is_file():
+            return None
+        try:
+            for line in env_path.read_text().splitlines():
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if line.startswith("WANDB_KEY="):
+                    return line.split("WANDB_KEY=", 1)[1].strip().strip('"').strip("'")
+        except OSError:
+            return None
+        return None
+
     def login(self):
-        if self.config.api_key:
-            wandb.login(key=self.config.api_key)
+        # Priority: env var (WANDB_KEY), then config, then .env file fallback.
+        key = os.getenv("WANDB_KEY") or self.config.api_key or self._load_key_from_envfile()
+        if key:
+            wandb.login(key=key)
         else:
-            logging.info("No W&B API key provided; using default authentication.")
+            logging.info(
+                "No W&B API key provided via env, config, or .env; using default authentication."
+            )
 
     def start_run(self):
         if self.config.log_wandb:
@@ -54,17 +102,57 @@ class WandbOrchestrator:
             wandb.log(data) if self.run else None
             self.run.log(data) if self.run else None
 
+    @staticmethod
+    def _extract_best_config(results):
+        """
+        Attempt to extract the best hyperparameter config from different backends.
+        Supports Ray Tune (ResultGrid), Optuna (Study), and simple mappings.
+        """
+        if results is None:
+            return None
+
+        # Ray Tune's ResultGrid
+        if hasattr(results, "get_best_result"):
+            try:
+                best = results.get_best_result()
+                return getattr(best, "config", None)
+            except Exception:
+                return None
+
+        # Optuna Study
+        if hasattr(results, "best_trial"):
+            try:
+                best_trial = results.best_trial
+                if hasattr(best_trial, "params"):
+                    return best_trial.params
+                return getattr(best_trial, "config", None)
+            except Exception:
+                return None
+
+        # Fallback to common attributes
+        for attr in ("best_params", "best_config", "config"):
+            cfg = getattr(results, attr, None)
+            if cfg:
+                return cfg
+
+        return None
+
     def maybe_log_hyperparameters(self, frameworks: dict, task_name: str):
         if self.run:
             if Framework.NEURAL in frameworks and frameworks[Framework.NEURAL]:
                 neural_engine = frameworks[Framework.NEURAL]
 
-                models = neural_engine.models
+                models = getattr(neural_engine, "models", [])
 
-                hyperparams = {
-                    model.alias: model.results.get_best_result().config
-                    for model in models
-                }
+                hyperparams = {}
+                for model in models:
+                    best_cfg = self._extract_best_config(
+                        getattr(model, "results", None)
+                    )
+                    if best_cfg:
+                        alias = getattr(model, "alias", str(model))
+                        hyperparams[alias] = best_cfg
+
                 if hyperparams:
                     logging.info(
                         f"Logging hyperparameters for task {task_name}: {hyperparams}"

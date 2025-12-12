@@ -33,18 +33,15 @@ class StatsForecastEngine(ForecastEngine):
     ):
         n_windows = cv_config.n_windows
         step_size = cv_config.step_size
-        refit = cv_config.refit
 
         cv_results = self._engine.cross_validation(
             df=df,
             h=h,
             n_windows=n_windows,
             step_size=step_size,
-            refit=refit,
             id_col=forecast_columns.time_series_index,
             target_col=forecast_columns.target,
             time_col=forecast_columns.date,
-            fitted=True,
         )
 
         return cv_results

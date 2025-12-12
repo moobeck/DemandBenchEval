@@ -47,7 +47,6 @@ def main():
             cfg.cross_validation,
         )
         prep.merge()
-        prep.remove_skus(skus="not_at_min_date")
         df = prep.prepare_forecasting_data()
 
         sku_stats = SKUStatistics(

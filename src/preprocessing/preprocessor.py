@@ -46,52 +46,10 @@ class Preprocessor:
 
         self.df_merged = self._dataset.get_merged_data().to_pandas()
 
-    def remove_skus(self, skus: Union[List[str], Literal["not_at_min_date"]]):
-        """
-        Remove specific SKUs from the merged DataFrame.
 
-        Parameters:
-        - skus (List[str] | "not_at_min_date"):
-            - If a list of SKUs is provided, those SKUs will be removed.
-            - If "not_at_min_date" is passed, all SKUs that do NOT have data starting
-            at the minimum date in the DataFrame will be removed.
-        """
-
-        logging.info(f"Removing SKUs: {skus}")
-
-        # Print all columns in the DataFrame
-        logging.info(f"Columns in the DataFrame: {self.df_merged.columns.tolist()}")
-
-        if self.df_merged is None:
-            raise ValueError("Data not merged. Call merge() first.")
-
-        time_series_col = self._forecast_columns.time_series_index
-        date_col = self._forecast_columns.date
-
-        if skus == "not_at_min_date":
-            min_date = self.df_merged[date_col].min()
-
-            # Find SKUs that have entries on the minimum date
-            skus_to_keep = self.df_merged[self.df_merged[date_col] == min_date][
-                time_series_col
-            ].unique()
-
-            # Keep only rows with those SKUs
-            self.df_merged = self.df_merged[
-                self.df_merged[time_series_col].isin(skus_to_keep)
-            ]
-        else:
-            self.df_merged = self.df_merged[~self.df_merged[time_series_col].isin(skus)]
-
-        return self.df_merged
 
     def prepare_forecasting_data(self) -> pd.DataFrame:
         """Prepare a pandas DataFrame for forecasting."""
-
-        logging.info("Preparing data for forecasting")
-
-        if self.df_merged is None:
-            raise ValueError("Data not merged. Call merge() first.")
 
         selected_columns = list(
             set(
@@ -112,12 +70,19 @@ class Preprocessor:
             freq=frequency_alias,
             id_col=self._forecast_columns.time_series_index,
             time_col=self._forecast_columns.date,
+            start="global",
+            end="global"
         )
 
-        # Fill missing values
-        df = df.ffill()
-        # Fill remaining NaNs with 0
-        df = df.fillna(0)
+
+        # Fill missing values in features with backfill 
+        feature_cols = [
+            col for col in df.columns if col not in self._forecast_columns.ts_base_cols
+        ]   
+
+        df[feature_cols] = df.groupby(self._forecast_columns.time_series_index)[feature_cols].bfill().ffill()
+
+        df[self._forecast_columns.target] = df[self._forecast_columns.target].fillna(0)
 
         return df
 
@@ -146,6 +111,21 @@ class Preprocessor:
             for col in self._forecast_columns.exogenous
             if col not in self._forecast_columns.categorical
         ]
+
+        non_numeric_exog = [
+            col for col in non_cat_exog if not pd.api.types.is_numeric_dtype(df[col])
+        ]
+
+        if non_numeric_exog:
+            logging.warning(
+                "Detected non-numeric exogenous columns; treating as categorical: %s",
+                non_numeric_exog,
+            )
+            for col in non_numeric_exog:
+                if col not in self._forecast_columns.categorical:
+                    self._forecast_columns.categorical.append(col)
+            non_cat_exog = [col for col in non_cat_exog if col not in non_numeric_exog]
+
         if non_cat_exog:
             df[non_cat_exog] = global_min_max_scaler.fit_transform(df[non_cat_exog])
 
@@ -154,15 +134,16 @@ class Preprocessor:
         )
 
         date_encoder = DateEncoder(freq=freq)
+        date_encoders = date_encoder.get_encoders()
+        # Register date-derived features after they are populated
         self._forecast_columns.add_features(
             date_encoder.out_columns, feature_type="future_exogenous"
         )
-
         ml_forecast = MLForecast(
             models=[],
             freq=self._forecast.freq,
             target_transforms=[local_scaler],
-            date_features=date_encoder.get_encoders(),
+            date_features=date_encoders,
         )
 
         df = ml_forecast.preprocess(
