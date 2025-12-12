@@ -125,8 +125,6 @@ class CrossValidator:
         elif framework == Framework.FM:
             cols += (exo_cols + static_cols)
 
-        df = df[cols]
-
         # For neural models, pad short series with zeros and shrink n_windows to avoid window failures.
         cv_cfg = self._cross_validation
         if framework == Framework.NEURAL:
@@ -181,7 +179,7 @@ class CrossValidator:
             cv_cfg.n_windows = feasible_windows
 
         possible_inputs = {
-            "df": df,
+            "df": df[cols],
             "cv_config": cv_cfg,
             "forecast_columns": self._forecast_columns,
             "forecast_config": self._forecast_config,
