@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, TypeAlias
 
 from optuna.samplers import TPESampler
-from statsforecast.models import AutoARIMA, AutoTheta, AutoETS, AutoCES
+from statsforecast.models import AutoARIMA, AutoTheta, AutoETS, AutoCES, CrostonOptimized
 from neuralforecast.auto import (
     AutoVanillaTransformer,
     AutoMLP,
@@ -78,6 +78,12 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
         framework=Framework.STATS,
         default_params=DefaultParams.STATS,
         model=AutoCES,
+    ),
+    ModelName.CROSTON: ModelSpec(
+        factory=lambda **p: CrostonOptimized(alias="croston"),
+        framework=Framework.STATS,
+        default_params=DefaultParams.STATS,
+        model=CrostonOptimized,
     ),
     ModelName.TRANSFORMER: ModelSpec(
         factory=lambda **p: AutoVanillaTransformer(**p),

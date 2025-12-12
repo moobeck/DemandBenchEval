@@ -42,7 +42,6 @@ class NeuralForecastEngine(ForecastEngine):
             static_df=static_df,
             n_windows=cv_config.n_windows,
             step_size=cv_config.step_size,
-            refit=cv_config.refit,
             verbose=True,
             id_col=forecast_columns.time_series_index,
             target_col=forecast_columns.target,

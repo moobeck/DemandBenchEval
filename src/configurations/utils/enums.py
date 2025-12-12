@@ -13,6 +13,7 @@ class ModelName(Enum):
     THETA = "theta"
     ETS = "ets"
     CES = "ces"
+    CROSTON = "croston"
     LGBM = "lgbm"
     CATBOOST = "catboost"
     RF = "rf"
