@@ -14,6 +14,7 @@ class ModelName(Enum):
     ETS = "ets"
     CES = "ces"
     CROSTON = "croston"
+    TSB = "tsb"
     LGBM = "lgbm"
     CATBOOST = "catboost"
     RF = "rf"
