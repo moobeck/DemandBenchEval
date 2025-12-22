@@ -8,3 +8,4 @@ AutoGluonModels/
 mp_news
 
 .ignore/
+wb/artifacts/

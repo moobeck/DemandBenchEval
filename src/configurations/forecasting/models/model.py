@@ -22,6 +22,8 @@ from neuralforecast.auto import (
 )
 
 from src.forecasting.models.foundation import Moirai, Chronos, TabPFN
+from src.forecasting.models.statistical import AutoCrostonSBA, AutoTSB
+
 from src.forecasting.utils.optuna_callbacks import fail_on_nonfinite_trial
 from ...utils.enums import ModelName, Framework
 
@@ -80,10 +82,16 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
         model=AutoCES,
     ),
     ModelName.CROSTON: ModelSpec(
-        factory=lambda **p: CrostonOptimized(alias="croston"),
+        factory=lambda **p: AutoCrostonSBA(alias="croston"),
         framework=Framework.STATS,
         default_params=DefaultParams.STATS,
-        model=CrostonOptimized,
+        model=AutoCrostonSBA,
+    ),
+    ModelName.TSB: ModelSpec(
+        factory=lambda **p: AutoTSB(alias="tsb"),
+        framework=Framework.STATS,
+        default_params=DefaultParams.STATS,
+        model=AutoTSB,
     ),
     ModelName.TRANSFORMER: ModelSpec(
         factory=lambda **p: AutoVanillaTransformer(**p),

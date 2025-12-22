@@ -42,6 +42,7 @@ class StatsForecastEngine(ForecastEngine):
             id_col=forecast_columns.time_series_index,
             target_col=forecast_columns.target,
             time_col=forecast_columns.date,
+            refit=cv_config.refit,
         )
 
         return cv_results
