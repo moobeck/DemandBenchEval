@@ -39,6 +39,7 @@ class Evaluator:
             self._forecast_columns.target,
             self._forecast_columns.cutoff,
             "metric",
+            "index",
         }
 
         potential_model_cols = [col for col in df.columns if col not in metadata_cols]

@@ -98,7 +98,7 @@ class Chronos(Forecaster):
         quantile_cols, level_cols = quantiles_to_outputs(
             [float(q) for q in quantile_cols]
         )
-        level_cols = [f"{self.alias}{level}" for level in level_cols]
+        level_cols = [f"{self.alias}{int(round(level, 0))}" for level in level_cols]
 
         rename_mapping.update(dict(zip([str(q) for q in quantile_cols], level_cols)))
 
