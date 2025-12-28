@@ -3,44 +3,14 @@ import os
 import wandb
 import logging
 
+from src.configurations.utils.enums import DatasetName, ModelName
+
 
 
 PROJECT = "bench-forecast"
 TEAM = "d3_group"
 PATH = f"{TEAM}/{PROJECT}"
 CUTOFF = datetime(2025, 12, 10, 0, 0, 0, tzinfo=timezone.utc)
-
-from enum import StrEnum
-
-
-class ModelName(StrEnum):
-    ARIMA = "arima"
-    THETA = "theta"
-    ETS = "ets"
-    CES = "ces"
-    CROSTON = "croston"
-    LGBM = "lgbm"
-    CATBOOST = "catboost"
-    RF = "rf"
-    TRANSFORMER = "transformer"
-    MLP = "mlp"
-    LSTM = "lstm"
-    TIMESNET = "timesnet"
-    FEDFORMER = "fedformer"
-    TIDE = "tide"
-    NHITS = "nhits"
-    DEEPAR = "depar"
-    NBEATS = "nbeats"
-    BITCN = "bitcn"
-    GRU = "gru"
-    TCN = "tcn"
-    TFT = "tft"
-    PATCHTST = "patchtst"
-    XLSTM = "xlstm"
-    MOIRAI = "moirai"
-    CHRONOS = "chronos"
-    TABPFN = "tabpfn"
-
 
 
 logger = logging.getLogger(__name__)
@@ -58,16 +28,43 @@ class Run:
         self.run = run
         logger.info(
             "Initialized Run (run=%s, id=%s)",
-            getattr(self.run, "name", "<unknown>"),
-            getattr(self.run, "id", "<unknown>"),
+            self.name,
+            self.id
         )
+    
+    @property 
+    def name(self) -> str:
+        return self.run.name
+
+    @property
+    def id(self) -> str:
+        return self.run.id
+    
+    @property
+    def tag_names(self) -> list[str]:
+        return [tag.lower() for tag in self.run.tags]
+    
 
     @property
     def model_name(self) -> ModelName:
-        tags = self.run.tags
-        for tag in tags:
-            if tag.lower() in ModelName:
-                return ModelName(tag.lower())
+        for tag in self.tag_names:
+            try:
+                return ModelName(tag)
+            except ValueError:
+                continue
+            
+    @property
+    def dataset_name(self) -> DatasetName | None:
+        for tag in self.tag_names:
+            try:
+                return DatasetName(tag)
+            except ValueError:
+                continue
+    
+
+    @property
+    def created_at(self) -> datetime | None:
+        return self.run.created_at
 
     @property
     def artifacts(self) -> list[wandb.Artifact]:
@@ -159,17 +156,54 @@ class Api:
         # Get runs created after the cutoff date
         filters["createdAt"] = {"$gt": cutoff_str}
 
-        runs = self.api.runs(self.project_path, filters=filters)
+        fetched_runs = list(self.api.runs(self.project_path, filters=filters))
 
         logger.info(
             "Fetched runs after cutoff (project_path=%s, cutoff=%s, only_completed=%s, run_count=%d)",
             self.project_path,
             cutoff_str,
             only_completed,
-            len(runs),
+            len(fetched_runs),
         )
 
-        return (Run(run=r) for r in runs)
+        unique_runs: dict[tuple[str, str], Run] = {}
+        for raw_run in fetched_runs:
+            run = Run(run=raw_run)
+            model = run.model_name
+            if model is None:
+                logger.info("Skipping run without model tag (id=%s)", run.id)
+                continue
+
+            dataset = run.dataset_name
+
+            if dataset is None:
+                logger.info("Run has no dataset tag (id=%s); using 'unknown' as dataset key", run.id)
+                continue
+
+            key = (model.value, dataset.value)
+            
+            existing = unique_runs.get(key)
+            if existing is None or self._is_newer(run, existing):
+                unique_runs[key] = run
+
+        logger.info(
+            "Selected newest runs per model (project_path=%s, selected_count=%d)",
+            self.project_path,
+            len(unique_runs),
+        )
+
+        return list(unique_runs.values())
+
+    @staticmethod
+    def _is_newer(candidate: Run, current: Run) -> bool:
+        candidate_ts = Api._timestamp(candidate)
+        current_ts = Api._timestamp(current)
+        return candidate_ts > current_ts
+
+    @staticmethod
+    def _timestamp(run: Run) -> datetime:
+        ts = run.created_at or datetime.min.replace(tzinfo=timezone.utc)
+        return ts
 
 
 if __name__ == "__main__":

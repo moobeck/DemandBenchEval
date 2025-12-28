@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Literal
 
 
@@ -8,7 +8,7 @@ class Framework(Enum):
     FM = "FM"
 
 
-class ModelName(Enum):
+class ModelName(StrEnum):
     ARIMA = "arima"
     THETA = "theta"
     ETS = "ets"
@@ -56,7 +56,7 @@ PROBABILISTIC_METRICS = {
 }
 
 
-class DatasetName(Enum):
+class DatasetName(StrEnum):
     M5 = "m5"
     FAVORITA = "favorita"
     ROHLIK = "rohlik"
