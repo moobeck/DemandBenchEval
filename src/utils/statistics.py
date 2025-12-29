@@ -58,5 +58,5 @@ class SKUStatistics:
             }
             for q in self.quantiles:
                 row[f"quantile_{q}"] = np.quantile(target, q)
-            rows.append(row)        
+            rows.append(row)
         return pd.DataFrame(rows)

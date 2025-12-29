@@ -94,6 +94,7 @@ dataset_to_frequency = {
 
 CLASSIFICATION_FILEPATH = "artifacts/classification/"
 
+
 def get_classification_by_id(dataset_name: str):
     loader = dataset_loaders.get(dataset_name)
     if loader is None:
@@ -114,9 +115,13 @@ def get_classification_by_id(dataset_name: str):
 
     # Combine intermittent and lumpy ids
     intermittent_and_lumpy_ids = list(set(intermittent_ids) | set(lumpy_ids))
-    return intermittent_ids, lumpy_ids, smooth_ids, erratic_ids, intermittent_and_lumpy_ids
-    
-
+    return (
+        intermittent_ids,
+        lumpy_ids,
+        smooth_ids,
+        erratic_ids,
+        intermittent_and_lumpy_ids,
+    )
 
 
 if __name__ == "__main__":
@@ -128,14 +133,18 @@ if __name__ == "__main__":
     lumpy_and_intermittent_by_dataset = {}
 
     for name in dataset_loaders.keys():
-        intermittent_ids, lumpy_ids, smooth_ids, erratic_ids, intermittent_and_lumpy_ids = get_classification_by_id(name)
+        (
+            intermittent_ids,
+            lumpy_ids,
+            smooth_ids,
+            erratic_ids,
+            intermittent_and_lumpy_ids,
+        ) = get_classification_by_id(name)
         intermittent_by_dataset[name] = intermittent_ids
         lumpy_by_dataset[name] = lumpy_ids
         smooth_by_dataset[name] = smooth_ids
         erratic_by_dataset[name] = erratic_ids
         lumpy_and_intermittent_by_dataset[name] = intermittent_and_lumpy_ids
-        
-
 
     with open(f"{CLASSIFICATION_FILEPATH}intermittent_ids.json", "w") as f:
         json.dump(intermittent_by_dataset, f, indent=4)

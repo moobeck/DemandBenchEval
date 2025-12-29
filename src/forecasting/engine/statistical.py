@@ -3,7 +3,9 @@ from statsforecast import StatsForecast
 from src.configurations.data.forecast_column import ForecastColumnConfig
 from src.configurations.evaluation.cross_validation import CrossValidationConfig
 from src.forecasting.engine.abstract import ForecastEngine
+from src.configurations.utils.enums import FrequencyType
 from typing import List
+
 
 class StatsForecastEngine(ForecastEngine):
     def __init__(self, *args, **kw):
@@ -46,3 +48,35 @@ class StatsForecastEngine(ForecastEngine):
         )
 
         return cv_results
+
+    def in_sample_cross_validation(
+        self,
+        df: pd.DataFrame,
+        h: int,
+        cv_config: CrossValidationConfig,
+        forecast_columns: ForecastColumnConfig,
+        freq: FrequencyType,
+    ):
+        n_windows = cv_config.n_windows
+        step_size = cv_config.step_size
+
+        cutoff = cv_config.get_cutoff_date(
+            max_date=df[forecast_columns.date].max(), freq=freq, horizon=h
+        )
+
+        n_windows_in_sample = n_windows // 2
+
+        in_sample_df = df[df[forecast_columns.date] <= cutoff]
+
+        insample_cv_results = self._engine.cross_validation(
+            df=in_sample_df,
+            h=h,
+            n_windows=n_windows_in_sample,
+            step_size=step_size,
+            id_col=forecast_columns.time_series_index,
+            target_col=forecast_columns.target,
+            time_col=forecast_columns.date,
+            refit=cv_config.refit,
+        )
+
+        return insample_cv_results

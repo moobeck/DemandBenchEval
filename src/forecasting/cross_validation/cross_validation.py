@@ -123,7 +123,7 @@ class CrossValidator:
         if framework == Framework.NEURAL:
             cols += exo_cols + static_cols
         elif framework == Framework.FM:
-            cols += (exo_cols + static_cols)
+            cols += exo_cols + static_cols
 
         # For neural models, pad short series with zeros and shrink n_windows to avoid window failures.
         cv_cfg = self._cross_validation
@@ -185,14 +185,9 @@ class CrossValidator:
             "forecast_config": self._forecast_config,
             "h": self._forecast_config.horizon,
             "static_df": self._build_static_df(df),
-
         }
 
-        return {
-            k: v
-            for k, v in possible_inputs.items()
-            if k in engine.cv_inputs()
-        }
+        return {k: v for k, v in possible_inputs.items() if k in engine.cv_inputs()}
 
     def _max_neural_input_size(self) -> int:
         """
@@ -360,11 +355,7 @@ class CrossValidator:
         remaining_pred_cols = [c for c in df_out.columns if c not in meta_cols]
         if not remaining_pred_cols:
             null_ratios = (
-                df_out.reindex(columns=pred_cols)
-                .isna()
-                .mean()
-                .fillna(1.0)
-                .to_dict()
+                df_out.reindex(columns=pred_cols).isna().mean().fillna(1.0).to_dict()
             )
             raise ValueError(
                 "Cross-validation produced only NaN prediction columns. "
@@ -419,3 +410,19 @@ class CrossValidator:
         # Drop any duplicated forecast columns, keep first
         combined = combined.loc[:, ~combined.columns.duplicated()]
         return combined
+
+    def in_sample_cross_validation(self, df: pd.DataFrame) -> pd.DataFrame:
+
+        stats_engine = self.frameworks.get(Framework.STATS)
+
+        if stats_engine is None:
+            logging.info("No StatsForecast engine configured; skipping in-sample CV.")
+            return pd.DataFrame()
+
+        cv_input = self._prepare_cv_inputs(Framework.STATS, stats_engine, df)
+
+        logging.info("Computing in-sample fitted values with StatsForecast...")
+        in_sample_df = stats_engine.in_sample_cross_validation(
+            **cv_input, freq=self._forecast_config.freq
+        )
+        return in_sample_df

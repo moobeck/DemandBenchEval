@@ -2,7 +2,13 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, TypeAlias
 
 from optuna.samplers import TPESampler
-from statsforecast.models import AutoARIMA, AutoTheta, AutoETS, AutoCES, CrostonOptimized
+from statsforecast.models import (
+    AutoARIMA,
+    AutoTheta,
+    AutoETS,
+    AutoCES,
+    CrostonOptimized,
+)
 from neuralforecast.auto import (
     AutoVanillaTransformer,
     AutoMLP,

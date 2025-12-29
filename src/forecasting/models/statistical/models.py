@@ -1,4 +1,3 @@
-
 from statsforecast.models import (
     _demand,
     _intervals,
@@ -7,7 +6,7 @@ from statsforecast.models import (
     _TS,
     _add_fitted_pi,
     _expand_fitted_demand,
-    _expand_fitted_intervals
+    _expand_fitted_intervals,
 )
 import numpy as np
 from typing import Optional, Dict, List
@@ -25,6 +24,7 @@ from statsforecast.utils import (
     ConformalIntervals,
     NOGIL,
 )
+
 
 # %% ../../nbs/src/core/models.ipynb XXX
 def _croston_sba_params(
@@ -53,7 +53,9 @@ def _croston_sba_params(
             out["fitted"] *= 0.95
         return out
 
-    ydf, ydft = _ses_forecast(yd, alpha_d)  # forecast level, fitted levels (len(ydft)=len(yd)?)
+    ydf, ydft = _ses_forecast(
+        yd, alpha_d
+    )  # forecast level, fitted levels (len(ydft)=len(yd)?)
     # intervals
     yi = _intervals(y)
     yif, yift = _ses_forecast(yi, alpha_i)
@@ -107,12 +109,17 @@ class AutoCrostonSBA(_TS):
         self.alpha_i_: Optional[float] = None
 
     def _select_params(self, y: np.ndarray) -> Dict[str, float]:
-        best = {"alpha_d": float(self.alpha_grid[0]), "alpha_i": float(self.alpha_grid[0])}
+        best = {
+            "alpha_d": float(self.alpha_grid[0]),
+            "alpha_i": float(self.alpha_grid[0]),
+        }
         best_mse = np.inf
 
         for a_d in self.alpha_grid:
             for a_i in self.alpha_grid:
-                res = _croston_sba_params(y=y, h=1, fitted=True, alpha_d=float(a_d), alpha_i=float(a_i))
+                res = _croston_sba_params(
+                    y=y, h=1, fitted=True, alpha_d=float(a_d), alpha_i=float(a_i)
+                )
                 fitted_vals = res["fitted"]
                 mask = ~np.isnan(fitted_vals)
                 if not mask.any():
@@ -142,7 +149,9 @@ class AutoCrostonSBA(_TS):
         self._store_cs(y=y, X=X)
         return self
 
-    def predict(self, h: int, X: Optional[np.ndarray] = None, level: Optional[List[int]] = None):
+    def predict(
+        self, h: int, X: Optional[np.ndarray] = None, level: Optional[List[int]] = None
+    ):
         mean = _repeat_val(val=self.model_["mean"][0], h=h)
         res = {"mean": mean}
         if level is None:
@@ -210,7 +219,9 @@ class AutoCrostonSBA(_TS):
         Apply the already-selected (alpha_d_, alpha_i_) to a new series y.
         No parameter search here.
         """
-        return self.forecast(y=y, h=h, X=X, X_future=X_future, level=level, fitted=fitted)
+        return self.forecast(
+            y=y, h=h, X=X, X_future=X_future, level=level, fitted=fitted
+        )
 
 
 # %% ../../nbs/src/core/models.ipynb XXX
@@ -242,12 +253,17 @@ class AutoTSB(_TS):
         self.alpha_p_: Optional[float] = None
 
     def _select_params(self, y: np.ndarray) -> Dict[str, float]:
-        best = {"alpha_d": float(self.alpha_grid[0]), "alpha_p": float(self.alpha_grid[0])}
+        best = {
+            "alpha_d": float(self.alpha_grid[0]),
+            "alpha_p": float(self.alpha_grid[0]),
+        }
         best_mse = np.inf
 
         for a_d in self.alpha_grid:
             for a_p in self.alpha_grid:
-                res = _tsb(y=y, h=1, fitted=True, alpha_d=float(a_d), alpha_p=float(a_p))
+                res = _tsb(
+                    y=y, h=1, fitted=True, alpha_d=float(a_d), alpha_p=float(a_p)
+                )
                 fitted_vals = res["fitted"]
                 mask = ~np.isnan(fitted_vals)
                 if not mask.any():
@@ -266,12 +282,16 @@ class AutoTSB(_TS):
         self.alpha_d_ = params["alpha_d"]
         self.alpha_p_ = params["alpha_p"]
 
-        self.model_ = _tsb(y=y, h=1, fitted=True, alpha_d=self.alpha_d_, alpha_p=self.alpha_p_)
+        self.model_ = _tsb(
+            y=y, h=1, fitted=True, alpha_d=self.alpha_d_, alpha_p=self.alpha_p_
+        )
         self.model_["sigma"] = _calculate_sigma(y - self.model_["fitted"], y.size)
         self._store_cs(y=y, X=X)
         return self
 
-    def predict(self, h: int, X: Optional[np.ndarray] = None, level: Optional[List[int]] = None):
+    def predict(
+        self, h: int, X: Optional[np.ndarray] = None, level: Optional[List[int]] = None
+    ):
         mean = _repeat_val(self.model_["mean"][0], h=h)
         res = {"mean": mean}
         if level is None:
@@ -302,7 +322,9 @@ class AutoTSB(_TS):
             raise Exception("You have to use the `fit` method first")
 
         y = _ensure_float(y)
-        res = _tsb(y=y, h=h, fitted=fitted, alpha_d=self.alpha_d_, alpha_p=self.alpha_p_)
+        res = _tsb(
+            y=y, h=h, fitted=fitted, alpha_d=self.alpha_d_, alpha_p=self.alpha_p_
+        )
         res = dict(res)
 
         if level is None:
@@ -333,4 +355,6 @@ class AutoTSB(_TS):
         Apply the already-selected (alpha_d_, alpha_p_) to a new series y.
         No parameter search here.
         """
-        return self.forecast(y=y, h=h, X=X, X_future=X_future, level=level, fitted=fitted)
+        return self.forecast(
+            y=y, h=h, X=X, X_future=X_future, level=level, fitted=fitted
+        )

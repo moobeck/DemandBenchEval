@@ -42,29 +42,13 @@ class WandbOrchestrator:
                 tags.append(tag)
         return tags
 
-    @staticmethod
-    def _load_key_from_envfile() -> str | None:
-        """
-        Look for WANDB_KEY in a .env file at repo root (three levels up from this file).
-        Supports simple KEY=VALUE lines without interpolation.
-        """
-        env_path = Path(__file__).resolve().parents[2] / ".env"
-        if not env_path.is_file():
-            return None
-        try:
-            for line in env_path.read_text().splitlines():
-                line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-                if line.startswith("WANDB_KEY="):
-                    return line.split("WANDB_KEY=", 1)[1].strip().strip('"').strip("'")
-        except OSError:
-            return None
-        return None
 
     def login(self):
         # Priority: env var (WANDB_KEY), then config, then .env file fallback.
-        key = os.getenv("WANDB_KEY") or self.config.api_key or self._load_key_from_envfile()
+        key = (
+            self.config.api_key
+            or os.getenv("WANDB_KEY")
+        )
         if key:
             wandb.login(key=key)
         else:

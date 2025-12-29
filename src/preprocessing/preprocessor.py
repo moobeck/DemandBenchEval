@@ -46,8 +46,6 @@ class Preprocessor:
 
         self.df_merged = self._dataset.get_merged_data().to_pandas()
 
-
-
     def prepare_forecasting_data(self) -> pd.DataFrame:
         """Prepare a pandas DataFrame for forecasting."""
 
@@ -71,16 +69,19 @@ class Preprocessor:
             id_col=self._forecast_columns.time_series_index,
             time_col=self._forecast_columns.date,
             start="global",
-            end="global"
+            end="global",
         )
 
-
-        # Fill missing values in features with backfill 
+        # Fill missing values in features with backfill
         feature_cols = [
             col for col in df.columns if col not in self._forecast_columns.ts_base_cols
-        ]   
+        ]
 
-        df[feature_cols] = df.groupby(self._forecast_columns.time_series_index)[feature_cols].bfill().ffill()
+        df[feature_cols] = (
+            df.groupby(self._forecast_columns.time_series_index)[feature_cols]
+            .bfill()
+            .ffill()
+        )
 
         df[self._forecast_columns.target] = df[self._forecast_columns.target].fillna(0)
 

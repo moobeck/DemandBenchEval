@@ -6,7 +6,9 @@ from typing import Callable
 import optuna
 
 
-def make_trial_logger(path: str) -> Callable[[optuna.Study, optuna.trial.FrozenTrial], None]:
+def make_trial_logger(
+    path: str,
+) -> Callable[[optuna.Study, optuna.trial.FrozenTrial], None]:
     """
     Create an Optuna callback that appends trial info to a JSONL file.
     The callback is passed to NeuralForecast Auto models via the `callbacks` argument.

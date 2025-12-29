@@ -17,7 +17,6 @@ class NeuralForecastEngine(ForecastEngine):
         """
         return getattr(self._engine, "models", [])
 
-
     @staticmethod
     def cv_inputs() -> List[str]:
         """

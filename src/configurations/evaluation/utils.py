@@ -12,6 +12,7 @@ def _get_group_cols(df: pd.DataFrame, id_col: str, cutoff_col: str) -> list[str]
         group_cols = [id_col]
     return group_cols
 
+
 def _base_docstring(*args, **kwargs) -> Callable:
     """Decorator to append standard arguments to docstrings."""
     base_docstring = """
@@ -33,6 +34,7 @@ def _base_docstring(*args, **kwargs) -> Callable:
         return f
 
     return docstring_decorator(*args, **kwargs)
+
 
 def _aggregate_column(
     df: pd.DataFrame,
@@ -57,7 +59,7 @@ def _create_train_with_cutoffs(
     df: pd.DataFrame,
     id_col: str,
     time_col: str,
-    cutoff_col: str
+    cutoff_col: str,
 ):
     """Filters training data to ensure no data leakage for Cross Validation."""
     group_cols = _get_group_cols(df=df, id_col=id_col, cutoff_col=cutoff_col)
@@ -69,8 +71,6 @@ def _create_train_with_cutoffs(
         train_df = train_df[train_df[time_col] <= train_df[cutoff_col]]
 
     return train_df
-
-
 
 
 def _spec_helper(y_true: np.ndarray, y_pred: np.ndarray, a1: float, a2: float) -> float:
@@ -87,34 +87,34 @@ def _spec_helper(y_true: np.ndarray, y_pred: np.ndarray, a1: float, a2: float) -
     cum_f = np.cumsum(y_pred)
 
     # 2. Broadcast to create matrices for all (i, t) pairs
-    cy_i = cum_y[:, np.newaxis] 
+    cy_i = cum_y[:, np.newaxis]
     cf_i = cum_f[:, np.newaxis]
     y_i = y_true[:, np.newaxis]
     f_i = y_pred[:, np.newaxis]
-    
+
     cy_t = cum_y[np.newaxis, :]
     cf_t = cum_f[np.newaxis, :]
-    
+
     # 3. Calculate Deltas
-    delta1 = cy_i - cf_t 
+    delta1 = cy_i - cf_t
     delta2 = cf_i - cy_t
 
     # 4. Calculate Costs
     term1 = a1 * np.minimum(y_i, delta1)
     term2 = a2 * np.minimum(f_i, delta2)
-    
+
     cost_matrix = np.maximum(0.0, np.maximum(term1, term2))
 
     # 5. Apply Time Weighting
     i_idx = np.arange(n)[:, np.newaxis]
     t_idx = np.arange(n)[np.newaxis, :]
-    weights = (t_idx - i_idx + 1)
-    
+    weights = t_idx - i_idx + 1
+
     # 6. Filter Valid Steps (i <= t)
     mask = i_idx <= t_idx
-    
+
     total_spec = np.sum(cost_matrix * weights * mask)
-    
+
     return total_spec / n
 
 
@@ -129,10 +129,10 @@ def spec(
     a2: float = 1.0,
 ) -> pd.DataFrame:
     """Stock-keeping-oriented Prediction Error Costs (SPEC)"""
-    
+
     #  Initial Calculation (Result per ID per Cutoff)
     group_cols = _get_group_cols(df=df, id_col=id_col, cutoff_col=cutoff_col)
-    
+
     def _group_apply(sub_df):
         y_true = sub_df[target_col].values
         res = {c: sub_df[c].iloc[0] for c in group_cols}
@@ -143,7 +143,7 @@ def spec(
 
     # Execute GroupBy -> Apply
     results_df = df.groupby(group_cols).apply(_group_apply).reset_index(drop=True)
-    
+
     # 2. Aggregate over cutoffs (Result per ID)
     if cutoff_col in results_df.columns:
         results_df = results_df.groupby(id_col)[models].mean().reset_index()
@@ -175,9 +175,15 @@ def scaled_spec(
         cutoff_col (str, optional): Column that identifies the cutoff point for each forecast cross-validation fold. Defaults to 'cutoff'.
 
     Returns:
-        pandas or polars DataFrame: dataframe with one row per id and one column per model.    
+        pandas or polars DataFrame: dataframe with one row per id and one column per model.
     """
-    train_df = _create_train_with_cutoffs(train_df=train_df, df=df, id_col=id_col, time_col=time_col, cutoff_col=cutoff_col)
+    train_df = _create_train_with_cutoffs(
+        train_df=train_df,
+        df=df,
+        id_col=id_col,
+        time_col=time_col,
+        cutoff_col=cutoff_col,
+    )
     scales = _aggregate_column(
         df=train_df,
         target_col=target_col,
@@ -185,7 +191,15 @@ def scaled_spec(
         cutoff_col=cutoff_col,
         agg="mean",
     )
-    raw = spec(df=df, models=models, id_col=id_col, target_col=target_col, cutoff_col=cutoff_col, a1=1.0, a2=1.0)
+    raw = spec(
+        df=df,
+        models=models,
+        id_col=id_col,
+        target_col=target_col,
+        cutoff_col=cutoff_col,
+        a1=1.0,
+        a2=1.0,
+    )
 
     # Calculate the in sample mean for each series
     scale_means = (
@@ -204,14 +218,13 @@ def scaled_spec(
     return result.sort_values(id_col)
 
 
-
 def _apis_helper(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     """
     Calculates the absolute sum of cumulative forecast errors.
     """
     if len(y_true) == 0:
         return 0.0
-    
+
     cumulative_errors = np.cumsum(y_true - y_pred)
     return np.abs(np.sum(cumulative_errors))
 
@@ -225,9 +238,9 @@ def apis(
     cutoff_col: str = "cutoff",
 ) -> pd.DataFrame:
     """Absolute Periodate in Stock (Unscaled)"""
-    
+
     group_cols = _get_group_cols(df=df, id_col=id_col, cutoff_col=cutoff_col)
-    
+
     def _group_apply(sub_df):
         y_true = sub_df[target_col].values
         res = {c: sub_df[c].iloc[0] for c in group_cols}
@@ -237,7 +250,7 @@ def apis(
         return pd.Series(res)
 
     results_df = df.groupby(group_cols).apply(_group_apply).reset_index(drop=True)
-    
+
     if cutoff_col in results_df.columns:
         results_df = results_df.groupby(id_col)[models].mean().reset_index()
 
@@ -257,17 +270,29 @@ def sapis(
     Scaled Absolute Periodate in Stock (sAPIS).
     Calculated as APIS / mean(training_actuals).
     """
-    train_df = _create_train_with_cutoffs(train_df=train_df, df=df, id_col=id_col, time_col=time_col, cutoff_col=cutoff_col)
-    
+    train_df = _create_train_with_cutoffs(
+        train_df=train_df,
+        df=df,
+        id_col=id_col,
+        time_col=time_col,
+        cutoff_col=cutoff_col,
+    )
+
     scales = _aggregate_column(
         df=train_df,
         target_col=target_col,
         id_col=id_col,
         cutoff_col=cutoff_col,
-        agg="mean"
+        agg="mean",
     )
-    
-    raw = apis(df=df, models=models, id_col=id_col, target_col=target_col, cutoff_col=cutoff_col)
+
+    raw = apis(
+        df=df,
+        models=models,
+        id_col=id_col,
+        target_col=target_col,
+        cutoff_col=cutoff_col,
+    )
 
     scale_means = (
         scales.groupby(id_col)["scale"]
@@ -279,7 +304,7 @@ def sapis(
     result = raw.merge(scale_means, on=id_col, how="left")
     for model in models:
         result[model] = result[model] / result["in_sample_mean"]
-    
+
     result = result.drop(columns=["in_sample_mean"])
 
     return result.sort_values(id_col)

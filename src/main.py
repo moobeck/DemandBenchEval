@@ -114,6 +114,39 @@ def main():
 
         fig.savefig(cfg.filepaths.eval_plots, dpi=300, bbox_inches="tight")
 
+        # ------ In-Sample Fitted Values from Statistical Models ------#
+        stats_insample_df = cross_validator.in_sample_cross_validation(df)
+
+        if stats_insample_df is not None:
+            DataFrameHandler.write_dataframe(
+                stats_insample_df,
+                cfg.filepaths.stats_insample_cv_results,
+                cfg.filepaths.file_format,
+            )
+            wandb_orchestrator.log_artifact(
+                name="stats-insample-results",
+                filepath=cfg.filepaths.stats_insample_cv_results,
+                type_="results",
+            )
+
+            # ------- Evaluation of In-Sample Fitted Values ------#
+            stats_eval_df = evaluator.evaluate(
+                stats_insample_df,
+                train_df=df,
+            )
+
+            DataFrameHandler.write_dataframe(
+                stats_eval_df,
+                cfg.filepaths.stats_insample_results,
+                cfg.filepaths.file_format,
+            )
+
+            wandb_orchestrator.log_artifact(
+                name="stats-insample-eval-results",
+                filepath=cfg.filepaths.stats_insample_results,
+                type_="results",
+            )
+
         wandb_orchestrator.finish()
 
 

@@ -114,6 +114,12 @@ class GlobalConfig:
             ),
             sku_stats_dir=filepaths_dict.get("sku_stats_dir", "data/sku_stats"),
             cv_results_dir=filepaths_dict.get("cv_results_dir", "data/cv_results"),
+            stats_insample_cv_results_dir=filepaths_dict.get(
+                "stats_insample_cv_results_dir", "data/stats_insample_cv_results"
+            ),
+            stats_insample_results_dir=filepaths_dict.get(
+                "stats_insample_results_dir", "data/stats_insample_results"
+            ),
             eval_results_dir=filepaths_dict.get(
                 "eval_results_dir", "data/eval_results"
             ),

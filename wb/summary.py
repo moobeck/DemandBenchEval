@@ -32,7 +32,9 @@ def _normalize_id_value(value: object) -> str:
     return raw
 
 
-def _prepare_summary_dataframe(csv_path: Path) -> tuple[pd.DataFrame, str, str, str | None]:
+def _prepare_summary_dataframe(
+    csv_path: Path,
+) -> tuple[pd.DataFrame, str, str, str | None]:
     df = pd.read_csv(csv_path)
     df = _drop_meaningless_index_cols(df)
 
@@ -99,7 +101,9 @@ def infer_dataset_name(csv_path: Path) -> str:
 
 
 def _drop_meaningless_index_cols(df: pd.DataFrame) -> pd.DataFrame:
-    drop_cols = [c for c in df.columns if c.startswith("Unnamed") or c.lower() == "index"]
+    drop_cols = [
+        c for c in df.columns if c.startswith("Unnamed") or c.lower() == "index"
+    ]
     return df.drop(columns=drop_cols) if drop_cols else df
 
 
@@ -119,7 +123,9 @@ def _find_and_normalize_id_col(df: pd.DataFrame) -> tuple[pd.DataFrame, str | No
     return df, ID_COL_CANONICAL
 
 
-def _to_long(df: pd.DataFrame, id_vars: list[str], value_cols: list[str], model_from_dir: str) -> pd.DataFrame:
+def _to_long(
+    df: pd.DataFrame, id_vars: list[str], value_cols: list[str], model_from_dir: str
+) -> pd.DataFrame:
     long_df = df.melt(
         id_vars=id_vars,
         value_vars=value_cols,
@@ -139,7 +145,9 @@ def _to_long(df: pd.DataFrame, id_vars: list[str], value_cols: list[str], model_
 
 def summarize_one_csv(csv_path: Path, model_from_dir: str) -> pd.DataFrame:
     df, dataset_name, metric_col, id_col = _prepare_summary_dataframe(csv_path)
-    return _summarize_filtered_dataframe(df, dataset_name, model_from_dir, metric_col, id_col, None)
+    return _summarize_filtered_dataframe(
+        df, dataset_name, model_from_dir, metric_col, id_col, None
+    )
 
 
 def _win_rate_row(values: np.ndarray) -> np.ndarray:
@@ -160,11 +168,16 @@ def _win_rate_row(values: np.ndarray) -> np.ndarray:
 
 
 def average_win_rate_ranking(summary: pd.DataFrame, metric: str) -> pd.DataFrame:
-    df = summary[(summary["agg"] == "mean") & (summary["metric"].astype(str).str.lower() == metric.lower())]
+    df = summary[
+        (summary["agg"] == "mean")
+        & (summary["metric"].astype(str).str.lower() == metric.lower())
+    ]
     if df.empty:
         return pd.DataFrame()
 
-    mat = df.pivot_table(index="dataset", columns="model", values="value", aggfunc="mean")
+    mat = df.pivot_table(
+        index="dataset", columns="model", values="value", aggfunc="mean"
+    )
     arr = mat.to_numpy(dtype=float)
 
     win_rates = np.vstack([_win_rate_row(arr[i]) for i in range(arr.shape[0])])
@@ -184,11 +197,16 @@ def average_win_rate_ranking(summary: pd.DataFrame, metric: str) -> pd.DataFrame
 
 
 def per_dataset_ranking(summary: pd.DataFrame, metric: str) -> pd.DataFrame:
-    df = summary[(summary["agg"] == "mean") & (summary["metric"].astype(str).str.lower() == metric.lower())]
+    df = summary[
+        (summary["agg"] == "mean")
+        & (summary["metric"].astype(str).str.lower() == metric.lower())
+    ]
     if df.empty:
         return pd.DataFrame()
 
-    mat = df.pivot_table(index="dataset", columns="model", values="value", aggfunc="mean")
+    mat = df.pivot_table(
+        index="dataset", columns="model", values="value", aggfunc="mean"
+    )
     rows = []
 
     for ds, row in mat.iterrows():
@@ -242,7 +260,9 @@ def _load_classification_groups() -> dict[str, dict[str, set[str]]]:
     return groups
 
 
-def _write_rankings(out_dir: Path, prefix: str, summary: pd.DataFrame, metrics: list[str]) -> None:
+def _write_rankings(
+    out_dir: Path, prefix: str, summary: pd.DataFrame, metrics: list[str]
+) -> None:
     for m in metrics:
         r = average_win_rate_ranking(summary, m)
         if not r.empty:
@@ -252,9 +272,13 @@ def _write_rankings(out_dir: Path, prefix: str, summary: pd.DataFrame, metrics: 
 
         pr = per_dataset_ranking(summary, m)
         if not pr.empty:
-            pr.to_csv(out_dir / f"{prefix}_per_dataset_{m.lower()}_ranking.csv", index=False)
+            pr.to_csv(
+                out_dir / f"{prefix}_per_dataset_{m.lower()}_ranking.csv", index=False
+            )
         else:
-            log.info("No rows found for per-dataset ranking metric=%s (prefix=%s)", m, prefix)
+            log.info(
+                "No rows found for per-dataset ranking metric=%s (prefix=%s)", m, prefix
+            )
 
 
 def summarize_all(
@@ -267,9 +291,14 @@ def summarize_all(
     frames: list[pd.DataFrame] = []
     classification_groups = _load_classification_groups() if enable_intermittent else {}
     if classification_groups:
-        log.info("Loaded classification groups: %s", ", ".join(sorted(classification_groups.keys())))
+        log.info(
+            "Loaded classification groups: %s",
+            ", ".join(sorted(classification_groups.keys())),
+        )
 
-    group_frames: dict[str, list[pd.DataFrame]] = {name: [] for name in classification_groups}
+    group_frames: dict[str, list[pd.DataFrame]] = {
+        name: [] for name in classification_groups
+    }
 
     model_dirs = [p for p in eval_root.iterdir() if p.is_dir()]
     log.info("Found %d model folders under %s", len(model_dirs), eval_root)
@@ -282,7 +311,9 @@ def summarize_all(
         for csv in csv_files:
             try:
                 df, dataset_name, metric_col, id_col = _prepare_summary_dataframe(csv)
-                frame = _summarize_filtered_dataframe(df, dataset_name, model_name, metric_col, id_col, None)
+                frame = _summarize_filtered_dataframe(
+                    df, dataset_name, model_name, metric_col, id_col, None
+                )
                 frames.append(frame)
 
                 if classification_groups:
@@ -305,10 +336,14 @@ def summarize_all(
                 log.warning("Skipping %s (%s)", csv, e)
 
     if not frames:
-        raise RuntimeError("No evaluation CSVs summarized (nothing found or all files failed).")
+        raise RuntimeError(
+            "No evaluation CSVs summarized (nothing found or all files failed)."
+        )
 
     summary = pd.concat(frames, ignore_index=True)
-    summary = summary.sort_values(["dataset", "model", "metric", "agg"]).reset_index(drop=True)
+    summary = summary.sort_values(["dataset", "model", "metric", "agg"]).reset_index(
+        drop=True
+    )
 
     out_dir.mkdir(parents=True, exist_ok=True)
     summary.to_csv(out_dir / "eval_summary.csv", index=False)
@@ -330,26 +365,42 @@ def summarize_all(
             continue
 
         group_summary = pd.concat(frames_list, ignore_index=True)
-        group_summary = group_summary.sort_values(["dataset", "model", "metric", "agg"]).reset_index(drop=True)
+        group_summary = group_summary.sort_values(
+            ["dataset", "model", "metric", "agg"]
+        ).reset_index(drop=True)
         group_summary.to_csv(out_dir / f"{group_name}_summary.csv", index=False)
         log.info("Wrote %s_summary.csv (%d rows)", group_name, len(group_summary))
 
         metrics_for_group = (
-            intermittent_metrics if "intermittent" in group_name.lower() else overall_metrics
+            intermittent_metrics
+            if "intermittent" in group_name.lower()
+            else overall_metrics
         )
         _write_rankings(out_dir, group_name, group_summary, metrics_for_group)
 
 
 def _parse_args():
     p = argparse.ArgumentParser()
-    p.add_argument("--eval-root", type=Path, default=Path("wb/artifacts/evaluation-results"))
-    p.add_argument("--out-dir", type=Path, default=Path("wb/artifacts/evaluation-summary"))
+    p.add_argument(
+        "--eval-root", type=Path, default=Path("wb/artifacts/evaluation-results")
+    )
+    p.add_argument(
+        "--out-dir", type=Path, default=Path("wb/artifacts/evaluation-summary")
+    )
 
     # CHANGED: multiple overall metrics
-    p.add_argument("--overall-metrics", nargs="*", default=["scaled_spec", "sapis", "MASE", "scaled_mqloss"])
+    p.add_argument(
+        "--overall-metrics",
+        nargs="*",
+        default=["scaled_spec", "sapis", "MASE", "scaled_mqloss"],
+    )
 
     p.add_argument("--no-intermittent", action="store_true")
-    p.add_argument("--intermittent-metrics", nargs="*", default=["scaled_spec", "sapis", "MASE", "scaled_mqloss"])
+    p.add_argument(
+        "--intermittent-metrics",
+        nargs="*",
+        default=["scaled_spec", "sapis", "MASE", "scaled_mqloss"],
+    )
     return p.parse_args()
 
 

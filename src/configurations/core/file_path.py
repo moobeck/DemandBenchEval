@@ -15,6 +15,10 @@ class FilePathConfig:
     sku_stats: str = None
     cv_results_dir: str = None
     cv_results: str = None
+    stats_insample_cv_results_dir: str = None
+    stats_insample_cv_results: str = None
+    stats_insample_results_dir: str = None
+    stats_insample_results: str = None
     eval_results_dir: str = None
     eval_results: str = None
     eval_plots_dir: str = None
@@ -34,6 +38,8 @@ class FilePathConfig:
         self.cv_results = (
             f"{self.cv_results_dir}/{dataset_name.value}.{self.file_format.value}"
         )
+        self.stats_insample_cv_results = f"{self.stats_insample_cv_results_dir}/{dataset_name.value}.{self.file_format.value}"
+        self.stats_insample_results = f"{self.stats_insample_results_dir}/{dataset_name.value}.{self.file_format.value}"
         self.eval_results = (
             f"{self.eval_results_dir}/{dataset_name.value}.{self.file_format.value}"
         )

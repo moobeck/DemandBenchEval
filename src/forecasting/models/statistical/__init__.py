@@ -1,3 +1,1 @@
-from .models import (
-    AutoCrostonSBA, 
-    AutoTSB)
+from .models import AutoCrostonSBA, AutoTSB

@@ -111,19 +111,21 @@ class ForecastConfig:
                     h=self.horizon, backend="not_specified"
                 )
 
-                config.update({
-                    "stat_exog_list": self.columns_config.static,
-                    "futr_exog_list": [
-                        col
-                        for col in self.columns_config.future_exogenous
-                        if col not in self.columns_config.static
-                    ],
-                    "hist_exog_list": [
-                        col
-                        for col in self.columns_config.past_exogenous
-                        if col not in self.columns_config.static
-                    ],
-                })
+                config.update(
+                    {
+                        "stat_exog_list": self.columns_config.static,
+                        "futr_exog_list": [
+                            col
+                            for col in self.columns_config.future_exogenous
+                            if col not in self.columns_config.static
+                        ],
+                        "hist_exog_list": [
+                            col
+                            for col in self.columns_config.past_exogenous
+                            if col not in self.columns_config.static
+                        ],
+                    }
+                )
 
                 backend = params.get("backend")
 
@@ -161,9 +163,7 @@ class ForecastConfig:
                         if "input_size" in config:
                             config["input_size"] = tune.choice(safe_input_common)
                         if "step_size" in config:
-                            config["step_size"] = tune.randint(
-                                1, max_step_common + 1
-                            )
+                            config["step_size"] = tune.randint(1, max_step_common + 1)
                         # Force padding even if the default config lacks this key.
                         config["start_padding_enabled"] = True
 
