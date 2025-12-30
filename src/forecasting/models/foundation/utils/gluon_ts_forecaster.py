@@ -1,14 +1,17 @@
+from __future__ import annotations
+
 from collections.abc import Iterable
 from contextlib import contextmanager
 from typing import Any
 
+import numpy as np
 import pandas as pd
 import torch
 import utilsforecast.processing as ufp
 from gluonts.dataset.pandas import PandasDataset
+from gluonts.dataset.split import split
 from gluonts.model.forecast import Forecast
 from gluonts.torch.model.predictor import PyTorchPredictor
-from gluonts.dataset.split import split
 from huggingface_hub import hf_hub_download
 from tqdm import tqdm
 
@@ -16,7 +19,6 @@ from src.forecasting.models.foundation.utils.forecaster import (
     Forecaster,
     QuantileConverter,
 )
-
 from src.utils.cross_validation import get_offset
 
 
@@ -49,43 +51,54 @@ class GluonTSForecaster(Forecaster):
         self.alias = alias
         self.num_samples = num_samples
 
-        # Exogenous feature configuration
         self.futr_exog_list = futr_exog_list if futr_exog_list is not None else []
         self.hist_exog_list = hist_exog_list if hist_exog_list is not None else []
         self.stat_exog_list = stat_exog_list if stat_exog_list is not None else []
 
-        # Dimensions of target variables
-        self._target_dim = 1  # Currently only univariate target supported
-
-        # Dimensions of exogenous features
+        self._target_dim = 1
         self._feat_dynamic_real_dim = len(self.futr_exog_list)
         self._past_feat_dynamic_real_dim = len(self.hist_exog_list)
         self._static_feat_dim = len(self.stat_exog_list)
 
     @property
     def checkpoint_path(self) -> str:
-        return hf_hub_download(
-            repo_id=self.repo_id,
-            filename=self.filename,
-        )
+        return hf_hub_download(repo_id=self.repo_id, filename=self.filename)
 
     @property
     def map_location(self) -> str:
-        map_location = "cuda:0" if torch.cuda.is_available() else "cpu"
-        return map_location
+        return "cuda:0" if torch.cuda.is_available() else "cpu"
 
     def load(self) -> Any:
-        return torch.load(
-            self.checkpoint_path,
-            map_location=self.map_location,
-        )
+        return torch.load(self.checkpoint_path, map_location=self.map_location)
 
     @contextmanager
     def get_predictor(self, prediction_length: int) -> PyTorchPredictor:
         raise NotImplementedError
 
-    def _gluonts_instance_fcst_to_df(
-        self,
+    @staticmethod
+    def _freq_offset(freq: str) -> pd.tseries.offsets.BaseOffset:
+        return pd.tseries.frequencies.to_offset(fix_freq(freq))
+
+    @staticmethod
+    def _cutoff_from_fcst_start(fcst: Forecast, freq: str) -> pd.Timestamp:
+        # forecast start == first predicted timestamp
+        start = fcst.start_date.to_timestamp()
+        return start - GluonTSForecaster._freq_offset(freq)
+
+    @staticmethod
+    def _extract_future_target(label_entry: Any) -> np.ndarray:
+        # GluonTS instance labels are typically dict-like DataEntry
+        if isinstance(label_entry, dict):
+            for k in ("future_target", "target", "y"):
+                if k in label_entry:
+                    return np.asarray(label_entry[k], dtype="float32")
+        raise KeyError(
+            f"Could not find future target in label entry. "
+            f"Keys={list(label_entry.keys()) if isinstance(label_entry, dict) else type(label_entry)}"
+        )
+
+    @staticmethod
+    def _instance_forecast_to_pred_df(
         fcst: Forecast,
         freq: str,
         model_name: str,
@@ -93,18 +106,20 @@ class GluonTSForecaster(Forecaster):
     ) -> pd.DataFrame:
         point_forecast = fcst.median
         h = len(point_forecast)
-        dates = pd.date_range(
-            fcst.start_date.to_timestamp(),
-            freq=freq,
-            periods=h,
-        )
+
+        start = fcst.start_date.to_timestamp()
+        dates = pd.date_range(start, freq=freq, periods=h)
+        cutoff = GluonTSForecaster._cutoff_from_fcst_start(fcst, freq)
+
         fcst_df = pd.DataFrame(
             {
                 "ds": dates,
                 "unique_id": fcst.item_id,
+                "cutoff": cutoff,
                 model_name: point_forecast,
             }
         )
+
         if quantiles is not None:
             for q in quantiles:
                 fcst_df = ufp.assign_columns(
@@ -112,25 +127,65 @@ class GluonTSForecaster(Forecaster):
                     f"{model_name}-q-{int(q * 100)}",
                     fcst.quantile(q),
                 )
+
         return fcst_df
 
-    def _gluonts_fcsts_to_df(
-        self,
-        fcsts: Iterable[Forecast],
+    @staticmethod
+    def _instance_label_to_truth_df(
+        fcst: Forecast,
+        label_entry: Any,
+        freq: str,
+        target_col: str,
+    ) -> pd.DataFrame:
+        y = GluonTSForecaster._extract_future_target(label_entry)
+        h = len(y)
+
+        start = fcst.start_date.to_timestamp()
+        dates = pd.date_range(start, freq=freq, periods=h)
+        cutoff = GluonTSForecaster._cutoff_from_fcst_start(fcst, freq)
+
+        return pd.DataFrame(
+            {
+                "ds": dates,
+                "unique_id": fcst.item_id,
+                "cutoff": cutoff,
+                target_col: y,
+            }
+        )
+
+
+    @staticmethod
+    def _instance_forecast_to_pred_df_no_cutoff(
+        fcst: Forecast,
         freq: str,
         model_name: str,
         quantiles: list[float] | None,
     ) -> pd.DataFrame:
-        df = []
-        for fcst in tqdm(fcsts):
-            fcst_df = self._gluonts_instance_fcst_to_df(
-                fcst=fcst,
-                freq=freq,
-                model_name=model_name,
-                quantiles=quantiles,
-            )
-            df.append(fcst_df)
-        return pd.concat(df).reset_index(drop=True)
+        point_forecast = fcst.median
+        h = len(point_forecast)
+
+        start = fcst.start_date.to_timestamp()
+        dates = pd.date_range(start, freq=freq, periods=h)
+
+        out = pd.DataFrame(
+            {
+                "ds": dates,
+                "unique_id": fcst.item_id,
+                model_name: point_forecast,
+            }
+        )
+
+        if quantiles is not None:
+            for q in quantiles:
+                out = ufp.assign_columns(
+                    out,
+                    f"{model_name}-q-{int(q * 100)}",
+                    fcst.quantile(q),
+                )
+
+        return out
+
+
 
     @staticmethod
     def _rename_forecast_base_columns(
@@ -138,19 +193,15 @@ class GluonTSForecaster(Forecaster):
         id_col: str,
         time_col: str,
     ) -> pd.DataFrame:
-        rename_mapping = {
-            "ds": time_col,
-            "unique_id": id_col,
-        }
         return df.rename(
-            mapper=rename_mapping,
+            mapper={"ds": time_col, "unique_id": id_col},
             axis=1,
         )
-        
 
     def cross_validation(
         self,
         df: pd.DataFrame,
+        static_df: pd.DataFrame | None = None,
         n_windows: int = 1,
         horizon: int = 7,
         step_size: int = 1,
@@ -161,10 +212,19 @@ class GluonTSForecaster(Forecaster):
         time_col: str = "ds",
         target_col: str = "y",
     ) -> pd.DataFrame:
+        # Ensure timestamp dtype
+        if not np.issubdtype(df[time_col].dtype, np.datetime64):
+            df = df.copy()
+            df[time_col] = pd.to_datetime(df[time_col])
 
-        static_df = df[[id_col] + self.stat_exog_list].drop_duplicates()
-        df = df.drop(columns=self.stat_exog_list)
-        df = maybe_convert_col_to_float32(df, id_col)
+        # Build / use static features
+        if static_df is None and self.stat_exog_list:
+            static_df = df[[id_col] + self.stat_exog_list].drop_duplicates()
+        if self.stat_exog_list:
+            df = df.drop(columns=self.stat_exog_list)
+
+        # IMPORTANT: cast target, NOT id
+        df = maybe_convert_col_to_float32(df, target_col)
 
         freq = self._maybe_infer_freq(df, freq)
         qc = QuantileConverter(level=level, quantiles=quantiles)
@@ -177,9 +237,7 @@ class GluonTSForecaster(Forecaster):
             freq=fix_freq(freq),
             feat_dynamic_real=self.futr_exog_list,
             past_feat_dynamic_real=self.hist_exog_list,
-            static_features=(
-                static_df.set_index(id_col) if static_df is not None else None
-            ),
+            static_features=(static_df.set_index(id_col) if static_df is not None else None),
         )
 
         offset = get_offset(n_windows, step_size, horizon)
@@ -192,30 +250,49 @@ class GluonTSForecaster(Forecaster):
         )
 
         with self.get_predictor(prediction_length=horizon) as predictor:
-            fcsts = predictor.predict(
-                test_data.input,
-                num_samples=self.num_samples,
-            )
+            fcst_iter = predictor.predict(test_data.input, num_samples=self.num_samples)
 
-        fcst_df = self._gluonts_fcsts_to_df(
-            fcsts,
-            freq=freq,
-            model_name=self.alias,
-            quantiles=qc.quantiles,
-        )
+            pred_parts: list[pd.DataFrame] = []
+            truth_parts: list[pd.DataFrame] = []
+
+            for fcst, label in tqdm(
+                zip(fcst_iter, test_data.label),
+                total=None,
+                desc=f"{self.alias} CV",
+            ):
+                pred_parts.append(
+                    self._instance_forecast_to_pred_df(
+                        fcst=fcst,
+                        freq=freq,
+                        model_name=self.alias,
+                        quantiles=qc.quantiles,
+                    )
+                )
+                truth_parts.append(
+                    self._instance_label_to_truth_df(
+                        fcst=fcst,
+                        label_entry=label,
+                        freq=freq,
+                        target_col=target_col,
+                    )
+                )
+
+        pred_df = pd.concat(pred_parts, ignore_index=True)
+        truth_df = pd.concat(truth_parts, ignore_index=True)
+
         if qc.quantiles is not None:
-            fcst_df = qc.maybe_convert_quantiles_to_level(
-                fcst_df,
-                models=[self.alias],
-            )
+            pred_df = qc.maybe_convert_quantiles_to_level(pred_df, models=[self.alias])
 
-        fcst_df = self._rename_forecast_base_columns(
-            fcst_df,
-            id_col=id_col,
-            time_col=time_col,
+        # Chronos-like: include cutoff + realized target for the horizon
+        out_df = truth_df.merge(
+            pred_df,
+            on=["unique_id", "ds", "cutoff"],
+            how="left",
+            validate="one_to_one",
         )
 
-        return fcst_df
+        out_df = self._rename_forecast_base_columns(out_df, id_col=id_col, time_col=time_col)
+        return out_df
 
     def forecast(
         self,
@@ -229,48 +306,57 @@ class GluonTSForecaster(Forecaster):
         time_col: str = "ds",
         target_col: str = "y",
     ) -> pd.DataFrame:
-        """Generate forecasts for time series data using the model.
+        # Ensure timestamp dtype
+        if not np.issubdtype(df[time_col].dtype, np.datetime64):
+            df = df.copy()
+            df[time_col] = pd.to_datetime(df[time_col])
 
-        This method produces point forecasts and, optionally, prediction
-        intervals or quantile forecasts. The input DataFrame can contain one
-        or multiple time series in stacked (long) format.
+        # Static features
+        if static_df is None and self.stat_exog_list:
+            static_df = df[[id_col] + self.stat_exog_list].drop_duplicates()
+        if self.stat_exog_list:
+            df = df.drop(columns=self.stat_exog_list)
 
-        Args:
-            df (pd.DataFrame):
-                DataFrame containing the time series to forecast.
-            static_df (pd.DataFrame | None):
-                DataFrame containing static features for each time series.
-                Must include the `id_col`. If None, no static features are used.
-            horizon (int):
-                The forecast horizon (number of time steps to predict).
-            freq (str | None):
-                Frequency of the time series (e.g., 'D' for daily).
-                If None, the frequency is inferred from the data.
-            level (list[int | float] | None):
-                List of confidence levels for prediction intervals (e.g., [80, 95]).
-            quantiles (list[float] | None):
-                List of quantiles to forecast (e.g., [0.1, 0.5, 0.9]).
-            id_col (str):
-                Column name for the unique time series identifier.
-            time_col (str):
-                Column name for the time index.
-            target_col (str):
-                Column name for the target variable to forecast.
-        Returns:
-            pd.DataFrame:
-                DataFrame containing the forecasts in long format
-        """
+        # IMPORTANT: cast target, NOT id
+        df = maybe_convert_col_to_float32(df, target_col)
 
-        return self.cross_validation(
-            df=df,
-            static_df=static_df,
-            n_windows=1,
-            horizon=horizon,
-            step_size=1,
-            quantiles=quantiles,
-            level=level,
-            freq=freq,
-            id_col=id_col,
-            time_col=time_col,
-            target_col=target_col,
+        freq = self._maybe_infer_freq(df, freq)
+        qc = QuantileConverter(level=level, quantiles=quantiles)
+
+        gluonts_dataset = PandasDataset.from_long_dataframe(
+            df.copy(deep=False),
+            target=target_col,
+            item_id=id_col,
+            timestamp=time_col,
+            freq=fix_freq(freq),
+            feat_dynamic_real=self.futr_exog_list,
+            past_feat_dynamic_real=self.hist_exog_list,
+            static_features=(static_df.set_index(id_col) if static_df is not None else None),
         )
+
+        with self.get_predictor(prediction_length=horizon) as predictor:
+            fcst_iter = predictor.predict(gluonts_dataset, num_samples=self.num_samples)
+
+            pred_parts: list[pd.DataFrame] = []
+            for fcst in tqdm(fcst_iter, desc=f"{self.alias} forecast"):
+                pred_parts.append(
+                    self._instance_forecast_to_pred_df_no_cutoff(
+                        fcst=fcst,
+                        freq=freq,
+                        model_name=self.alias,
+                        quantiles=qc.quantiles,
+                    )
+                )
+
+        out_df = pd.concat(pred_parts, ignore_index=True)
+
+        if qc.quantiles is not None:
+            out_df = qc.maybe_convert_quantiles_to_level(out_df, models=[self.alias])
+
+        out_df = self._rename_forecast_base_columns(out_df, id_col=id_col, time_col=time_col)
+
+        # guarantee no cutoff column
+        out_df = out_df.drop(columns=["cutoff"], errors="ignore")
+
+        return out_df
+
