@@ -132,6 +132,22 @@ class GluonTSForecaster(Forecaster):
             df.append(fcst_df)
         return pd.concat(df).reset_index(drop=True)
 
+    @staticmethod
+    def _rename_forecast_base_columns(
+        df: pd.DataFrame,
+        id_col: str,
+        time_col: str,
+    ) -> pd.DataFrame:
+        rename_mapping = {
+            "ds": time_col,
+            "unique_id": id_col,
+        }
+        return df.rename(
+            mapper=rename_mapping,
+            axis=1,
+        )
+        
+
     def cross_validation(
         self,
         df: pd.DataFrame,
@@ -192,6 +208,12 @@ class GluonTSForecaster(Forecaster):
                 fcst_df,
                 models=[self.alias],
             )
+
+        fcst_df = self._rename_forecast_base_columns(
+            fcst_df,
+            id_col=id_col,
+            time_col=time_col,
+        )
 
         return fcst_df
 
