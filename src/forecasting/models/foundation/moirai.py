@@ -26,7 +26,7 @@ class Moirai(GluonTSForecaster):
 
     def __init__(
         self,
-        repo_id: str = "Salesforce/moirai-1.0-R-large",
+        repo_id: str = "Salesforce/moirai-2.0-R-small",
         filename: str = "model.ckpt",
         context_length: int = 4096,
         patch_size: int = 32,
@@ -41,8 +41,8 @@ class Moirai(GluonTSForecaster):
         Args:
             repo_id (str, optional): The Hugging Face Hub model ID or local path to
                 load the Moirai model from. Examples include
-                "Salesforce/moirai-1.0-R-large". Defaults to
-                "Salesforce/moirai-1.0-R-large". See the full list of models at
+                "Salesforce/moirai-2.0-R-small". Defaults to
+                "Salesforce/moirai-2.0-R-small". See the full list of models at
                 [Hugging Face](https://huggingface.co/collections/Salesforce/
                 moirai-r-models-65c8d3a94c51428c300e0742).
             filename (str, optional): Checkpoint filename for the model weights.
