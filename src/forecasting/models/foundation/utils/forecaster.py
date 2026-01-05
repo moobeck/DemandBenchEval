@@ -198,8 +198,7 @@ class Forecaster:
         Limit the context length of chronos prompts based on the horizon.
         """
         
-        context_length = self._get_max_context_length(horizon)
-
+        context_length = self._get_max_context_length(freq) 
         if freq is not None:
             freq_offset = pd.tseries.frequencies.to_offset(freq)
             min_time = train[time_col].max() - context_length * freq_offset
