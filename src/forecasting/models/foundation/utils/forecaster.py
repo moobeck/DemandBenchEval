@@ -177,8 +177,8 @@ class Forecaster:
         """
         return max(max(4, horizon // 2), max(6, horizon), min(14, 2 * horizon))
 
-    @staticmethod
     def _limit_context_length(
+        self,
         train: pd.DataFrame,
         time_col: str,
         horizon: int,
