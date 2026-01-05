@@ -171,11 +171,21 @@ class Forecaster:
 
 
     @staticmethod
-    def _get_max_context_length(horizon: int) -> int:
+    def _get_max_context_length(freq: str) -> int:
         """
         Get the maximum context length based on the forecast horizon.
         """
-        return max(max(4, horizon // 2), max(6, horizon), min(14, 2 * horizon))
+
+        freq_to_max_context_length = {
+            "D": 356, 
+            "W-MON": 260,
+            "MS": 120,
+        }
+        if freq not in freq_to_max_context_length:
+            raise ValueError(f"Unsupported frequency: {freq}")
+        return freq_to_max_context_length[freq]
+
+        
 
     def _limit_context_length(
         self,
