@@ -74,7 +74,7 @@ class GluonTSForecaster(Forecaster):
         return torch.load(self.checkpoint_path, map_location=self.map_location)
 
     @contextmanager
-    def get_predictor(self, prediction_length: int) -> PyTorchPredictor:
+    def get_predictor(self, prediction_length: int, freq: str) -> PyTorchPredictor:
         raise NotImplementedError
 
     @staticmethod
@@ -251,7 +251,7 @@ class GluonTSForecaster(Forecaster):
             distance=step_size,
         )
 
-        with self.get_predictor(prediction_length=horizon) as predictor:
+        with self.get_predictor(prediction_length=horizon, freq=freq) as predictor:
             fcst_iter = predictor.predict(test_data.input, num_samples=self.num_samples)
 
             pred_parts: list[pd.DataFrame] = []
