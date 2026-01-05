@@ -42,6 +42,7 @@ class GluonTSForecaster(Forecaster):
         filename: str,
         alias: str,
         num_samples: int,
+        context_length: int | None = None,
         futr_exog_list: list[str] | None = None,
         hist_exog_list: list[str] | None = None,
         stat_exog_list: list[str] | None = None,
@@ -50,6 +51,7 @@ class GluonTSForecaster(Forecaster):
         self.filename = filename
         self.alias = alias
         self.num_samples = num_samples
+        self.context_length = context_length
 
         self.futr_exog_list = futr_exog_list if futr_exog_list is not None else []
         self.hist_exog_list = hist_exog_list if hist_exog_list is not None else []

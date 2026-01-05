@@ -14,7 +14,20 @@ from utilsforecast.processing import (
     vertical_concat,
 )
 from tqdm import tqdm
-from neuralforecast.losses.pytorch import quantiles_to_outputs
+import numpy as np
+
+
+def quantiles_to_outputs(quantiles):
+    output_names = []
+    for q in quantiles:
+        if q < 0.50:
+            output_names.append(f"-lo-{int(np.round(100-200*q,0))}")
+        elif q > 0.50:
+            output_names.append(f"-hi-{int(np.round(100-200*(1-q),0))}")
+        else:
+            output_names.append("-median")
+    return quantiles, output_names
+
 
 
 class Chronos(Forecaster):

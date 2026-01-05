@@ -171,6 +171,13 @@ class Forecaster:
 
 
     @staticmethod
+    def _get_max_context_length(horizon: int) -> int:
+        """
+        Get the maximum context length based on the forecast horizon.
+        """
+        return max(max(4, horizon // 2), max(6, horizon), min(14, 2 * horizon))
+
+    @staticmethod
     def _limit_context_length(
         train: pd.DataFrame,
         time_col: str,
@@ -181,7 +188,7 @@ class Forecaster:
         Limit the context length of chronos prompts based on the horizon.
         """
         
-        context_length = max(max(4, horizon // 2), max(6, horizon), min(14, 2 * horizon))
+        context_length = self._get_max_context_length(horizon)
 
         if freq is not None:
             freq_offset = pd.tseries.frequencies.to_offset(freq)
