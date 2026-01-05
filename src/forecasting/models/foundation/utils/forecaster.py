@@ -168,6 +168,29 @@ class Forecaster:
         """
         raise NotImplementedError("This method must be implemented in a subclass.")
 
+
+
+    @staticmethod
+    def _limit_context_length(
+        train: pd.DataFrame,
+        time_col: str,
+        horizon: int,
+        freq: str | None = None,
+    ) -> pd.DataFrame:
+        """
+        Limit the context length of chronos prompts based on the horizon.
+        """
+        
+        context_length = max(max(4, horizon // 2), max(6, horizon), min(14, 2 * horizon))
+
+        if freq is not None:
+            freq_offset = pd.tseries.frequencies.to_offset(freq)
+            min_time = train[time_col].max() - context_length * freq_offset
+            train = train[train[time_col] >= min_time]
+
+        return train
+
+
     def cross_validation(
         self,
         df: pd.DataFrame,
@@ -258,6 +281,14 @@ class Forecaster:
                 raise NotImplementedError(
                     "Cross validation with exogenous variables is not yet supported."
                 )
+            
+            train = self._limit_context_length(
+                train,
+                time_col,
+                horizon=h,
+                freq=freq,
+            )
+
             y_pred = self.forecast(
                 df=train,
                 h=h,

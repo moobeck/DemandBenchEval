@@ -108,7 +108,7 @@ class Chronos(Forecaster):
         )
 
         return df
-
+    
     def cross_validation(
         self,
         df: pd.DataFrame,
@@ -144,10 +144,16 @@ class Chronos(Forecaster):
 
         print(f" Columns in training data: {df.columns.tolist()} ")
 
-        for _, (cutoffs, train, valid) in tqdm(enumerate(splits)):
+
+        for _, (cutoffs, train, valid) in tqdm(enumerate(splits)):      
 
             future_df = valid[base_cols + self.futr_exog_list + self.stat_exog_list]
-
+            train = self._limit_context_length(
+                train,
+                time_col,
+                horizon,
+                freq,
+            )
             pred_df = self.pipeline.predict_df(
                 df=train,
                 future_df=future_df,
