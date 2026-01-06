@@ -169,44 +169,6 @@ class Forecaster:
         raise NotImplementedError("This method must be implemented in a subclass.")
 
 
-
-    @staticmethod
-    def _get_max_context_length(freq: str) -> int:
-        """
-        Get the maximum context length based on the forecast horizon.
-        """
-
-        freq_to_max_context_length = {
-            "D": 356, 
-            "W-MON": 260,
-            "MS": 120,
-        }
-        if freq not in freq_to_max_context_length:
-            raise ValueError(f"Unsupported frequency: {freq}")
-        return freq_to_max_context_length[freq]
-
-        
-
-    def _limit_context_length(
-        self,
-        train: pd.DataFrame,
-        time_col: str,
-        horizon: int,
-        freq: str | None = None,
-    ) -> pd.DataFrame:
-        """
-        Limit the context length of chronos prompts based on the horizon.
-        """
-        
-        context_length = self._get_max_context_length(freq) 
-        if freq is not None:
-            freq_offset = pd.tseries.frequencies.to_offset(freq)
-            min_time = train[time_col].max() - context_length * freq_offset
-            train = train[train[time_col] >= min_time]
-
-        return train
-
-
     def cross_validation(
         self,
         df: pd.DataFrame,

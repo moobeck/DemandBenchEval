@@ -31,6 +31,7 @@ class Moirai(GluonTSForecaster):
         patch_size: int = 32,
         num_samples: int = 100,
         batch_size: int = 256,
+        context_length: int = 2048,
         futr_exog_list: list[str] | None = None,
         hist_exog_list: list[str] | None = None,
         stat_exog_list: list[str] | None = None,
@@ -87,12 +88,13 @@ class Moirai(GluonTSForecaster):
         )
         self.patch_size = patch_size
         self.batch_size = batch_size
+        self.context_length = context_length
 
     @contextmanager
     def get_predictor(self, prediction_length: int, freq: str) -> PyTorchPredictor:
         kwargs = {
             "prediction_length": prediction_length,
-            "context_length": self._get_max_context_length(freq),
+            "context_length": self.context_length,
             "patch_size": self.patch_size,
             "num_samples": self.num_samples,
             "target_dim": self._target_dim,
