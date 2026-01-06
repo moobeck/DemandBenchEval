@@ -281,9 +281,10 @@ class GluonTSForecaster(Forecaster):
 
         pred_df = pd.concat(pred_parts, ignore_index=True)
         truth_df = pd.concat(truth_parts, ignore_index=True)
-
+        
         if qc.quantiles is not None:
-            pred_df = qc.maybe_convert_quantiles_to_level(pred_df, models=[self.alias])
+            pred_df = qc.convert_quantiles_to_level(pred_df, models=[self.alias])
+
 
         # Chronos-like: include cutoff + realized target for the horizon
         out_df = truth_df.merge(
@@ -353,7 +354,7 @@ class GluonTSForecaster(Forecaster):
         out_df = pd.concat(pred_parts, ignore_index=True)
 
         if qc.quantiles is not None:
-            out_df = qc.maybe_convert_quantiles_to_level(out_df, models=[self.alias])
+            out_df = qc.convert_quantiles_to_level(out_df, models=[self.alias])
 
         out_df = self._rename_forecast_base_columns(out_df, id_col=id_col, time_col=time_col)
 
