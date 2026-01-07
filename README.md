@@ -23,7 +23,7 @@ The framework supports a wide range of forecasting models across different categ
 - TimesNet, FEDformer, TiDE, N-HiTS, DeepAR, N-BEATS, BITCN
 
 ### Foundation Models
-- Chronos, Moirai, TabPFN
+- Chronos, Moirai, TiRex, TimesFM
 
 ## 📊 Datasets
 

@@ -21,7 +21,7 @@ from neuralforecast.auto import (
     AutoxLSTM,
 )
 
-from src.forecasting.models.foundation import Moirai, Chronos, TabPFN
+from src.forecasting.models.foundation import Moirai, Chronos, TiRex, TimesFM
 from src.forecasting.models.statistical import AutoCrostonSBA, AutoTSB
 
 from src.forecasting.utils.optuna_callbacks import fail_on_nonfinite_trial
@@ -195,10 +195,17 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
         default_params=DefaultParams.FM,
         model=Chronos,
     ),
-    ModelName.TABPFN: ModelSpec(
-        factory=lambda **p: TabPFN(**p),
+    ModelName.TIREX: ModelSpec(
+        factory=lambda **p: TiRex(**p),
         framework=Framework.FM,
         default_params=DefaultParams.FM,
-        model=TabPFN,
+        model=TiRex,
     ),
+    ModelName.TIMESFM: ModelSpec(
+        factory=lambda **p: TimesFM(**p),
+        framework=Framework.FM,
+        default_params=DefaultParams.FM,
+        model=TimesFM,
+    ),
+
 }
