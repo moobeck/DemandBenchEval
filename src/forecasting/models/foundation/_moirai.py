@@ -31,7 +31,7 @@ class Moirai(GluonTSForecaster):
         patch_size: int = 32,
         num_samples: int = 100,
         batch_size: int = 256,
-        context_length: int = 2048,
+        context_length: int = 1024,
         futr_exog_list: list[str] | None = None,
         hist_exog_list: list[str] | None = None,
         stat_exog_list: list[str] | None = None,
