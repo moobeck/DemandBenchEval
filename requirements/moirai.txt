@@ -1,0 +1,51 @@
+# acceleration / infra
+accelerate==1.11.0
+boto3==1.40.74
+
+# forecasting / time series
+uni2ts==2.0.0
+datasetsforecast==1.0.0
+mlforecast==1.0.2
+neuralforecast==3.1.2
+statsforecast==2.0.1
+utilsforecast==0.2.12
+
+# sequence / state-space models
+xlstm==2.0.5
+mlstm-kernels==2.0.2
+
+# deep learning
+torch==2.4.1
+pytorch-lightning==2.5.6
+torchmetrics==1.8.2
+transformers==4.57.1
+
+# data + numerics
+numpy==1.26.4
+pandas==2.2.3
+polars==1.28.1
+scipy==1.11.3
+pyarrow==22.0.0
+joblib==1.5.2
+python-dateutil==2.8.2
+
+# ML / stats
+scikit-learn==1.6.1
+statsmodels==0.14.5
+category_encoders==2.8.1
+
+# experiment tracking / tuning / distributed
+optuna==4.6.0
+ray==2.51.1
+wandb==0.19.11
+
+# plotting + utils
+matplotlib==3.10.7
+seaborn==0.13.2
+tqdm==4.67.1
+pyaml==25.7.0
+
+# model hub / io
+huggingface-hub==0.36.0
+safetensors==0.6.2
+requests==2.32.5
