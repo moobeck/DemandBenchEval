@@ -42,6 +42,7 @@ class GluonTSForecaster(Forecaster):
         filename: str,
         alias: str,
         num_samples: int,
+        context_length: int | None = None,
         futr_exog_list: list[str] | None = None,
         hist_exog_list: list[str] | None = None,
         stat_exog_list: list[str] | None = None,
@@ -50,6 +51,7 @@ class GluonTSForecaster(Forecaster):
         self.filename = filename
         self.alias = alias
         self.num_samples = num_samples
+        self.context_length = context_length
 
         self.futr_exog_list = futr_exog_list if futr_exog_list is not None else []
         self.hist_exog_list = hist_exog_list if hist_exog_list is not None else []
@@ -72,7 +74,7 @@ class GluonTSForecaster(Forecaster):
         return torch.load(self.checkpoint_path, map_location=self.map_location)
 
     @contextmanager
-    def get_predictor(self, prediction_length: int) -> PyTorchPredictor:
+    def get_predictor(self, prediction_length: int, freq: str) -> PyTorchPredictor:
         raise NotImplementedError
 
     @staticmethod
@@ -249,7 +251,7 @@ class GluonTSForecaster(Forecaster):
             distance=step_size,
         )
 
-        with self.get_predictor(prediction_length=horizon) as predictor:
+        with self.get_predictor(prediction_length=horizon, freq=freq) as predictor:
             fcst_iter = predictor.predict(test_data.input, num_samples=self.num_samples)
 
             pred_parts: list[pd.DataFrame] = []
@@ -279,9 +281,10 @@ class GluonTSForecaster(Forecaster):
 
         pred_df = pd.concat(pred_parts, ignore_index=True)
         truth_df = pd.concat(truth_parts, ignore_index=True)
-
+        
         if qc.quantiles is not None:
-            pred_df = qc.maybe_convert_quantiles_to_level(pred_df, models=[self.alias])
+            pred_df = qc.convert_quantiles_to_level(pred_df, models=[self.alias])
+
 
         # Chronos-like: include cutoff + realized target for the horizon
         out_df = truth_df.merge(
@@ -351,7 +354,7 @@ class GluonTSForecaster(Forecaster):
         out_df = pd.concat(pred_parts, ignore_index=True)
 
         if qc.quantiles is not None:
-            out_df = qc.maybe_convert_quantiles_to_level(out_df, models=[self.alias])
+            out_df = qc.convert_quantiles_to_level(out_df, models=[self.alias])
 
         out_df = self._rename_forecast_base_columns(out_df, id_col=id_col, time_col=time_col)
 

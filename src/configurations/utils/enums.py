@@ -35,7 +35,8 @@ class ModelName(Enum):
     XLSTM = "xlstm"
     MOIRAI = "moirai"
     CHRONOS = "chronos"
-    TABPFN = "tabpfn"
+    TIREX = "tirex"
+    TIMESFM = "timesfm"
 
 
 class MetricName(Enum):

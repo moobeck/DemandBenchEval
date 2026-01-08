@@ -168,6 +168,7 @@ class Forecaster:
         """
         raise NotImplementedError("This method must be implemented in a subclass.")
 
+
     def cross_validation(
         self,
         df: pd.DataFrame,
@@ -258,6 +259,14 @@ class Forecaster:
                 raise NotImplementedError(
                     "Cross validation with exogenous variables is not yet supported."
                 )
+            
+            train = self._limit_context_length(
+                train,
+                time_col,
+                horizon=h,
+                freq=freq,
+            )
+
             y_pred = self.forecast(
                 df=train,
                 h=h,
@@ -342,6 +351,31 @@ class QuantileConverter:
         q_lo = alpha / 2
         q_hi = 1 - q_lo
         return q_lo, q_hi
+    
+    def convert_level_to_quantiles(
+        self,
+        df: pd.DataFrame,
+        models: list[str],
+    ) -> pd.DataFrame:
+        """
+        Receives a DataFrame with levels and returns
+        a DataFrame with quantiles if level was provided
+        """
+        
+        out_cols = [c for c in df.columns if "-lo-" not in c and "-hi-" not in c]
+        df = ufp.copy_if_pandas(df, deep=False)
+        for model in models:
+            for lv in self.level:
+                q_lo, q_hi = self._level_to_quantiles(lv)
+                lo_src = f"{model}-lo-{lv}"
+                hi_src = f"{model}-hi-{lv}"
+                lo_tgt = f"{model}-q-{int(q_lo * 100)}"
+                hi_tgt = f"{model}-q-{int(q_hi * 100)}"
+                if lo_src in df and hi_src in df:
+                    df = ufp.assign_columns(df, lo_tgt, df[lo_src])
+                    df = ufp.assign_columns(df, hi_tgt, df[hi_src])
+                    out_cols.extend([lo_tgt, hi_tgt])
+        return df[out_cols]
 
     def _maybe_convert_level_to_quantiles(
         self,
@@ -356,20 +390,42 @@ class QuantileConverter:
             return df
         if self.quantiles is None:
             raise ValueError("No quantiles were provided.")
-        out_cols = [c for c in df.columns if "-lo-" not in c and "-hi-" not in c]
+        return self.convert_level_to_quantiles(df, models=models)
+    
+
+    def convert_quantiles_to_level(self,
+        df: pd.DataFrame,
+        models: list[str],
+    ) -> pd.DataFrame:
+        """
+        Receives a DataFrame with quantiles and returns
+        a DataFrame with levels if quantiles were provided
+        """
+        
+        out_cols = [c for c in df.columns if "-q-" not in c]
         df = ufp.copy_if_pandas(df, deep=False)
         for model in models:
-            for q in sorted(self.quantiles):
-                if q == 0.5:
-                    col = model
-                else:
-                    lv = int(100 - 200 * q)
-                    hi_or_lo = "lo" if lv > 0 else "hi"
-                    lv = abs(lv)
-                    col = f"{model}-{hi_or_lo}-{lv}"
-                q_col = f"{model}-q-{int(q * 100)}"
-                df = ufp.assign_columns(df, q_col, df[col])
-                out_cols.append(q_col)
+            if 0 in self.level:
+                mid_col = f"{model}-q-50"
+                median_col = f"{model}-median"
+                if mid_col in df:
+                    df = ufp.assign_columns(df, model, df[mid_col])
+                    df[median_col] = df[mid_col].copy()
+                    if model not in out_cols:
+                        out_cols.append(model)
+                    if median_col not in out_cols:
+                        out_cols.append(median_col)
+            for lv in self.level:
+                if lv > 0:
+                    q_lo, q_hi = self._level_to_quantiles(lv)
+                    lo_src = f"{model}-q-{int(round(q_lo * 100))}"
+                    hi_src = f"{model}-q-{int(round(q_hi * 100))}"
+                    lo_tgt = f"{model}-lo-{lv}"
+                    hi_tgt = f"{model}-hi-{lv}"
+                    if lo_src in df and hi_src in df:
+                        df = ufp.assign_columns(df, lo_tgt, df[lo_src])
+                        df = ufp.assign_columns(df, hi_tgt, df[hi_src])
+                        out_cols.extend([lo_tgt, hi_tgt])
         return df[out_cols]
 
     def maybe_convert_quantiles_to_level(
@@ -385,23 +441,5 @@ class QuantileConverter:
             return df
         if self.level is None:
             raise ValueError("No levels were provided.")
-        out_cols = [c for c in df.columns if "-q-" not in c]
-        df = ufp.copy_if_pandas(df, deep=False)
-        for model in models:
-            if 0 in self.level:
-                mid_col = f"{model}-q-50"
-                if mid_col in df:
-                    df = ufp.assign_columns(df, model, df[mid_col])
-                    if model not in out_cols:
-                        out_cols.append(model)
-            for lv in self.level:
-                q_lo, q_hi = self._level_to_quantiles(lv)
-                lo_src = f"{model}-q-{int(q_lo * 100)}"
-                hi_src = f"{model}-q-{int(q_hi * 100)}"
-                lo_tgt = f"{model}-lo-{lv}"
-                hi_tgt = f"{model}-hi-{lv}"
-                if lo_src in df and hi_src in df:
-                    df = ufp.assign_columns(df, lo_tgt, df[lo_src])
-                    df = ufp.assign_columns(df, hi_tgt, df[hi_src])
-                    out_cols.extend([lo_tgt, hi_tgt])
-        return df[out_cols]
+        return self.convert_quantiles_to_level(df, models=models)
+
