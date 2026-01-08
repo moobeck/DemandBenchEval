@@ -1,7 +1,9 @@
 import pandas as pd
 from statsforecast import StatsForecast
 from src.configurations.data.forecast_column import ForecastColumnConfig
+from src.configurations.forecasting.forecasting import ForecastConfig
 from src.configurations.evaluation.cross_validation import CrossValidationConfig
+from src.utils.quantile import QuantileUtils
 from src.forecasting.engine.abstract import ForecastEngine
 from typing import List
 
@@ -22,6 +24,7 @@ class StatsForecastEngine(ForecastEngine):
             "h",
             "cv_config",
             "forecast_columns",
+            "forecast_config",
         ]
 
     def cross_validation(
@@ -30,9 +33,15 @@ class StatsForecastEngine(ForecastEngine):
         h: int,
         cv_config: CrossValidationConfig,
         forecast_columns: ForecastColumnConfig,
+        forecast_config: ForecastConfig,
     ):
         n_windows = cv_config.n_windows
         step_size = cv_config.step_size
+
+        quantiles = QuantileUtils.create_quantiles(
+            forecast_config.statistical.quantile
+        )
+        levels = QuantileUtils.quantiles_to_level(quantiles)
 
         cv_results = self._engine.cross_validation(
             df=df,
@@ -43,6 +52,7 @@ class StatsForecastEngine(ForecastEngine):
             target_col=forecast_columns.target,
             time_col=forecast_columns.date,
             refit=cv_config.refit,
+            level=levels,
         )
 
         return cv_results

@@ -3,7 +3,7 @@ from statsforecast.models import (
     _demand,
     _intervals,
     _ses_forecast,
-    _tsb,
+    _probability,
     _TS,
     _add_fitted_pi,
     _expand_fitted_demand,
@@ -213,13 +213,61 @@ class AutoCrostonSBA(_TS):
         return self.forecast(y=y, h=h, X=X, X_future=X_future, level=level, fitted=fitted)
 
 
+
+import numpy as np
+from typing import Optional, List, Dict
+
+# --- UPDATED: return probability + size components so we can build a native mixture distribution
+def _tsb(
+    y: np.ndarray,  # time series
+    h: int,  # forecasting horizon
+    fitted: int,  # fitted values
+    alpha_d: float,
+    alpha_p: float,
+) -> Dict[str, np.ndarray]:
+    if (y == 0).all():
+        res = {
+            "mean": np.zeros(h, dtype=y.dtype),
+            "prob": np.zeros(h, dtype=np.float64),  # p_t
+            "size": np.zeros(h, dtype=np.float64),  # mu_t (conditional on demand)
+        }
+        if fitted:
+            res["fitted"] = np.zeros_like(y)
+            res["fitted"][0] = np.nan
+        return res
+
+    y = _ensure_float(y)
+    yd = _demand(y)        # positive sizes (typically non-zeros)
+    yp = _probability(y)   # 0/1 occurrence indicator
+
+    ypf, ypft = _ses_forecast(yp, alpha_p)  # last-level for prob + fitted
+    ydf, ydft = _ses_forecast(yd, alpha_d)  # last-level for size + fitted
+
+    p_last = float(ypf)
+    mu_last = float(ydf)
+
+    res = {
+        "mean": _repeat_val(val=p_last * mu_last, h=h),
+        "prob": _repeat_val(val=p_last, h=h),
+        "size": _repeat_val(val=mu_last, h=h),
+    }
+
+    if fitted:
+        ydft = _expand_fitted_demand(np.append(ydft, yd), y)
+        res["fitted"] = ypft * ydft
+
+    return res
+
+
 # %% ../../nbs/src/core/models.ipynb XXX
 class AutoTSB(_TS):
     """
-    Auto-tuned TSB.
+    Auto-tuned TSB with optional native (parametric) prediction intervals:
+      Y = 0 w.p. (1-p)
+      Y = max(0, mu + eps) w.p. p
+      eps ~ Normal(0, sigma^2)
 
-    Searches (alpha_d, alpha_p) over a grid on fit(), minimizing insample MSE of fitted values.
-    Stores best parameters and exposes forward() to apply them to new series.
+    This is the closest analogue to ETS/SES(ANN) additive-error for intermittent demand.
     """
 
     def __init__(
@@ -227,13 +275,26 @@ class AutoTSB(_TS):
         alpha_grid: Optional[np.ndarray] = None,
         alias: str = "AutoTSB",
         prediction_intervals: Optional[ConformalIntervals] = None,
+        # native intervals knobs
+        native_intervals: bool = True,
+        n_sim: int = 10_000,
+        random_state: Optional[int] = 0,
+        truncate_at_zero: bool = True,
+        prefer_conformal: bool = True,
     ):
         self.alias = alias
         self.prediction_intervals = prediction_intervals
-        self.only_conformal_intervals = True
+
+        self.native_intervals = native_intervals
+        self.n_sim = int(n_sim)
+        self.random_state = random_state
+        self.truncate_at_zero = truncate_at_zero
+        self.prefer_conformal = prefer_conformal
+
+        # now we can do native, so this is no longer "only conformal" unless user disables it
+        self.only_conformal_intervals = not native_intervals
 
         if alpha_grid is None:
-            # For probability smoothing, a wider useful range than Croston is common
             self.alpha_grid = np.round(np.linspace(0.02, 0.50, 49), 4)
         else:
             self.alpha_grid = np.asarray(alpha_grid, dtype=np.float64)
@@ -267,9 +328,38 @@ class AutoTSB(_TS):
         self.alpha_p_ = params["alpha_p"]
 
         self.model_ = _tsb(y=y, h=1, fitted=True, alpha_d=self.alpha_d_, alpha_p=self.alpha_p_)
+
+        # ETS/SES-like innovation scale from residuals
         self.model_["sigma"] = _calculate_sigma(y - self.model_["fitted"], y.size)
+
         self._store_cs(y=y, X=X)
         return self
+
+    def _native_pi(self, p: np.ndarray, mu: np.ndarray, sigma: float, level: List[int]) -> Dict[str, np.ndarray]:
+        if self.n_sim <= 0:
+            raise ValueError("n_sim must be > 0 for native intervals.")
+        rng = np.random.default_rng(self.random_state)
+
+        h = mu.size
+        p = np.clip(p, 0.0, 1.0)
+
+        gates = rng.random((self.n_sim, h)) < p[None, :]
+        eps = rng.normal(loc=0.0, scale=float(sigma), size=(self.n_sim, h))
+
+        y_pos = mu[None, :] + eps
+        if self.truncate_at_zero:
+            y_pos = np.maximum(0.0, y_pos)
+
+        sim = np.where(gates, y_pos, 0.0)
+
+        out: Dict[str, np.ndarray] = {}
+        for l in level:
+            alpha = (100.0 - float(l)) / 100.0
+            q_lo = alpha / 2.0
+            q_hi = 1.0 - alpha / 2.0
+            out[f"lo-{l}"] = np.quantile(sim, q_lo, axis=0)
+            out[f"hi-{l}"] = np.quantile(sim, q_hi, axis=0)
+        return out
 
     def predict(self, h: int, X: Optional[np.ndarray] = None, level: Optional[List[int]] = None):
         mean = _repeat_val(self.model_["mean"][0], h=h)
@@ -277,11 +367,21 @@ class AutoTSB(_TS):
         if level is None:
             return res
         level = sorted(level)
+
+        if self.prediction_intervals is not None and self.prefer_conformal:
+            return self._add_predict_conformal_intervals(res, level)
+
+        if self.native_intervals:
+            p = _repeat_val(self.model_["prob"][0], h=h)
+            mu = _repeat_val(self.model_["size"][0], h=h)
+            sigma = float(self.model_["sigma"])
+            res.update(self._native_pi(p=p, mu=mu, sigma=sigma, level=level))
+            return res
+
         if self.prediction_intervals is not None:
-            res = self._add_predict_conformal_intervals(res, level)
-        else:
-            raise Exception("You must pass `prediction_intervals` to compute them.")
-        return res
+            return self._add_predict_conformal_intervals(res, level)
+
+        raise Exception("You must pass `prediction_intervals` or enable native_intervals to compute intervals.")
 
     def predict_in_sample(self, level: Optional[List[int]] = None):
         res = {"fitted": self.model_["fitted"]}
@@ -302,21 +402,33 @@ class AutoTSB(_TS):
             raise Exception("You have to use the `fit` method first")
 
         y = _ensure_float(y)
-        res = _tsb(y=y, h=h, fitted=fitted, alpha_d=self.alpha_d_, alpha_p=self.alpha_p_)
-        res = dict(res)
+        res = dict(_tsb(y=y, h=h, fitted=fitted, alpha_d=self.alpha_d_, alpha_p=self.alpha_p_))
 
         if level is None:
             return res
 
         level = sorted(level)
-        if self.prediction_intervals is not None:
+
+        if self.prediction_intervals is not None and self.prefer_conformal:
             res = self._add_conformal_intervals(fcst=res, y=y, X=X, level=level)
+        elif self.native_intervals:
+            # sigma from residuals (if fitted returned, use it; else do a 1-step fitted pass)
+            if "fitted" in res:
+                sigma = float(_calculate_sigma(y - res["fitted"], y.size))
+            else:
+                mod1 = _tsb(y=y, h=1, fitted=True, alpha_d=self.alpha_d_, alpha_p=self.alpha_p_)
+                sigma = float(_calculate_sigma(y - mod1["fitted"], y.size))
+
+            res.update(self._native_pi(p=res["prob"], mu=res["size"], sigma=sigma, level=level))
         else:
-            raise Exception("You must pass `prediction_intervals` to compute them.")
+            if self.prediction_intervals is not None:
+                res = self._add_conformal_intervals(fcst=res, y=y, X=X, level=level)
+            else:
+                raise Exception("You must pass `prediction_intervals` or enable native_intervals to compute intervals.")
 
         if fitted:
-            sigma = _calculate_sigma(y - res["fitted"], y.size)
-            res = _add_fitted_pi(res=res, se=sigma, level=level)
+            sigma_fit = _calculate_sigma(y - res["fitted"], y.size)
+            res = _add_fitted_pi(res=res, se=sigma_fit, level=level)
 
         return res
 
@@ -329,8 +441,4 @@ class AutoTSB(_TS):
         level: Optional[List[int]] = None,
         fitted: bool = False,
     ):
-        """
-        Apply the already-selected (alpha_d_, alpha_p_) to a new series y.
-        No parameter search here.
-        """
         return self.forecast(y=y, h=h, X=X, X_future=X_future, level=level, fitted=fitted)

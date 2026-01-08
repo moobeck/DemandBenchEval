@@ -67,7 +67,7 @@ class Evaluator:
         median_available = [
             m
             for m in model_names
-            if m not in present_models and f"{m}-median" in df.columns
+            if f"{m}-median" in df.columns
         ]
 
         # Models missing both direct and median columns
@@ -83,7 +83,7 @@ class Evaluator:
                 "Each model must have either a column named '{model}' or '{model}-median'."
             )
 
-        # Create missing model columns from their '-median' counterparts in a single assignment
+        # Create the point forecast columns from median where possi
         if median_available:
             median_cols = [f"{m}-median" for m in median_available]
             # Assign values; ensure correct column ordering by using .values to avoid align-by-label
