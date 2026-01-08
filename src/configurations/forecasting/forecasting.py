@@ -74,6 +74,16 @@ class ForecastConfig:
             num_samples=fm_cfg.get("num_samples", 1),
             quantile=DEFAULT_QUANTILE_CONFIG,
         )
+    
+    @property
+    def statistical(self) -> StatisticalForecastConfig:
+        """
+        Get the statistical model configuration from the model_config.
+        """
+        stats_cfg = self.model_config.get(Framework.STATS, {})
+        return StatisticalForecastConfig(
+            quantile=DEFAULT_QUANTILE_CONFIG,
+        )
 
     @property
     def models(self) -> Dict[Framework, Dict[ModelName, ForecastModel]]:
