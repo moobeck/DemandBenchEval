@@ -442,3 +442,223 @@ class AutoTSB(_TS):
         fitted: bool = False,
     ):
         return self.forecast(y=y, h=h, X=X, X_future=X_future, level=level, fitted=fitted)
+
+
+
+class SeasonalNaive(_TS):
+
+    def __init__(
+        self,
+        season_length: int,
+        alias: str = "SeasonalNaive",
+        prediction_intervals: Optional[ConformalIntervals] = None,
+    ):
+        r"""Seasonal naive model.
+
+        A method similar to the naive, but uses the last known observation of the same period (e.g. the same month of the previous year) in order to capture seasonal variations.
+
+        References
+        ----------
+        [Rob J. Hyndman and George Athanasopoulos (2018). "forecasting principles and practice, Simple Methods"](https://otexts.com/fpp3/simple-methods.html#seasonal-na%C3%AFve-method).
+
+        Parameters
+        ----------
+        season_length : int
+            Number of observations per unit of time. Ex: 24 Hourly data.
+        alias : str
+            Custom name of the model.
+        prediction_intervals : Optional[ConformalIntervals]
+            Information to compute conformal prediction intervals.
+            By default, the model will compute the native prediction
+            intervals.
+        """
+        self.season_length = season_length
+        self.alias = alias
+        self.prediction_intervals = prediction_intervals
+
+    def fit(
+        self,
+        y: np.ndarray,
+        X: Optional[np.ndarray] = None,
+    ):
+        r"""Fit the SeasonalNaive model.
+
+        Fit an SeasonalNaive to a time series (numpy array) `y`.
+
+        Parameters
+        ----------
+        y : numpy.array
+            Clean time series of shape (t, ).
+        X: array-like
+            Optional exogenous of shape (t, n_x).
+
+        Returns
+        -------
+        self :
+            SeasonalNaive fitted model.
+        r"""
+        y = _ensure_float(y)
+        mod = _seasonal_naive(
+            y=y,
+            season_length=self.season_length,
+            h=self.season_length,
+            fitted=True,
+        )
+        mod = dict(mod)
+        residuals = y - mod["fitted"]
+        mod["sigma"] = _calculate_sigma(residuals, len(y) - self.season_length)
+        self.model_ = mod
+        self._store_cs(y=y, X=X)
+        return self
+
+    def predict(
+        self,
+        h: int,
+        X: Optional[np.ndarray] = None,
+        level: Optional[List[int]] = None,
+    ):
+        r"""Predict with fitted Naive.
+
+        Parameters
+        ----------
+        h : int
+            Forecast horizon.
+        X: array-like
+            Optional exogenous of shape (h, n_x).
+        level: List[float]
+            Confidence levels (0-100) for prediction intervals.
+
+        Returns
+        -------
+        forecasts : dict
+            Dictionary with entries `mean` for point predictions and `level_*` for probabilistic predictions.
+        """
+        mean = _repeat_val_seas(season_vals=self.model_["mean"], h=h)
+        res = {"mean": mean}
+
+        if level is None:
+            return res
+        level = sorted(level)
+        if self.prediction_intervals is not None:
+            res = self._add_predict_conformal_intervals(res, level)
+        else:
+            k = np.floor(np.arange(h) / self.season_length)
+            sigma = self.model_["sigma"]
+            sigmah = sigma * np.sqrt(k + 1)
+            pred_int = _calculate_intervals(res, level, h, sigmah)
+            res = {**res, **pred_int}
+        return res
+
+    def predict_in_sample(self, level: Optional[List[int]] = None):
+        r"""Access fitted SeasonalNaive insample predictions.
+
+        Parameters
+        ----------
+        level : List[float]
+            Confidence levels (0-100) for prediction intervals.
+
+        Returns
+        -------
+        forecasts : dict
+            Dictionary with entries `fitted` for point predictions and `level_*` for probabilistic predictions.
+        r"""
+        res = {"fitted": self.model_["fitted"]}
+        if level is not None:
+            level = sorted(level)
+            res = _add_fitted_pi(res=res, se=self.model_["sigma"], level=level)
+        return res
+
+    def forecast(
+        self,
+        y: np.ndarray,
+        h: int,
+        X: Optional[np.ndarray] = None,
+        X_future: Optional[np.ndarray] = None,
+        level: Optional[List[int]] = None,
+        fitted: bool = False,
+    ):
+        r"""Memory Efficient SeasonalNaive predictions.
+
+        This method avoids memory burden due from object storage.
+        It is analogous to `fit_predict` without storing information.
+        It assumes you know the forecast horizon in advance.
+
+        Parameters
+        ----------
+        y : numpy.array
+            Clean time series of shape (n, ).
+        h : int
+            Forecast horizon.
+        X : array-like
+            Optional insample exogenous of shape (t, n_x).
+        X_future : array-like
+            Optional exogenous of shape (h, n_x).
+        level : List[float]
+            Confidence levels (0-100) for prediction intervals.
+        fitted : bool
+            Whether or not to return insample predictions.
+
+        Returns
+        -------
+        forecasts : dict
+            Dictionary with entries `mean` for point predictions and `level_*` for probabilistic predictions.
+        """
+        y = _ensure_float(y)
+        out = _seasonal_naive(
+            y=y,
+            h=h,
+            fitted=fitted or (level is not None),
+            season_length=self.season_length,
+        )
+        res = {"mean": out["mean"]}
+        if fitted:
+            res["fitted"] = out["fitted"]
+        if level is not None:
+            level = sorted(level)
+            if self.prediction_intervals is not None:
+                res = self._add_conformal_intervals(fcst=res, y=y, X=X, level=level)
+            else:
+                k = np.floor(np.arange(h) / self.season_length)
+                residuals = y - out["fitted"]
+                sigma = _calculate_sigma(residuals, len(y) - self.season_length)
+                sigmah = sigma * np.sqrt(k + 1)
+                pred_int = _calculate_intervals(out, level, h, sigmah)
+                res = {**res, **pred_int}
+            if fitted:
+                residuals = y - out["fitted"]
+                sigma = _calculate_sigma(residuals, len(y) - self.season_length)
+                res = _add_fitted_pi(res=res, se=sigma, level=level)
+        return res
+    
+
+    def forward(
+        self,
+        y: np.ndarray,
+        h: int,
+        X: Optional[np.ndarray] = None,
+        X_future: Optional[np.ndarray] = None,
+        level: Optional[List[int]] = None,
+        fitted: bool = False,
+    ):
+        r"""Apply SeasonalNaive to new series.
+
+        Parameters
+        ----------
+        y : numpy.array
+            Clean time series of shape (n, ).
+        h : int
+            Forecast horizon.
+        X : array-like
+            Optional insample exogenous of shape (t, n_x).
+        X_future : array-like
+            Optional exogenous of shape (h, n_x).
+        level : List[float]
+            Confidence levels (0-100) for prediction intervals.
+        fitted : bool
+            Whether or not to return insample predictions.
+        Returns
+        -------
+        forecasts : dict
+            Dictionary with entries `mean` for point predictions and `level_*` for probabilistic predictions
+        """
+        return self.forecast(y=y, h=h, X=X, X_future=X_future, level=level, fitted=fitted)
