@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, TypeAlias
 
 from optuna.samplers import TPESampler
-from statsforecast.models import AutoARIMA, AutoTheta, AutoETS, AutoCES, CrostonOptimized
+from statsforecast.models import AutoARIMA, AutoTheta, AutoETS, AutoCES, SeasonalNaive
 from neuralforecast.auto import (
     AutoVanillaTransformer,
     AutoMLP,
@@ -207,5 +207,10 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
         default_params=DefaultParams.FM,
         model=TimesFM,
     ),
-
+    ModelName.SEASONAL_NAIVE: ModelSpec(
+        factory=lambda **p: SeasonalNaive(alias="seasonal_naive", **p),
+        framework=Framework.STATS,
+        default_params=DefaultParams.STATS,
+        model=SeasonalNaive,
+    ),
 }

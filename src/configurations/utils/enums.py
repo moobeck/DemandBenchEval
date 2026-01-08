@@ -37,6 +37,7 @@ class ModelName(Enum):
     CHRONOS = "chronos"
     TIREX = "tirex"
     TIMESFM = "timesfm"
+    SEASONAL_NAIVE = "seasonal_naive"
 
 
 class MetricName(Enum):
