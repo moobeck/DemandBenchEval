@@ -22,7 +22,7 @@ from neuralforecast.auto import (
 )
 
 from src.forecasting.models.foundation import Moirai, Chronos, TiRex, TimesFM
-from src.forecasting.models.statistical import AutoCrostonSBA, AutoTSB, SeasonalNaive
+from src.forecasting.models.statistical import AutoCrostonSBA, AutoTSB, SeasonalNaive, HistoricAverage
 
 from src.forecasting.utils.optuna_callbacks import fail_on_nonfinite_trial
 from ...utils.enums import ModelName, Framework
@@ -212,5 +212,11 @@ MODEL_REGISTRY: dict[ModelName, ModelSpec] = {
         framework=Framework.STATS,
         default_params=DefaultParams.STATS,
         model=SeasonalNaive,
+    ),
+    ModelName.HISTORIC_AVERAGE: ModelSpec(
+        factory=lambda **p: HistoricAverage(alias="historic_average"),
+        framework=Framework.STATS,
+        default_params=DefaultParams.STATS,
+        model=HistoricAverage, 
     ),
 }

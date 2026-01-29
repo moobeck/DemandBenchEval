@@ -662,3 +662,209 @@ class SeasonalNaive(_TS):
             Dictionary with entries `mean` for point predictions and `level_*` for probabilistic predictions
         """
         return self.forecast(y=y, h=h, X=X, X_future=X_future, level=level, fitted=fitted)
+
+
+def _historic_average(
+    y: np.ndarray,  # time series
+    h: int,  # forecasting horizon
+    fitted: bool,  # fitted values
+) -> Dict[str, np.ndarray]:
+    fcst = {"mean": _repeat_val(val=y.mean(), h=h)}
+    if fitted:
+        fitted_vals = _repeat_val(val=y.mean(), h=len(y))
+        fcst["fitted"] = fitted_vals
+    return fcst
+
+
+
+class HistoricAverage(_TS):
+    def __init__(
+        self,
+        alias: str = "HistoricAverage",
+        prediction_intervals: Optional[ConformalIntervals] = None,
+    ):
+        r"""HistoricAverage model.
+
+        Also known as mean method. Uses a simple average of all past observations.
+        Assuming there are $t$ observations, the one-step forecast is given by:
+
+        ``` math
+        \hat{y}_{t+1} = \frac{1}{t} \sum_{j=1}^t y_j
+        ```
+
+        References:
+            - [Rob J. Hyndman and George Athanasopoulos (2018). "Forecasting principles and practice, Simple Methods"](https://otexts.com/fpp3/simple-methods.html).
+
+        Args:
+            alias (str): Custom name of the model.
+            prediction_intervals (Optional[ConformalIntervals]): Information to compute conformal prediction intervals.
+                By default, the model will compute the native prediction
+                intervals.
+        """
+        self.alias = alias
+        self.prediction_intervals = prediction_intervals
+
+    def fit(
+        self,
+        y: np.ndarray,
+        X: Optional[np.ndarray] = None,
+    ):
+        r"""Fit the HistoricAverage model.
+
+        Fit an HistoricAverage to a time series (numpy array) `y`.
+
+        Args:
+            y (numpy.array): Clean time series of shape (t, ).
+            X (array-like): Optional exogenous of shape (t, n_x).
+
+        Returns:
+            self: HistoricAverage fitted model.
+        r"""
+        y = _ensure_float(y)
+        mod = _historic_average(y, h=1, fitted=True)
+        mod = dict(mod)
+        residuals = y - mod["fitted"]
+        mod["sigma"] = _calculate_sigma(residuals, len(residuals) - 1)
+        mod["n"] = len(y)
+        self.model_ = mod
+        self._store_cs(y=y, X=X)
+        return self
+
+
+    def predict(
+        self,
+        h: int,
+        X: Optional[np.ndarray] = None,
+        level: Optional[List[int]] = None,
+    ):
+        r"""Predict with fitted HistoricAverage.
+
+        Args:
+            h (int): Forecast horizon.
+            X (Optional[np.ndarray], optional): Optional exogenous of shape (h, n_x). Defaults to None.
+            level (Optional[List[int]], optional): Confidence levels (0-100) for prediction intervals. Defaults to None.
+
+        Returns:
+            dict: Dictionary with entries `mean` for point predictions and `level_*` for probabilistic predictions.
+        """
+        mean = _repeat_val(val=self.model_["mean"][0], h=h)
+        res = {"mean": mean}
+
+        if level is None:
+            return res
+        level = sorted(level)
+        if self.prediction_intervals is not None:
+            res = self._add_predict_conformal_intervals(res, level)
+        else:
+            sigma = self.model_["sigma"]
+            sigmah = sigma * np.sqrt(1 + (1 / self.model_["n"]))
+            pred_int = _calculate_intervals(res, level, h, sigmah)
+            res = {**res, **pred_int}
+
+        return res
+
+    def predict_in_sample(self, level: Optional[List[int]] = None):
+        r"""Access fitted HistoricAverage insample predictions.
+
+        Args:
+            level (Optional[List[int]], optional): Confidence levels (0-100) for prediction intervals. Defaults to None.
+
+        Returns:
+            dict: Dictionary with entries `fitted` for point predictions.
+        """
+        res = {"fitted": self.model_["fitted"]}
+        if level is not None:
+            sigma = self.model_["sigma"]
+            sigmah = sigma * np.sqrt(1 + (1 / self.model_["n"]))
+            res = _add_fitted_pi(res, se=sigmah, level=level)
+        return res
+
+    def forecast(
+        self,
+        y: np.ndarray,
+        h: int,
+        X: Optional[np.ndarray] = None,
+        X_future: Optional[np.ndarray] = None,
+        level: Optional[List[int]] = None,
+        fitted: bool = False,
+    ):
+        r"""Memory Efficient HistoricAverage predictions.
+
+        This method avoids memory burden due from object storage.
+        It is analogous to `fit_predict` without storing information.
+        It assumes you know the forecast horizon in advance.
+
+        Args:
+            y (np.ndarray): Clean time series of shape (n, ).
+            h (int): Forecast horizon.
+            X (Optional[np.ndarray], optional): Optional insample exogenous of shape (t, n_x). Defaults to None.
+            X_future (Optional[np.ndarray], optional): Optional exogenous of shape (h, n_x). Defaults to None.
+            level (Optional[List[int]], optional): Confidence levels (0-100) for prediction intervals. Defaults to None.
+            fitted (bool, optional): Whether or not to return insample predictions. Defaults to False.
+
+        Returns:
+            dict: Dictionary with entries `mean` for point predictions and `level_*` for probabilistic predictions.
+        """
+        y = _ensure_float(y)
+        out = _historic_average(y=y, h=h, fitted=fitted or (level is not None))
+        res = {"mean": out["mean"]}
+
+        if fitted:
+            res["fitted"] = out["fitted"]
+        if level is not None:
+            level = sorted(level)
+            if self.prediction_intervals is not None:
+                res = self._add_conformal_intervals(fcst=res, y=y, X=X, level=level)
+            else:
+                residuals = y - out["fitted"]
+                sigma = _calculate_sigma(residuals, len(residuals) - 1)
+                sigmah = sigma * np.sqrt(1 + (1 / len(y)))
+                pred_int = _calculate_intervals(out, level, h, sigmah)
+                res = {**res, **pred_int}
+            if fitted:
+                residuals = y - out["fitted"]
+                sigma = _calculate_sigma(residuals, len(residuals) - 1)
+                sigmah = sigma * np.sqrt(1 + (1 / len(y)))
+                res = _add_fitted_pi(res=res, se=sigmah, level=level)
+        return res
+    
+    def forward(
+        self,
+        y: np.ndarray,
+        h: int,
+        X: Optional[np.ndarray] = None,
+        X_future: Optional[np.ndarray] = None,
+        level: Optional[List[int]] = None,
+        fitted: bool = False,
+    ):
+        r"""Apply HistoricAverage to a new series.
+
+        Parameters
+        ----------
+        y : np.ndarray
+            Clean time series of shape (n, ).
+        h : int
+            Forecast horizon.
+        X : Optional[np.ndarray]
+            Optional insample exogenous of shape (n, n_x).
+        X_future : Optional[np.ndarray]
+            Optional exogenous of shape (h, n_x).
+        level : Optional[List[int]]
+            Confidence levels (0-100) for prediction intervals.
+        fitted : bool
+            Whether to return insample predictions.
+
+        Returns
+        -------
+        dict
+            Dictionary with entries `mean` (and optionally `fitted` and intervals).
+        """
+        return self.forecast(
+            y=y,
+            h=h,
+            X=X,
+            X_future=X_future,
+            level=level,
+            fitted=fitted,
+        )
+

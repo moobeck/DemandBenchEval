@@ -38,6 +38,7 @@ class ModelName(Enum):
     TIREX = "tirex"
     TIMESFM = "timesfm"
     SEASONAL_NAIVE = "seasonal_naive"
+    HISTORIC_AVERAGE = "historic_average"
 
 
 class MetricName(Enum):
