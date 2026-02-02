@@ -52,6 +52,9 @@ class MetricName(Enum):
     SSPEC = "sspec"
     APIS = "apis"
     SAPIS = "sapis"
+    SMAE = "smae"
+    SRMSE = "srmse"
+    SBIAS = "sbias"
 
 
 PROBABILISTIC_METRICS = {
@@ -68,7 +71,7 @@ class DatasetName(Enum):
     YAZ = "yaz"
     PHARMACY = "pharmacy"
     PHARMACY2 = "pharmacy2"
-    HOTEL = "hoteldemand"
+    HOTEL = "hotel"
     ONLINERETAIL = "onlineretail"
     ONLINERETAIL2 = "onlineretail2"
     FRESHRETAIL50K = "freshretail50k"
