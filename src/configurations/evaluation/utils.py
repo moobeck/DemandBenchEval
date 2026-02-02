@@ -1,5 +1,5 @@
-from utilsforecast.losses import _base_docstring, bias
-from typing import Callable, List, Union
+from utilsforecast.losses import _base_docstring, mae, rmse, bias
+from typing import Callable, List
 import numpy as np
 import pandas as pd
 
@@ -283,3 +283,146 @@ def sapis(
     result = result.drop(columns=["in_sample_mean"])
 
     return result.sort_values(id_col)
+
+
+
+
+from typing import List
+import numpy as np
+import pandas as pd
+
+def _in_sample_mean_scale(
+    df: pd.DataFrame,
+    train_df: pd.DataFrame,
+    id_col: str,
+    target_col: str,
+    cutoff_col: str,
+    time_col: str,
+) -> pd.DataFrame:
+    """
+    Returns DataFrame with columns: [id_col, in_sample_mean]
+    computed as mean over cutoffs of mean(train_y in each cutoff window).
+    """
+    train_df = _create_train_with_cutoffs(
+        train_df=train_df,
+        df=df,
+        id_col=id_col,
+        time_col=time_col,
+        cutoff_col=cutoff_col,
+    )
+
+    scales = _aggregate_column(
+        df=train_df,
+        target_col=target_col,
+        id_col=id_col,
+        cutoff_col=cutoff_col,
+        agg="mean",
+    )  # expected to return columns [id_col, cutoff_col, "scale"]
+
+    scale_means = (
+        scales.groupby(id_col)["scale"]
+        .mean()
+        .reset_index()
+        .rename(columns={"scale": "in_sample_mean"})
+    )
+    return scale_means
+
+
+def scaled_mae(
+    df: pd.DataFrame,
+    models: List[str],
+    train_df: pd.DataFrame,
+    id_col: str = "unique_id",
+    target_col: str = "y",
+    cutoff_col: str = "cutoff",
+    time_col: str = "date",
+    eps: float = 1e-8,
+) -> pd.DataFrame:
+    """
+    Scaled MAE = MAE / mean(train_y)  (mean computed like in scaled_spec).
+    """
+    raw = mae(df=df, models=models, id_col=id_col, target_col=target_col)
+
+    scale_means = _in_sample_mean_scale(
+        df=df,
+        train_df=train_df,
+        id_col=id_col,
+        target_col=target_col,
+        cutoff_col=cutoff_col,
+        time_col=time_col,
+    )
+
+    result = raw.merge(scale_means, on=id_col, how="left")
+    denom = result["in_sample_mean"].abs().clip(lower=eps)
+
+    for model in models:
+        result[model] = result[model] / denom
+
+    return result.drop(columns=["in_sample_mean"]).sort_values(id_col)
+
+
+def scaled_rmse(
+    df: pd.DataFrame,
+    models: List[str],
+    train_df: pd.DataFrame,
+    id_col: str = "unique_id",
+    target_col: str = "y",
+    cutoff_col: str = "cutoff",
+    time_col: str = "date",
+    eps: float = 1e-8,
+) -> pd.DataFrame:
+    """
+    Scaled RMSE = RMSE / mean(train_y)  (mean computed like in scaled_spec).
+    """
+    raw = rmse(df=df, models=models, id_col=id_col, target_col=target_col)
+
+    scale_means = _in_sample_mean_scale(
+        df=df,
+        train_df=train_df,
+        id_col=id_col,
+        target_col=target_col,
+        cutoff_col=cutoff_col,
+        time_col=time_col,
+    )
+
+    result = raw.merge(scale_means, on=id_col, how="left")
+    denom = result["in_sample_mean"].abs().clip(lower=eps)
+
+    for model in models:
+        result[model] = result[model] / denom
+
+    return result.drop(columns=["in_sample_mean"]).sort_values(id_col)
+
+
+def scaled_bias(
+    df: pd.DataFrame,
+    models: List[str],
+    train_df: pd.DataFrame,
+    id_col: str = "unique_id",
+    target_col: str = "y",
+    cutoff_col: str = "cutoff",
+    time_col: str = "date",
+    eps: float = 1e-8,
+) -> pd.DataFrame:
+    """
+    Scaled Bias = Bias / mean(train_y)  (mean computed like in scaled_spec).
+    Bias is (pred - actual), so sign is preserved after scaling.
+    """
+    raw = bias(df=df, models=models, id_col=id_col, target_col=target_col)
+
+    scale_means = _in_sample_mean_scale(
+        df=df,
+        train_df=train_df,
+        id_col=id_col,
+        target_col=target_col,
+        cutoff_col=cutoff_col,
+        time_col=time_col,
+    )
+
+    result = raw.merge(scale_means, on=id_col, how="left")
+    denom = result["in_sample_mean"].abs().clip(lower=eps)
+
+    for model in models:
+        result[model] = result[model] / denom
+
+    return result.drop(columns=["in_sample_mean"]).sort_values(id_col)
