@@ -55,11 +55,13 @@ class MetricName(Enum):
     SMAE = "smae"
     SRMSE = "srmse"
     SBIAS = "sbias"
+    RMSSE = "rmsse"
+    SABSBIAS = "sabsbias"
+    SQL_60 = "sql_60"
+    SQL_70 = "sql_70"
+    SQL_80 = "sql_80"
+    SQL_90 = "sql_90"
 
-
-PROBABILISTIC_METRICS = {
-    MetricName.SMQL,
-}
 
 
 class DatasetName(Enum):

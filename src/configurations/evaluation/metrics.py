@@ -2,8 +2,8 @@ from src.configurations.utils.enums import MetricName, FrequencyType
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, TypeAlias, Optional
 from functools import partial
-from utilsforecast.losses import mase, msse, mae, mse, rmse, scaled_mqloss
-from src.configurations.evaluation.utils import spec, scaled_spec, apis, sapis, scaled_bias, scaled_mae, scaled_rmse
+from utilsforecast.losses import mase, msse, mae, mse, rmse, scaled_mqloss, rmsse, scaled_quantile_loss
+from src.configurations.evaluation.utils import spec, scaled_spec, apis, sapis, scaled_bias, scaled_mae, scaled_rmse, sabs_bias
 from src.configurations.forecasting.quantile import QuantileConfig
 from src.configurations.forecasting.utils.quantile import QuantileUtils
 
@@ -26,6 +26,9 @@ METRIC_REGISTRY: dict[MetricName, MetricSpec] = {
     ),
     MetricName.MSSE: MetricSpec(
         factory=lambda **p: partial(msse, **p), default_params={"seasonality": 7}
+    ),
+    MetricName.RMSSE: MetricSpec(
+        factory=lambda **p: partial(rmsse, **p), default_params={"seasonality": 7}
     ),
     MetricName.MAE: MetricSpec(
         factory=lambda **p: partial(mae, **p),
@@ -55,10 +58,31 @@ METRIC_REGISTRY: dict[MetricName, MetricSpec] = {
     MetricName.SBIAS: MetricSpec(
         factory=lambda **p: partial(scaled_bias, **p),
     ),
+    MetricName.SABSBIAS: MetricSpec(
+        factory=lambda **p: partial(sabs_bias, **p),
+    ),
+    MetricName.SQL_60: MetricSpec(
+        factory=lambda **p: partial(scaled_quantile_loss, q=0.6, **p),
+    ),
+    MetricName.SQL_70: MetricSpec(
+        factory=lambda **p: partial(scaled_quantile_loss, q=0.7, **p),
+    ),
+    MetricName.SQL_80: MetricSpec(
+        factory=lambda **p: partial(scaled_quantile_loss, q=0.8, **p),
+    ),
+    MetricName.SQL_90: MetricSpec(
+        factory=lambda **p: partial(scaled_quantile_loss, q=0.9, **p),
+    ),
+
+
 }
 
 PROBABILISTIC_METRICS = {
     MetricName.SMQL,
+    MetricName.SQL_60,
+    MetricName.SQL_70,
+    MetricName.SQL_80,
+    MetricName.SQL_90,
 }
 
 

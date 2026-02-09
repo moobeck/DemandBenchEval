@@ -32,3 +32,13 @@ class DataFrameHandler:
             df.to_feather(file_path)
         else:
             raise ValueError(f"Unsupported file format: {file_format}")
+        
+    @staticmethod
+    def ensure_directory_exists(directory_path: str):
+        """
+        Ensures that the specified directory exists. Creates it if it does not exist.
+        """
+        import os
+
+        if not os.path.exists(directory_path):
+            os.makedirs(directory_path)

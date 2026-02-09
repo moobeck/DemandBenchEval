@@ -426,3 +426,94 @@ def scaled_bias(
         result[model] = result[model] / denom
 
     return result.drop(columns=["in_sample_mean"]).sort_values(id_col)
+
+
+
+def _abs_bias_helper(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    """
+    Absolute Bias = abs(mean(pred - actual)).
+    Measures systematic offset magnitude (not MAE).
+    """
+    if len(y_true) == 0:
+        return 0.0
+
+    bias = np.mean(y_pred - y_true)
+    return float(np.abs(bias))
+
+
+@_base_docstring
+def abs_bias(
+    df: pd.DataFrame,
+    models: List[str],
+    id_col: str = "unique_id",
+    target_col: str = "y",
+    cutoff_col: str = "cutoff",
+) -> pd.DataFrame:
+    """Absolute Bias (Unscaled)"""
+
+    group_cols = _get_group_cols(df=df, id_col=id_col, cutoff_col=cutoff_col)
+
+    def _group_apply(sub_df: pd.DataFrame) -> pd.Series:
+        y_true = sub_df[target_col].values
+        res = {c: sub_df[c].iloc[0] for c in group_cols}
+        for model in models:
+            y_pred = sub_df[model].values
+            res[model] = _abs_bias_helper(y_true, y_pred)
+        return pd.Series(res)
+
+    results_df = df.groupby(group_cols).apply(_group_apply).reset_index(drop=True)
+
+    # If there are cutoffs, average across cutoffs per series (same pattern as apis)
+    if cutoff_col in results_df.columns:
+        results_df = results_df.groupby(id_col)[models].mean().reset_index()
+
+    return results_df.sort_values(id_col)
+
+
+def sabs_bias(
+    df: pd.DataFrame,
+    models: List[str],
+    train_df: pd.DataFrame,
+    id_col: str = "unique_id",
+    target_col: str = "y",
+    cutoff_col: str = "cutoff",
+    time_col: str = "date",
+    eps: float = 1e-8,
+) -> pd.DataFrame:
+    """
+    Scaled Absolute Bias (sAbsBias).
+    Calculated as abs_bias / abs(mean(training_actuals)).
+    """
+
+    train_df = _create_train_with_cutoffs(
+        train_df=train_df,
+        df=df,
+        id_col=id_col,
+        time_col=time_col,
+        cutoff_col=cutoff_col,
+    )
+
+    scales = _aggregate_column(
+        df=train_df,
+        target_col=target_col,
+        id_col=id_col,
+        cutoff_col=cutoff_col,
+        agg="mean",
+    )
+
+    raw = abs_bias(df=df, models=models, id_col=id_col, target_col=target_col, cutoff_col=cutoff_col)
+
+    scale_means = (
+        scales.groupby(id_col)["scale"]
+        .mean()
+        .reset_index()
+        .rename(columns={"scale": "in_sample_mean"})
+    )
+
+    result = raw.merge(scale_means, on=id_col, how="left")
+
+    denom = result["in_sample_mean"].abs().clip(lower=eps)
+    for model in models:
+        result[model] = result[model] / denom
+
+    return result.drop(columns=["in_sample_mean"]).sort_values(id_col)
