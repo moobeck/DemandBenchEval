@@ -63,15 +63,19 @@ METRIC_REGISTRY: dict[MetricName, MetricSpec] = {
     ),
     MetricName.SQL_60: MetricSpec(
         factory=lambda **p: partial(scaled_quantile_loss, q=0.6, **p),
+        default_params={"seasonality": 7},
     ),
     MetricName.SQL_70: MetricSpec(
         factory=lambda **p: partial(scaled_quantile_loss, q=0.7, **p),
+        default_params={"seasonality": 7},
     ),
     MetricName.SQL_80: MetricSpec(
         factory=lambda **p: partial(scaled_quantile_loss, q=0.8, **p),
+        default_params={"seasonality": 7},
     ),
     MetricName.SQL_90: MetricSpec(
         factory=lambda **p: partial(scaled_quantile_loss, q=0.9, **p),
+        default_params={"seasonality": 7},
     ),
 
 
