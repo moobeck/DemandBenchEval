@@ -61,6 +61,26 @@ METRIC_REGISTRY: dict[MetricName, MetricSpec] = {
     MetricName.SABSBIAS: MetricSpec(
         factory=lambda **p: partial(sabs_bias, **p),
     ),
+    MetricName.SQL_10: MetricSpec(
+        factory=lambda **p: partial(scaled_quantile_loss, q=0.1, **p),
+        default_params={"seasonality": 7},
+    ),
+    MetricName.SQL_20: MetricSpec(
+        factory=lambda **p: partial(scaled_quantile_loss, q=0.2, **p),
+        default_params={"seasonality": 7},
+    ),
+    MetricName.SQL_30: MetricSpec(
+        factory=lambda **p: partial(scaled_quantile_loss, q=0.3, **p),
+        default_params={"seasonality": 7},
+    ),
+    MetricName.SQL_40: MetricSpec(
+        factory=lambda **p: partial(scaled_quantile_loss, q=0.4, **p),
+        default_params={"seasonality": 7},
+    ),
+    MetricName.SQL_50: MetricSpec(
+        factory=lambda **p: partial(scaled_quantile_loss, q=0.5, **p),
+        default_params={"seasonality": 7},
+    ),
     MetricName.SQL_60: MetricSpec(
         factory=lambda **p: partial(scaled_quantile_loss, q=0.6, **p),
         default_params={"seasonality": 7},
@@ -81,6 +101,11 @@ METRIC_REGISTRY: dict[MetricName, MetricSpec] = {
 
 PROBABILISTIC_METRICS = {
     MetricName.SMQL,
+    MetricName.SQL_10,
+    MetricName.SQL_20,
+    MetricName.SQL_30,
+    MetricName.SQL_40,
+    MetricName.SQL_50,
     MetricName.SQL_60,
     MetricName.SQL_70,
     MetricName.SQL_80,
