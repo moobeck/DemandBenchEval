@@ -2,16 +2,15 @@ import os
 from dataclasses import dataclass, field
 from typing import List, Dict, Any
 import torch
-from ..utils.enums import ModelName, Framework, FrequencyType
+from ..utils.enums import ModelName, Framework, FrequencyType, NeuralMode
 from ..data.forecast_column import ForecastColumnConfig
 from .models.mixture import MixtureLossFactory
-from .utils.quantile import QuantileLossFactory, QuantileUtils
+from .utils.quantile import QuantileLossFactory
 from .models.model import MODEL_REGISTRY
 from .quantile import QuantileConfig, DEFAULT_QUANTILE_CONFIG
 from .models.model import ForecastModel
 from neuralforecast.auto import AutoxLSTM
 
-from neuralforecast.losses.pytorch import MAE, MQLoss
 from ray import tune
 
 import logging
@@ -29,6 +28,7 @@ class NeuralForecastConfig:
     gpus: int = 1
     cpus: int = 1
     num_samples: int = 1
+    mode: NeuralMode = NeuralMode.QUANTILE
 
 
 @dataclass
@@ -56,12 +56,19 @@ class ForecastConfig:
         Get the neural network configuration from the model_config.
         """
         neural_cfg = self.model_config.get(Framework.NEURAL, {})
+        mode_raw = neural_cfg.get("mode", NeuralMode.QUANTILE.value)
+        mode = (
+            mode_raw
+            if isinstance(mode_raw, NeuralMode)
+            else NeuralMode(str(mode_raw).lower())
+        )
         return NeuralForecastConfig(
             mixture=neural_cfg.get("mixture", {}),
             quantile=DEFAULT_QUANTILE_CONFIG,
             gpus=neural_cfg.get("gpus", 1),
             cpus=neural_cfg.get("cpus", 1),
             num_samples=neural_cfg.get("num_samples", 1),
+            mode=mode,
         )
 
     @property
@@ -187,18 +194,17 @@ class ForecastConfig:
                 params["cpus"] = self.neural.cpus
                 params["num_samples"] = self.neural.num_samples
 
-                if mixture_config:
+                if self.neural.mode == NeuralMode.MIXTURE:
                     loss_function = MixtureLossFactory.create_loss(mixture_config)
-                    quantiles = QuantileUtils.create_quantiles(quantile_config)
-                    loss_function = MQLoss(
-                        level=QuantileUtils.quantiles_to_level(quantiles)
-                    )
                     params["loss"] = loss_function
-                elif quantile_config:
+                elif self.neural.mode == NeuralMode.QUANTILE:
                     loss_function = QuantileLossFactory.create_loss(quantile_config)
                     params["loss"] = loss_function
                 else:
-                    params["loss"] = MAE()
+                    raise ValueError(
+                        f"Unsupported NEURAL mode: {self.neural.mode}. "
+                        "Supported values are quantile and mixture."
+                    )
 
             elif spec.framework == Framework.FM:
 

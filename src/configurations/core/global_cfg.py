@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from copy import deepcopy
 
 import yaml
 import logging
@@ -22,6 +23,8 @@ from src.configurations.utils.enums import (
     FileFormat,
     ModelName,
     MetricName,
+    Framework,
+    NeuralMode,
 )
 from src.constants import DEFAULT_MODEL_FRAMEWORK_CONFIG
 from src.constants.tasks import TASKS, Task
@@ -126,10 +129,87 @@ class GlobalConfig:
         """Builds the ForecastConfig from the provided dictionary."""
         if not forecast_dict:
             logging.warning("No forecast settings provided in the public config.")
+
+        # Merge user-provided framework config on top of defaults.
+        model_config = deepcopy(DEFAULT_MODEL_FRAMEWORK_CONFIG)
+        raw_model_config = forecast_dict.get("model_config", {})
+        if raw_model_config and not isinstance(raw_model_config, dict):
+            raise ValueError("forecast.model_config must be a mapping/dictionary.")
+
+        if raw_model_config:
+            for key, value in raw_model_config.items():
+                if not isinstance(value, dict):
+                    raise ValueError(
+                        f"forecast.model_config.{key} must be a mapping/dictionary."
+                    )
+
+                try:
+                    framework = (
+                        Framework[key] if isinstance(key, str) else Framework(key)
+                    )
+                except (KeyError, ValueError):
+                    allowed = ", ".join(framework.name for framework in Framework)
+                    raise ValueError(
+                        f"Unknown forecast.model_config framework '{key}'. "
+                        f"Allowed: {allowed}."
+                    )
+
+                model_config[framework] = {**model_config.get(framework, {}), **value}
+
+        model_config[Framework.NEURAL] = cls._validate_neural_cfg(
+            model_config.get(Framework.NEURAL, {})
+        )
+
         return ForecastConfig(
             names=[ModelName[name] for name in forecast_dict.get("models", [])],
-            model_config=DEFAULT_MODEL_FRAMEWORK_CONFIG,
+            model_config=model_config,
         )
+
+    @staticmethod
+    def _validate_neural_cfg(neural_cfg: dict[str, Any]) -> dict[str, Any]:
+        """
+        Validate and normalize the minimal NEURAL config fields required by training.
+        """
+        cfg = dict(neural_cfg or {})
+
+        mode_raw = cfg.get("mode", NeuralMode.QUANTILE.value)
+        if isinstance(mode_raw, NeuralMode):
+            mode = mode_raw.value
+        elif isinstance(mode_raw, str):
+            try:
+                mode = NeuralMode(mode_raw.lower()).value
+            except ValueError as exc:
+                allowed = ", ".join(m.value for m in NeuralMode)
+                raise ValueError(
+                    f"Invalid forecast.model_config.NEURAL.mode='{mode_raw}'. "
+                    f"Supported values: {allowed}."
+                ) from exc
+        else:
+            raise ValueError(
+                "Invalid forecast.model_config.NEURAL.mode type. Expected string."
+            )
+
+        cfg["mode"] = mode
+
+        if mode == NeuralMode.MIXTURE.value:
+            mixture_cfg = cfg.get("mixture", {})
+            tgmm_cfg = (
+                mixture_cfg.get("TGMM", None) if isinstance(mixture_cfg, dict) else None
+            )
+            if not isinstance(tgmm_cfg, dict):
+                raise ValueError(
+                    "forecast.model_config.NEURAL.mode='mixture' requires "
+                    "forecast.model_config.NEURAL.mixture.TGMM."
+                )
+
+            num_components = tgmm_cfg.get("num_components", None)
+            if num_components is not None:
+                if not isinstance(num_components, int) or num_components < 1:
+                    raise ValueError(
+                        "forecast.model_config.NEURAL.mixture.TGMM.num_components must be an integer >= 1."
+                    )
+
+        return cfg
 
     @classmethod
     def _build_metrics_config(cls, metrics_dict: dict) -> MetricConfig:

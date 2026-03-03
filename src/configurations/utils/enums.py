@@ -8,6 +8,11 @@ class Framework(Enum):
     FM = "FM"
 
 
+class NeuralMode(Enum):
+    QUANTILE = "quantile"
+    MIXTURE = "mixture"
+
+
 class ModelName(Enum):
     ARIMA = "arima"
     THETA = "theta"
