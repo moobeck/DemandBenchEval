@@ -22,12 +22,12 @@ from src.configurations.forecasting.utils.quantile import QuantileUtils
 
 class TruncatedNormal(Distribution):
     arg_constraints = {"loc": constraints.real, "scale": constraints.positive}
-    support = constraints.interval(0.0, 1.0)
+    support = constraints.interval(0.0, 10.0)
     has_rsample = False
     MIN_CLAMP_VALUE = 1e-10
     N_SAMPLES = 1000
 
-    def __init__(self, loc, scale, low=0.0, high=1.0, validate_args=None):
+    def __init__(self, loc, scale, low=0.0, high=10.0, validate_args=None):
         self.loc = loc
         self.scale = scale
         self.low = low
@@ -160,7 +160,7 @@ class TGMM(nn.Module):
             means, stds = distr_args
             weights = torch.full_like(means, fill_value=1 / self.n_components)
         mix = Categorical(weights)
-        components = TruncatedNormal(loc=means, scale=stds, low=0.0, high=1.0)
+        components = TruncatedNormal(loc=means, scale=stds, low=0.0, high=10.0)
         distr = MixtureSameFamily(
             mixture_distribution=mix, component_distribution=components
         )
